@@ -25,14 +25,14 @@ export const COULEURS = ["ambre", "vert", "violet", "rouge", "bleu", "rose", "or
 export const BANNIERES = ["nuit", "cassette", "vinyle", "neon", "papier", "sable"];
 
 /* ---------------- le premier compte du site ---------------- */
-// Il faut bien quelqu'un pour ouvrir la moderation. Sur une base encore vide,
-// le tout premier compte cree devient administrateur : plus besoin de la cle
-// DIGGERS_ADMIN pour demarrer. Des qu'un compte existe, la porte se referme
-// et il ne reste que la cle.
+// Il faut bien quelqu'un pour ouvrir la modération. Sur une base encore vide,
+// le tout premier compte créé devient administrateur : plus besoin de la clé
+// DIGGERS_ADMIN pour démarrer. Dès qu'un compte existe, la porte se referme
+// et il ne reste que la clé.
 async function fondationLibre() {
   const cfg = await store("config");
   const marque = await cfg.get("fondateur");
-  // Un fondateur deja designe et toujours la : rien a rouvrir.
+  // Un fondateur déjà désigné et toujours là : rien à rouvrir.
   if (marque && marque.uid && await utilisateur(marque.uid)) return false;
   try {
     const cles = await (await store("utilisateurs")).list();
