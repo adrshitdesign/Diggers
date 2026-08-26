@@ -24,6 +24,26 @@ const v = u => (u.stats && u.stats.validees) || 0;
 export const COULEURS = ["ambre", "vert", "violet", "rouge", "bleu", "rose", "or"];
 export const BANNIERES = ["nuit", "cassette", "vinyle", "neon", "papier", "sable"];
 
+/* ---------------- le premier compte du site ---------------- */
+// Il faut bien quelqu'un pour ouvrir la moderation. Sur une base encore vide,
+// le tout premier compte cree devient administrateur : plus besoin de la cle
+// DIGGERS_ADMIN pour demarrer. Des qu'un compte existe, la porte se referme
+// et il ne reste que la cle.
+async function fondationLibre() {
+  const cfg = await store("config");
+  const marque = await cfg.get("fondateur");
+  // Un fondateur deja designe et toujours la : rien a rouvrir.
+  if (marque && marque.uid && await utilisateur(marque.uid)) return false;
+  try {
+    const cles = await (await store("utilisateurs")).list();
+    if (cles && cles.length) {
+      if (!marque) await cfg.set("fondateur", { uid: null, ferme: Date.now() });
+      return false;
+    }
+  } catch { return false; }   // dans le doute, pas d'administrateur automatique
+  return true;
+}
+
 const profilNeuf = () => ({
   couleur: "ambre", banniere: "nuit", bio: "", titre: "curieux",
   avatar: null, vitrine: []
@@ -60,9 +80,10 @@ export default async function (req) {
     if (await pseudos.get(cle)) return ko(409, "Ce pseudo est déjà pris.");
 
     const { sel, hash } = hacher(mdp);
+    const fondateur = await fondationLibre();
     const u = {
       uid: uuid(), pseudo, pseudoNorm: cle, sel, hash,
-      cree: Date.now(), role: "joueur",
+      cree: Date.now(), role: fondateur ? "admin" : "joueur",
       profil: profilNeuf(),
       stats: { propositions: 0, validees: 0, refusees: 0, credits: 0 },
       mesProps: [], quota: { jour: "", n: 0 },
@@ -70,8 +91,10 @@ export default async function (req) {
     };
     await ecrireUtilisateur(u);
     await pseudos.set(cle, { uid: u.uid });
+    if (fondateur)
+      await (await store("config")).set("fondateur", { uid: u.uid, pseudo: u.pseudo, date: Date.now() });
     await echec("ins:" + ip, { max: 6, fenetre: 3600000, verrou: 3600000 });
-    return ok({ jeton: await signer(u.uid), moi: profilPublic(u), partie: null, titres: titresDe(u) });
+    return ok({ jeton: await signer(u.uid), moi: profilPublic(u), partie: null, titres: titresDe(u), fondateur });
   }
 
   /* ---------------- connexion ---------------- */
