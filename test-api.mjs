@@ -40,8 +40,16 @@ const TRACK = {
   url: "https://music.apple.com/fr/album/nuit-blanche/1712345678"
 };
 
+console.log("\n=== LE PREMIER COMPTE ===");
+// Sur une base vide, celui qui arrive le premier prend les clés du site.
+let r = await post(compte, { action: "inscription", pseudo: "Fondateur", mdp: "motdepasse1" });
+R("le premier compte du site est administrateur", r.code === 200 && r.moi.role === "admin" && r.fondateur === true);
+const jFonda = r.jeton;
+r = await post(moder, { action: "file" }, jFonda);
+R("il entre directement en modération", r.code === 200);
+
 console.log("\n=== COMPTES ===");
-let r = await post(compte, { action: "inscription", pseudo: "a", mdp: "motdepasse1" });
+r = await post(compte, { action: "inscription", pseudo: "a", mdp: "motdepasse1" });
 R("un pseudo d'un signe est refusé", r.code === 400);
 r = await post(compte, { action: "inscription", pseudo: "Admin", mdp: "motdepasse1" });
 R("un pseudo réservé est refusé", r.code === 400);
@@ -50,6 +58,7 @@ R("un mot de passe trop court est refusé", r.code === 400);
 
 r = await post(compte, { action: "inscription", pseudo: "Mila", mdp: "motdepasse1" });
 R("inscription acceptée", r.code === 200 && !!r.jeton && r.moi.pseudo === "Mila");
+R("le deuxième compte est un joueur ordinaire", r.moi.role === "joueur" && !r.fondateur);
 const jMila = r.jeton;
 R("le profil neuf a une couleur et un titre", r.moi.profil.couleur === "ambre" && r.moi.profil.titre === "curieux");
 R("les titres non gagnés sont marqués comme tels",

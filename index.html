@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v1.3</title>
+<title>Diggers — v1.5</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -467,7 +467,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v1.3 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v1.5 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -481,7 +481,7 @@ a.src:hover{color:var(--accent)}
     <span class="wallet">CRÉDITS <b id="cred">0</b></span>
     <span class="wallet">ÉCLATS <b id="ecl">0</b></span>
     <span class="wallet">RECONNUES <b id="ngrav">0</b></span>
-    <span class="wallet">COMPTE <b id="moncompte">Hors ligne</b></span>
+    <span class="wallet" id="compteChip">COMPTE <b id="moncompte">Hors ligne</b></span>
   <button class="wallet" id="mute" type="button" aria-pressed="false">SON <b id="mutestate">ON</b></button>
   </div>
   <nav class="tabs" role="tablist">
@@ -2026,9 +2026,16 @@ function renderReglages(){
   document.getElementById("reglagesbox").innerHTML=
 
     '<h3 class="sect" style="margin-top:0">Ta sauvegarde</h3>'
-    +'<div class="rule"><p style="margin:0"><b>Il n\'y a pas encore de compte.</b> Tout est stocké dans ce '
-      +'navigateur, et Safari efface le stockage d\'un site non visité pendant sept jours. '
-      +'<b>Exporte ta partie</b> si tu y tiens — c\'est la seule protection en attendant les comptes.</p></div>'
+    +'<div class="rule"><p style="margin:0">'+(COMPTE
+      ? '<b>Ta partie est enregistrée sur ton compte</b> et remonte au serveur à chaque changement. '
+        +'Elle redescend sur n\'importe quel appareil où tu te connectes. Le fichier et le code ci-dessous '
+        +'restent utiles pour en garder une copie à toi.'
+      : (apiPossible()
+        ? '<b>Tu n\'es pas connecté.</b> Tout est rangé dans ce navigateur — et Safari efface le stockage '
+          +'d\'un site non visité pendant sept jours. <b>Crée un compte</b> dans l\'onglet Profil pour que '
+          +'ta collection te suive, ou exporte ta partie ci-dessous.'
+        : '<b>Le jeu tourne sans serveur.</b> Tout est rangé dans ce navigateur, et Safari efface le stockage '
+          +'d\'un site non visité pendant sept jours. <b>Exporte ta partie</b> si tu y tiens.'))+'</p></div>'
     +'<div class="bar"><button class="btn" id="expo">Télécharger un fichier</button>'
       +'<button class="btn ghost sm" id="impo">Charger un fichier</button>'
       +'<button class="btn ghost sm" id="raz">Tout effacer</button>'
@@ -2334,9 +2341,16 @@ async function apiAppel(chemin, corps, methode){
   const o={ method: methode||(corps?"POST":"GET"), headers:{} };
   if(corps){ o.headers["content-type"]="application/json"; o.body=JSON.stringify(corps); }
   if(JETON) o.headers["authorization"]="Bearer "+JETON;
-  let r;
+  let r, minuteur=null;
+  /* Un serveur qui ne répond pas ne doit pas figer le jeu. */
+  if(typeof AbortController==="function"){
+    const ac=new AbortController();
+    o.signal=ac.signal;
+    minuteur=setTimeout(()=>ac.abort(),12000);
+  }
   try{ r=await fetch(apiBase()+chemin,o); }
   catch(e){ ENLIGNE=false; return {horsLigne:true, erreur:"Serveur injoignable."}; }
+  finally{ if(minuteur) clearTimeout(minuteur); }
   ENLIGNE=true;
   let d={}; try{ d=await r.json(); }catch(e){}
   if(r.status===401 && JETON){ deconnecter(true); }
@@ -2390,7 +2404,17 @@ function majOngletsServeur(){
   const m=document.querySelector('[data-v="moderation"]');
   if(m) m.hidden=!(COMPTE&&(COMPTE.role==="admin"||COMPTE.role==="moderateur"));
   const c=document.getElementById("moncompte");
-  if(c) c.textContent=COMPTE?COMPTE.pseudo:"Hors ligne";
+  if(c){
+    /* « Hors ligne » ne doit vouloir dire qu'une chose : le serveur ne répond pas.
+       Ne pas être connecté, c'est autre chose, et ça se répare en un clic. */
+    c.textContent = COMPTE ? COMPTE.pseudo
+      : (apiPossible() && ENLIGNE!==false) ? "Pas connecté" : "Hors ligne";
+  }
+  const chip=document.getElementById("compteChip");
+  if(chip){
+    chip.style.cursor = COMPTE ? "" : "pointer";
+    chip.onclick = COMPTE ? null : ()=>{ if(!busy) go("profil"); };
+  }
 }
 
 /* Que faire quand le compte et l'appareil ont chacun une partie ? */
@@ -2433,6 +2457,75 @@ async function pousser(immediat){
   await apiAppel("/api/compte",{action:"sauver", code:codeSauvegarde(),
     resume:{cartes:S.shelf.length, taux:tauxSec(), meilleurSet:S.bestSet||0, serie:S.streak||0}});
   if(immediat) return;
+}
+
+/* ============ PREMIÈRE VISITE ============
+   Un compte d'abord : c'est lui qui fait suivre la collection d'un appareil à
+   l'autre, qui donne le droit de proposer des sons et qui classe pour de vrai.
+   La porte reste ouverte : on peut entrer sans compte et en créer un plus tard. */
+
+function bienvenueDue(){
+  return !COMPTE && !S.accueilVu && apiPossible() && ENLIGNE!==false;
+}
+
+function ouvrirBienvenue(){
+  return new Promise(res=>{
+    let mode="inscription";
+    const ov=document.createElement("div");
+    ov.className="onb";
+    const dessine=()=>{
+      const neuf = mode==="inscription";
+      ov.innerHTML='<div class="onb-in modale">'
+        +'<p class="kick" style="color:var(--accent)">Bienvenue chez Diggers</p>'
+        +'<h2 class="disp onb-h">'+(neuf?"Crée ton compte":"Te revoilà")+'</h2>'
+        +'<p class="onb-p">'+(neuf
+          ? "Trente secondes, pas d’adresse e-mail. C’est ce qui fait suivre ta collection "
+            +"d’un appareil à l’autre, qui te laisse faire entrer tes propres sons dans le jeu, "
+            +"et qui te classe pour de vrai."
+          : "Ton pseudo et ton mot de passe, et tu retrouves ton étagère où que tu sois.")+'</p>'
+        +'<div class="compte" style="max-width:460px">'
+        +'<label class="lbl" style="margin-top:0">Pseudo</label>'
+        +'<input id="bpseudo" maxlength="18" autocomplete="username" placeholder="celui qui s’affichera au classement">'
+        +'<label class="lbl">Mot de passe</label>'
+        +'<input id="bmdp" type="password" maxlength="200" placeholder="huit signes au minimum" '
+        +'autocomplete="'+(neuf?"new-password":"current-password")+'">'
+        +'<p class="notice" id="bwdiag"></p></div>'
+        +'<div class="onb-bar">'
+        +'<button class="btn" type="button" id="bgo">'+(neuf?"Créer mon compte":"Me connecter")+'</button>'
+        +'<button class="btn ghost sm" type="button" id="bbascule">'
+          +(neuf?"J’ai déjà un compte":"Créer un compte à la place")+'</button>'
+        +'<button class="btn ghost sm" type="button" id="bplustard">Jouer sans compte</button>'
+        +'</div></div>';
+      const diag=m=>{ document.getElementById("bwdiag").innerHTML=m; };
+      const envoyer=async()=>{
+        const pseudo=document.getElementById("bpseudo").value.trim();
+        const mdp=document.getElementById("bmdp").value;
+        if(!pseudo||!mdp){ diag("Il faut un pseudo et un mot de passe."); return; }
+        diag("…");
+        const r=await apiAppel("/api/compte",{action:mode,pseudo,mdp});
+        if(r&&r.ok){
+          adopterCompte(r);
+          S.accueilVu=true; save();
+          await apresConnexion(r,true);
+          ov.remove(); res(true);
+          if(r.fondateur) flash("Premier compte du site : tu es administrateur");
+        } else diag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>');
+      };
+      document.getElementById("bgo").onclick=envoyer;
+      document.getElementById("bmdp").onkeydown=e=>{ if(e.key==="Enter") envoyer(); };
+      document.getElementById("bbascule").onclick=()=>{
+        mode = mode==="inscription" ? "connexion" : "inscription"; dessine();
+      };
+      document.getElementById("bplustard").onclick=()=>{
+        S.accueilVu=true; save();
+        flash("Tu pourras créer un compte depuis Profil");
+        ov.remove(); res(false);
+      };
+      const p=ov.querySelector("#bpseudo"); if(p) p.focus();
+    };
+    document.body.appendChild(ov);
+    dessine();
+  });
 }
 
 /* ============ LA BIBLIOTHÈQUE ============
@@ -3184,7 +3277,7 @@ function habillerProfil(){
       if(!p||!m){ diag("Il faut un pseudo et un mot de passe."); return; }
       diag("…");
       const r=await apiAppel("/api/compte",{action, pseudo:p, mdp:m});
-      if(r&&r.ok){ adopterCompte(r); await apresConnexion(r); renderProfil(); }
+      if(r&&r.ok){ adopterCompte(r); if(r.fondateur) flash("Premier compte du site : tu es administrateur"); await apresConnexion(r); renderProfil(); }
       else diag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>');
     };
     document.getElementById("cin").onclick=()=>envoyer("connexion");
@@ -3374,11 +3467,14 @@ function blocServeur(){
     +'<div class="keyrow"><input id="apiurl" placeholder="https://mon-site.netlify.app" value="'+esc(S.api||"")+'">'
     +'<button class="btn ghost sm" type="button" id="apisave">Enregistrer</button></div>'
     +(COMPTE?'<h3 class="sect">Modération</h3>'
-      +'<p class="notice">Rôle actuel : <b style="color:var(--ink-2)">'+esc(COMPTE.role)+'</b>. '
-      +'La clé se règle dans Netlify, variable <code>DIGGERS_ADMIN</code>.</p>'
-      +'<div class="keyrow"><input id="adminkey" type="password" placeholder="Clé d\'administration">'
-      +'<button class="btn ghost sm" type="button" id="adminsave">Devenir administrateur</button></div>'
-      +'<p class="notice" id="admindiag"></p>':'');
+      +'<p class="notice">Rôle actuel : <b style="color:var(--ink-2)">'+esc(COMPTE.role)+'</b>.'
+      +(COMPTE.role==="admin"
+        ? ' Tu gères le site : l\'onglet <b>Modération</b> est ouvert.</p>'
+        : ' Le tout premier compte d\'un site neuf devient administrateur tout seul. '
+          +'Sinon, la clé se règle dans Netlify, variable <code>DIGGERS_ADMIN</code>.</p>'
+          +'<div class="keyrow"><input id="adminkey" type="password" placeholder="Clé d\'administration">'
+          +'<button class="btn ghost sm" type="button" id="adminsave">Devenir administrateur</button></div>'
+          +'<p class="notice" id="admindiag"></p>'):'');
 }
 function habillerReglages(){
   const box=document.getElementById("reglagesbox");
@@ -3543,13 +3639,14 @@ function go(v){
   }
   majJournee();
   syncMute(); syncFoot(); sync();
-  initServeur();
+  await initServeur();
   track("session",{source:CATSOURCE,titres:CAT.length,serie:S.streak});
   /* Un lien de set partagé s'ouvre directement dessus, sans compte. */
   const partage=renderSetPartage();
   boot2();
   /* En mode direct, on laisse le catalogue s'étoffer avant de demander au joueur
      ce qu'il reconnaît : lui proposer six artistes n'aurait aucun sens. */
+  if(!partage && bienvenueDue()) await ouvrirBienvenue();
   if(!partage && S.gouts===undefined){
     const assezDArtistes=()=>new Set(CAT.map(c=>c.artist)).size>=20;
     let tours=0;

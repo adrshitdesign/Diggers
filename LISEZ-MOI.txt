@@ -1,0 +1,134 @@
+DIGGERS — v1.5
+==============
+
+Ce dossier contient le jeu complet et son serveur.
+
+
+CE QU'IL Y A DEDANS
+-------------------
+
+  index.html              le jeu entier, un seul fichier
+  catalogue.json          À CRÉER — voir l'étape 1, puis à importer en base
+  build-catalogue.mjs     le script qui le fabrique
+  netlify.toml            la configuration du site
+  package.json            les dépendances du serveur
+  netlify/functions/      le serveur : comptes, propositions, modération, crews
+  dev-serveur.mjs         pour tout faire tourner en local, sans rien installer
+  test-api.mjs            130 vérifications sur le serveur
+  test-blobs.mjs          8 vérifications sur le rangement des données
+
+
+METTRE EN LIGNE SANS TERMINAL
+------------------------------
+Tout se fait depuis un navigateur. Aucune commande à taper.
+
+  1. Va sur github.com, crée un dépôt (Repositories → New), privé si tu veux.
+  2. Dans le dépôt : Add file → Upload files. Ouvre le dossier diggers-site,
+     sélectionne TOUT ce qu'il y a dedans (fichiers + le dossier netlify) et
+     glisse-le dans la page. Commit changes.
+  3. Va sur app.netlify.com → Add new project → Import an existing project →
+     GitHub. Autorise, choisis ton dépôt, laisse les réglages tels quels,
+     Deploy.
+  4. Ouvre ton site et crée ton compte. Le tout premier compte du site
+     devient administrateur : l'onglet Modération est là tout de suite,
+     sans clé et sans variable à régler.
+     (Facultatif, plus tard : Site configuration → Environment variables →
+      DIGGERS_SECRET, une longue phrase au hasard, pour que les sessions
+      survivent à un changement de base ; DIGGERS_ADMIN, une deuxième que tu
+      gardes pour toi, si tu veux pouvoir nommer un administrateur de plus
+      depuis Réglages → Modération. Puis Deploys → Trigger deploy → Deploy
+      site, pour que les fonctions les voient.)
+  5. Modération → Bibliothèque → « Construire depuis Apple ». Ton navigateur
+     interroge 155 artistes et remplit la base. Trois à cinq minutes.
+  6. Modération → Mentions légales : remplis nom, statut, adresse, contact,
+     directeur. Le bandeau rouge disparaît.
+
+C'est ouvert. Pour modifier le jeu ensuite, tu édites les fichiers
+directement sur GitHub (crayon en haut à droite d'un fichier) : Netlify
+redéploie tout seul à chaque enregistrement.
+
+
+SI TU AS UN TERMINAL, LES RACCOURCIS
+-------------------------------------
+    node build-catalogue.mjs     fabrique catalogue.json (au lieu du bouton)
+    node dev-serveur.mjs         tout faire tourner en local sur :8888
+    node test-api.mjs            rejouer les vérifications du serveur
+
+Aucun n'est nécessaire. Le bouton « Construire depuis Apple » fait la même
+chose que le script, depuis le navigateur.
+
+
+LA BIBLIOTHÈQUE
+----------------
+Un seul endroit contient tous les sons du jeu : ceux de la construction de
+départ et ceux que les joueurs font entrer ensuite. Depuis Modération →
+Bibliothèque tu peux la construire depuis Apple, chercher, corriger un titre,
+un artiste, un genre ou une popularité, retirer un son, reconstruire plus tard
+— ça ne touche jamais aux apports des joueurs — et tout exporter en JSON.
+
+Corriger une popularité change le palier de rareté du son pour tout le monde,
+au prochain chargement.
+
+
+CE QUI PROTÈGE LES COMPTES
+---------------------------
+Les mots de passe sont hachés en scrypt, avec un sel par compte. La session
+est un jeton signé, valable six mois. Et depuis la v1.2 : six mots de passe
+ratés ferment le compte visé pendant un quart d'heure, vingt échecs ferment la
+machine qui essaie, six comptes par heure et par connexion au maximum, et cinq
+essais sur la clé d'administration la verrouillent pour une heure.
+
+Chaque joueur peut effacer son compte lui-même : Profil → Effacer mon compte.
+Tout part du serveur ; les sons qu'il a fait entrer restent dans la
+bibliothèque mais ne portent plus son nom.
+
+Il n'y a toujours pas de « mot de passe oublié » : il faudrait un envoi
+d'e-mail, donc un service tiers. Le code de sauvegarde portable, dans Réglages,
+sert de filet en attendant.
+
+
+COMMENT ÇA MARCHE, EN BREF
+---------------------------
+Un joueur trouve un son absent du jeu, le cherche dans l'onglet Communauté,
+explique en une phrase pourquoi il mérite une carte, et l'envoie.
+Toi, dans l'onglet Modération : tu écoutes l'extrait, tu corriges le titre
+et l'artiste si besoin, tu fixes la popularité — c'est elle qui décide du
+palier de rareté, donc un son confidentiel sort en Pépite — et tu valides.
+
+Le son entre alors dans le catalogue de tout le monde, et le joueur qui l'a
+trouvé reçoit la carte en pressage Vinyle, marquée « pressage d'origine » et
+signée de son pseudo.
+
+Les garde-fous : dix propositions par jour et cinq en attente au maximum par
+joueur, jamais deux fois le même morceau, et surtout aucun fichier audio n'est
+mis en ligne — l'extrait et la pochette restent hébergés chez Apple, comme
+partout ailleurs dans le jeu. C'est ce qui rend la chose tenable juridiquement.
+
+
+LES DONNÉES QUE TU ACCUMULES
+-----------------------------
+Chaque son est rangé avec son titre, son artiste, son album, son genre, son
+année, sa durée, sa popularité, sa provenance, et pour les apports des joueurs
+qui l'a proposé et quand. /api/catalogue renvoie l'ensemble en JSON, tout le
+temps, sans clé — et le bouton « Exporter en JSON » de l'écran Bibliothèque
+te le pose sur le disque.
+
+L'historique complet des propositions est gardé à part, refusées comprises,
+avec le motif du joueur et la note de la modération.
+
+
+SI QUELQUE CHOSE NE VA PAS
+---------------------------
+Le son ne se lance pas          → Accueil, bouton « Tester le son » : il dit
+                                  exactement ce qui bloque.
+« Serveur injoignable »         → Réglages → Serveur : l'état est affiché.
+Tout le monde déconnecté        → DIGGERS_SECRET a changé.
+Le jeu marche, pas les comptes  → le site a été déposé en glisser-déposer :
+                                  les fonctions n'ont pas été publiées.
+                                  Utilise npx netlify-cli deploy --prod.
+« Trop de tentatives »          → le verrou anti-force-brute. Il se relâche
+                                  seul au bout d'un quart d'heure.
+catalogue.json introuvable      → tu n'en as pas besoin : Modération →
+                                  Bibliothèque → « Construire depuis Apple ».
+La construction s'arrête           → relance-la, ce qui est entré reste et les
+                                  doublons sont ignorés.
