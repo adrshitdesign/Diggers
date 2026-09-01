@@ -2,7 +2,7 @@
 
 import { store } from "./_store.mjs";
 import {
-  ok, ko, preflight, corps, authentifier, estModerateur, signature,
+  ok, ko, preflight, corps, authentifier, estModerateur, signature, norm,
   utilisateur, ecrireUtilisateur, uuid
 } from "./_lib.mjs";
 import { majClassement } from "./compte.mjs";
@@ -114,6 +114,56 @@ export default async function (req) {
   }
 
   /* ---------------- la bibliothèque ---------------- */
+  /* ---------------- les compteurs d'écoutes ----------------
+     Ils ne viennent plus d'une clé Last.fm collée par le joueur dans ses
+     réglages, mais du serveur : on demande à Deezer, qui publie librement le
+     nombre de fans d'un artiste, et on range le chiffre avec sa date. Le
+     compteur bouge tout le temps — c'est justement pour ça qu'il est daté et
+     qu'on peut le rafraîchir. Rien n'est cassé si Deezer ne répond pas. */
+  if (b.action === "ecoutes") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur relève les compteurs.");
+    const lib = await biblio.lire();
+    if (!lib.tracks.length) return ko(400, "La bibliothèque est vide.");
+
+    const peremption = Date.now() - 30 * 86400000;
+    const aFaire = [...new Set(lib.tracks
+      .filter(t => !t.fansMaj || t.fansMaj < peremption)
+      .map(t => t.artist))];
+    if (!aFaire.length) return ok({ fini: true, artistes: 0, restants: 0, titres: 0 });
+
+    const lot = aFaire.slice(0, 12);
+    let touches = 0, trouves = 0;
+    const echecs = [];
+    for (const nom of lot) {
+      let fans = null;
+      try {
+        const r = await fetch("https://api.deezer.com/search/artist?limit=1&q=" + encodeURIComponent(nom),
+          { signal: AbortSignal.timeout(6000) });
+        if (r.ok) {
+          const d = await r.json();
+          const a = d && d.data && d.data[0];
+          // On n'accepte la réponse que si le nom correspond vraiment.
+          if (a && norm(a.name) === norm(nom) && typeof a.nb_fan === "number") fans = a.nb_fan;
+        }
+      } catch { echecs.push(nom); }
+      const maintenant = Date.now();
+      for (const t of lib.tracks) {
+        if (t.artist !== nom) continue;
+        t.fansMaj = maintenant;
+        if (fans != null) { t.fans = fans; touches++; }
+        else delete t.fans;
+      }
+      if (fans != null) trouves++;
+    }
+    await biblio.ecrire(lib);
+    return ok({
+      fini: aFaire.length <= lot.length,
+      artistes: lot.length, trouves, titres: touches,
+      restants: Math.max(0, aFaire.length - lot.length),
+      echecs: echecs.slice(0, 5)
+    });
+  }
+
   if (b.action === "bibliotheque") {
     const lib = await biblio.lire();
     return ok({ meta: lib.meta, tracks: lib.tracks, plafond: biblio.PLAFOND });
@@ -160,10 +210,21 @@ export default async function (req) {
       directeur: t(b.editeur.directeur, 120),
       hebergeur: t(b.editeur.hebergeur, 240)
         || "Netlify, Inc. — 512 2nd Street, Suite 200, San Francisco, CA 94107, États-Unis",
+      /* Le régime du particulier : la LCEN permet à une personne physique qui
+         édite un site à titre NON professionnel de ne pas publier son nom et son
+         adresse, à condition d'avoir communiqué son identité à son hébergeur —
+         ce qui est le cas dès qu'on a un compte Netlify. Ce sont alors les
+         coordonnées de l'hébergeur qui sont publiées, et elles seules.
+         Ça s'arrête net dès qu'il y a une vente : voir boutique.mjs. */
+      particulier: !!b.editeur.particulier,
       maj: Date.now()
     };
-    if (!e.nom || !e.contact || !e.adresse)
-      return ko(400, "Le nom, l'adresse et le contact sont obligatoires.");
+    if (!e.contact)
+      return ko(400, "Une adresse de contact est obligatoire, même en restant anonyme.");
+    if (!e.particulier && (!e.nom || !e.adresse))
+      return ko(400, "Le nom et l'adresse sont obligatoires dès qu'on ne publie pas à titre personnel.");
+    if (!e.hebergeur)
+      return ko(400, "L'hébergeur doit être indiqué.");
     await C.set("editeur", e);
     return ok({ editeur: e });
   }

@@ -1,12 +1,17 @@
-// /api/compte — inscription, connexion, profil personnalisable, sauvegarde de la partie.
+// /api/compte — inscription, connexion, profil personnalisable, effacement.
+// La partie elle-même n'est plus ici : elle appartient au serveur, dans /api/jeu.
 
 import { store } from "./_store.mjs";
 import * as biblio from "./_biblio.mjs";
 import {
   ok, ko, preflight, corps, signer, hacher, verifierMdp, norm, PSEUDO_OK, RESERVES,
   utilisateur, ecrireUtilisateur, parPseudo, authentifier, profilPublic, uuid,
-  ipDe, verrouActif, echec, relacher, attends
+  ipDe, verrouActif, echec, relacher, attends,
+  EMAIL_OK, normEmail, secretUsageUnique, empreinteDe, empreinteEgale,
+  COULEURS, BANNIERES
 } from "./_lib.mjs";
+import { cosmetiquesDe } from "./boutique.mjs";
+import { envoyer, envoiConfigure, adresseDuSite, lettre } from "./_mail.mjs";
 
 export const config = { path: "/api/compte" };
 
@@ -21,8 +26,7 @@ export const TITRES = [
 ];
 const v = u => (u.stats && u.stats.validees) || 0;
 
-export const COULEURS = ["ambre", "vert", "violet", "rouge", "bleu", "rose", "or"];
-export const BANNIERES = ["nuit", "cassette", "vinyle", "neon", "papier", "sable"];
+export { COULEURS, BANNIERES };
 
 /* ---------------- le premier compte du site ---------------- */
 // Il faut bien quelqu'un pour ouvrir la modération. Sur une base encore vide,
@@ -86,15 +90,14 @@ export default async function (req) {
       cree: Date.now(), role: fondateur ? "admin" : "joueur",
       profil: profilNeuf(),
       stats: { propositions: 0, validees: 0, refusees: 0, credits: 0 },
-      mesProps: [], quota: { jour: "", n: 0 },
-      partie: null
+      mesProps: [], quota: { jour: "", n: 0 }
     };
     await ecrireUtilisateur(u);
     await pseudos.set(cle, { uid: u.uid });
     if (fondateur)
       await (await store("config")).set("fondateur", { uid: u.uid, pseudo: u.pseudo, date: Date.now() });
     await echec("ins:" + ip, { max: 6, fenetre: 3600000, verrou: 3600000 });
-    return ok({ jeton: await signer(u.uid), moi: profilPublic(u), partie: null, titres: titresDe(u), fondateur });
+    return ok({ jeton: await signer(u.uid, u.sessionV), moi: profilPublic(u), titres: titresDe(u), fondateur });
   }
 
   /* ---------------- connexion ---------------- */
@@ -120,7 +123,80 @@ export default async function (req) {
     await relacher(cleNom); await relacher(cleIp);
     u.dernier = Date.now();
     await ecrireUtilisateur(u);
-    return ok({ jeton: await signer(u.uid), moi: profilPublic(u), partie: u.partie, titres: titresDe(u) });
+    return ok({ jeton: await signer(u.uid, u.sessionV), moi: profilPublic(u), titres: titresDe(u) });
+  }
+
+  /* ---------------- j'ai oublié mon mot de passe ----------------
+     On répond toujours la même chose, que le compte existe ou non : sinon ce
+     formulaire devient un moyen de savoir qui est inscrit. */
+  if (action === "oubli") {
+    const ip = ipDe(req);
+    const bloque = await verrouActif("oub:" + ip);
+    if (bloque) return ko(429, "Trop de demandes. " + attends(bloque));
+    await echec("oub:" + ip, { max: 8, fenetre: 3600000, verrou: 3600000 });
+
+    const rassurant = ok({ envoye: true, configure: envoiConfigure() });
+    if (!envoiConfigure()) return ko(503, "La récupération par e-mail n'est pas ouverte sur ce site.");
+
+    const id = String(b.identifiant || "").trim();
+    let cible = null;
+    if (id.includes("@")) {
+      const idx = await (await store("emails")).get(normEmail(id));
+      if (idx) cible = await utilisateur(idx.uid);
+    } else cible = await parPseudo(id);
+
+    if (cible && cible.email && cible.email.adresse && cible.email.verifie) {
+      const { clair, empreinte } = secretUsageUnique(24);
+      cible.reinit = { empreinte, exp: Date.now() + 3600000 };
+      await ecrireUtilisateur(cible);
+      const lien = adresseDuSite(req) + "/?reinit=" + cible.uid + "." + clair;
+      const l = lettre({
+        titre: "Reprendre la main sur ton compte",
+        phrases: [
+          "Quelqu'un — probablement toi — a demandé un nouveau mot de passe pour le compte <b>"
+            + cible.pseudo + "</b>.",
+          "Ce lien est valable <b>une heure</b> et ne marche qu'une fois. Toutes les sessions ouvertes seront fermées."
+        ],
+        bouton: "Choisir un nouveau mot de passe",
+        lien,
+        pied: "Si ce n'est pas toi, ignore ce message : rien n'a changé. Diggers n'écrit jamais pour autre chose."
+      });
+      await envoyer({ a: cible.email.adresse, sujet: "Diggers — nouveau mot de passe", texte: l.texte, html: l.html });
+    }
+    return rassurant;
+  }
+
+  if (action === "reinit") {
+    const [uid, code] = String(b.cle || "").split(".");
+    const mdp = String(b.mdp || "");
+    if (mdp.length < 8) return ko(400, "Le mot de passe fait au moins 8 signes.");
+    if (mdp.length > 200) return ko(400, "Mot de passe trop long.");
+    const cible = uid ? await utilisateur(uid) : null;
+    const r = cible && cible.reinit;
+    if (!r || !code || r.exp < Date.now() || !empreinteEgale(r.empreinte, empreinteDe(code)))
+      return ko(403, "Ce lien n'est plus valable. Redemande-en un.");
+
+    const { sel, hash } = hacher(mdp);
+    cible.sel = sel; cible.hash = hash;
+    delete cible.reinit;
+    // Toutes les sessions ouvertes tombent : c'est le but d'une reprise en main.
+    cible.sessionV = (cible.sessionV || 0) + 1;
+    await ecrireUtilisateur(cible);
+    await relacher("co:" + cible.pseudoNorm);
+    return ok({ jeton: await signer(cible.uid, cible.sessionV), moi: profilPublic(cible), titres: titresDe(cible) });
+  }
+
+  /* Vérifier l'adresse : tant que le lien n'est pas cliqué, elle ne sert à rien. */
+  if (action === "verifier-email") {
+    const [uid, code] = String(b.cle || "").split(".");
+    const cible = uid ? await utilisateur(uid) : null;
+    const e = cible && cible.email;
+    if (!e || !code || !e.empreinte || (e.exp || 0) < Date.now() || !empreinteEgale(e.empreinte, empreinteDe(code)))
+      return ko(403, "Ce lien de vérification n'est plus valable.");
+    e.verifie = true; delete e.empreinte; delete e.exp;
+    await ecrireUtilisateur(cible);
+    await (await store("emails")).set(normEmail(e.adresse), { uid: cible.uid });
+    return ok({ verifie: true, pseudo: cible.pseudo });
   }
 
   /* ---------------- à partir d'ici il faut être connecté ---------------- */
@@ -128,19 +204,21 @@ export default async function (req) {
   if (!u) return ko(401, "Connexion expirée.");
 
   if (action === "moi")
-    return ok({ moi: profilPublic(u), partie: u.partie, titres: titresDe(u) });
+    return ok({ moi: profilPublic(u), titres: titresDe(u) });
 
   /* ---------------- personnalisation ---------------- */
   if (action === "profil") {
     const p = { ...profilNeuf(), ...(u.profil || {}) };
     const patch = b.profil || {};
 
+    // Le décor payant n'est portable que par qui l'a acheté.
+    const dispo = cosmetiquesDe(u);
     if (patch.couleur !== undefined) {
-      if (!COULEURS.includes(patch.couleur)) return ko(400, "Couleur inconnue.");
+      if (!dispo.couleurs.includes(patch.couleur)) return ko(403, "Cette couleur ne t'appartient pas.");
       p.couleur = patch.couleur;
     }
     if (patch.banniere !== undefined) {
-      if (!BANNIERES.includes(patch.banniere)) return ko(400, "Bannière inconnue.");
+      if (!dispo.bannieres.includes(patch.banniere)) return ko(403, "Cette bannière ne t'appartient pas.");
       p.banniere = patch.banniere;
     }
     if (patch.bio !== undefined) p.bio = String(patch.bio).slice(0, 140);
@@ -157,14 +235,27 @@ export default async function (req) {
     }
     if (patch.vitrine !== undefined) {
       if (!Array.isArray(patch.vitrine)) return ko(400, "Vitrine invalide.");
-      p.vitrine = patch.vitrine.slice(0, 3).filter(c => c && artOk(c.art)).map(c => ({
-        id: String(c.id || "").slice(0, 32),
-        title: String(c.title || "").slice(0, 160),
-        artist: String(c.artist || "").slice(0, 120),
-        art: c.art,
-        rarity: Math.max(1, Math.min(6, Number(c.rarity) || 1)),
-        press: String(c.press || "Standard").slice(0, 24)
-      }));
+      // On ne met en vitrine que des cartes qu'on possède vraiment, et le
+      // pressage affiché est celui de l'exemplaire, pas celui qu'on annonce.
+      const coffre = (u.jeu && Array.isArray(u.jeu.coffre)) ? u.jeu.coffre : [];
+      const lib = await biblio.lire();
+      const choisies = [];
+      for (const v of patch.vitrine.slice(0, 3)) {
+        if (!v) continue;
+        const ex = coffre.find(x => x.uid === String(v.uid || "") && x.known);
+        if (!ex) continue;
+        const t = lib.tracks.find(x => String(x.id) === String(ex.id));
+        if (!t || !artOk(t.art)) continue;
+        choisies.push({
+          uid: ex.uid, id: String(t.id).slice(0, 32),
+          title: String(t.title).slice(0, 160),
+          artist: String(t.artist).slice(0, 120),
+          art: t.art,
+          rarity: Math.max(1, Math.min(6, Number(ex.rarity) || 1)),
+          press: String(ex.press || "Standard").slice(0, 24)
+        });
+      }
+      p.vitrine = choisies;
     }
 
     if (patch.pseudo !== undefined && patch.pseudo !== u.pseudo) {
@@ -185,24 +276,13 @@ export default async function (req) {
     return ok({ moi: profilPublic(u), titres: titresDe(u) });
   }
 
-  /* ---------------- sauvegarde de la partie ---------------- */
-  if (action === "sauver") {
-    const code = String(b.code || "");
-    if (!code || code.length > 200000) return ko(400, "Sauvegarde invalide.");
-    u.partie = { code, maj: Date.now() };
-    u.resume = {
-      cartes: Math.max(0, Number(b.resume && b.resume.cartes) || 0),
-      taux: b.resume && b.resume.taux != null ? Math.max(0, Math.min(100, Number(b.resume.taux))) : null,
-      meilleurSet: Math.max(0, Math.min(100, Number(b.resume && b.resume.meilleurSet) || 0)),
-      serie: Math.max(0, Number(b.resume && b.resume.serie) || 0)
-    };
-    await ecrireUtilisateur(u);
-    await majClassement(u);
-    return ok({ maj: u.partie.maj });
-  }
-
-  if (action === "charger")
-    return ok({ partie: u.partie, moi: profilPublic(u), titres: titresDe(u) });
+  /* ---------------- la partie ne s'envoie plus ----------------
+     Le navigateur ne dépose plus d'état : la collection, les crédits et le
+     taux d'identification vivent sur le serveur, dans /api/jeu. Ces deux
+     actions restaient une porte ouverte — on se déclarait le score qu'on
+     voulait. Elles répondent, mais elles ne rangent plus rien. */
+  if (action === "sauver" || action === "charger")
+    return ko(410, "La partie est tenue par le serveur. Passe par /api/jeu.");
 
   /* ---------------- effacer son compte ---------------- */
   // Droit à l'effacement : le joueur doit pouvoir partir sans écrire à personne.
@@ -239,10 +319,50 @@ export default async function (req) {
     });
     if (touche) await biblio.ecrire(lib);
 
+    if (u.email && u.email.adresse) await (await store("emails")).del(normEmail(u.email.adresse));
     await (await store("classement")).del(u.uid);
     await (await store("pseudos")).del(u.pseudoNorm);
     await (await store("utilisateurs")).del(u.uid);
     return ok({ supprime: true });
+  }
+
+  /* ---------------- l'adresse e-mail, facultative ---------------- */
+  if (action === "email") {
+    const adresse = normEmail(b.adresse);
+    if (!EMAIL_OK.test(adresse)) return ko(400, "Cette adresse ne ressemble pas à une adresse e-mail.");
+    if (!envoiConfigure()) return ko(503, "La récupération par e-mail n'est pas ouverte sur ce site.");
+    const idx = await store("emails");
+    const pris = await idx.get(adresse);
+    if (pris && pris.uid !== u.uid) return ko(409, "Cette adresse est déjà rattachée à un compte.");
+
+    const ancienne = u.email && u.email.adresse;
+    if (ancienne && normEmail(ancienne) !== adresse) await idx.del(normEmail(ancienne));
+
+    const { clair, empreinte } = secretUsageUnique(24);
+    u.email = { adresse, verifie: false, empreinte, exp: Date.now() + 86400000 };
+    await ecrireUtilisateur(u);
+
+    const lien = adresseDuSite(req) + "/?email=" + u.uid + "." + clair;
+    const l = lettre({
+      titre: "Confirme ton adresse",
+      phrases: [
+        "Tu viens de rattacher cette adresse au compte Diggers <b>" + u.pseudo + "</b>.",
+        "Elle servira <b>uniquement</b> à te renvoyer un mot de passe si tu le perds. Rien d'autre ne partira d'ici."
+      ],
+      bouton: "Confirmer mon adresse",
+      lien,
+      pied: "Si tu n'as rien demandé, ignore ce message : sans ce clic, l'adresse ne sert à rien."
+    });
+    const envoi = await envoyer({ a: adresse, sujet: "Diggers — confirme ton adresse", texte: l.texte, html: l.html });
+    if (!envoi.ok) return ko(502, "L'envoi a échoué : " + envoi.raison);
+    return ok({ moi: profilPublic(u), titres: titresDe(u), envoye: true });
+  }
+
+  if (action === "email-retirer") {
+    if (u.email && u.email.adresse) await (await store("emails")).del(normEmail(u.email.adresse));
+    delete u.email;
+    await ecrireUtilisateur(u);
+    return ok({ moi: profilPublic(u), titres: titresDe(u) });
   }
 
   /* ---------------- devenir modérateur avec la clé du site ---------------- */

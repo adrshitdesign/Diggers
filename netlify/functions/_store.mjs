@@ -4,8 +4,11 @@
 //   3. des fichiers JSON en local, pour développer et tester hors ligne.
 // Le reste du code ne voit pas la différence.
 
-import { mkdir, readFile, writeFile, unlink, readdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile, unlink, readdir, rename } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createHash } from "node:crypto";
+
+const empreinte = t => '"' + createHash("sha1").update(t).digest("hex") + '"';
 
 let mode = null;          // "sdk" | "api" | "fichiers"
 let getStoreFn = null;
@@ -35,6 +38,28 @@ async function init() {
 }
 
 const RACINE = process.env.DIGGERS_DATA || ".data";
+
+/* En local, un seul processus : une file d'attente par clé suffit à rendre
+   le lire-comparer-écrire réellement indivisible. En ligne, c'est l'etag
+   de Netlify qui joue ce rôle. */
+/* On écrit à côté, puis on renomme : le renommage est indivisible, donc un
+   lecteur ne voit jamais un fichier à moitié écrit. Sans ça, deux requêtes
+   qui se croisent peuvent faire lire du vide. */
+async function poser(nom, cle, texte) {
+  const cible = chemin(nom, cle);
+  const temporaire = cible + "." + Math.random().toString(36).slice(2, 10) + ".tmp";
+  await mkdir(dirname(cible), { recursive: true });
+  await writeFile(temporaire, texte);
+  await rename(temporaire, cible);
+}
+
+const files = new Map();
+function enFile(cle, travail) {
+  const precedent = files.get(cle) || Promise.resolve();
+  const suivant = precedent.then(travail, travail);
+  files.set(cle, suivant.catch(() => {}));
+  return suivant;
+}
 const chemin = (nom, cle) => join(RACINE, nom, encodeURIComponent(cle) + ".json");
 
 /* ---------- client Blobs minimal, sans dépendance ---------- */
@@ -68,6 +93,23 @@ function clientApi(nomStore) {
       const t = await r.text();
       if (!t) return null;
       try { return JSON.parse(t); } catch { return null; }
+    },
+    async lire(cle) {
+      const r = await appel(url(cle).toString(), { headers: entetes });
+      if (r.status === 404) return { val: null, etag: null };
+      if (!r.ok) throw new Error("Blobs lire " + r.status);
+      const t = await r.text();
+      let val = null; try { val = t ? JSON.parse(t) : null; } catch {}
+      return { val, etag: r.headers.get("etag") || null };
+    },
+    async ecrireSi(cle, val, etag) {
+      const h = { ...entetes, "content-type": "application/json" };
+      h["if-match"] = etag || '"__inexistant__"';
+      if (!etag) { delete h["if-match"]; h["if-none-match"] = "*"; }
+      const r = await appel(url(cle).toString(), { method: "PUT", headers: h, body: JSON.stringify(val) }, 0);
+      if (r.status === 412) return { ok: false, etag: null };
+      if (!r.ok) throw new Error("Blobs ecrireSi " + r.status);
+      return { ok: true, etag: r.headers.get("etag") || null };
     },
     async set(cle, val) {
       const r = await appel(url(cle).toString(),
@@ -109,7 +151,16 @@ export async function store(nom) {
       get: cle => s.get(cle, { type: "json" }),
       set: (cle, val) => s.setJSON(cle, val).then(() => undefined),
       del: cle => s.delete(cle).then(() => undefined),
-      list: async prefixe => ((await s.list({ prefix: prefixe || "" })).blobs || []).map(b => b.key)
+      list: async prefixe => ((await s.list({ prefix: prefixe || "" })).blobs || []).map(b => b.key),
+      async lire(cle) {
+        const r = await s.getWithMetadata(cle, { type: "json" });
+        return r ? { val: r.data, etag: r.etag || null } : { val: null, etag: null };
+      },
+      async ecrireSi(cle, val, etag) {
+        const o = etag ? { onlyIfMatch: etag } : { onlyIfNew: true };
+        const r = await s.setJSON(cle, val, o);
+        return { ok: r.modified !== false, etag: r.etag || null };
+      }
     };
   }
 
@@ -120,10 +171,7 @@ export async function store(nom) {
     async get(cle) {
       try { return JSON.parse(await readFile(chemin(nom, cle), "utf8")); } catch { return null; }
     },
-    async set(cle, val) {
-      await mkdir(dirname(chemin(nom, cle)), { recursive: true });
-      await writeFile(chemin(nom, cle), JSON.stringify(val));
-    },
+    async set(cle, val) { await poser(nom, cle, JSON.stringify(val)); },
     async del(cle) { try { await unlink(chemin(nom, cle)); } catch {} },
     async list(prefixe) {
       try {
@@ -131,8 +179,50 @@ export async function store(nom) {
           .map(x => decodeURIComponent(x.slice(0, -5)))
           .filter(k => !prefixe || k.startsWith(prefixe));
       } catch { return []; }
+    },
+    async lire(cle) {
+      try {
+        const t = await readFile(chemin(nom, cle), "utf8");
+        return { val: JSON.parse(t), etag: empreinte(t) };
+      } catch { return { val: null, etag: null }; }
+    },
+    ecrireSi(cle, val, etag) {
+      return enFile(nom + "/" + cle, async () => {
+        let actuel = null;
+        try { actuel = empreinte(await readFile(chemin(nom, cle), "utf8")); } catch {}
+        if ((etag || null) !== actuel) return { ok: false, etag: null };
+        const t = JSON.stringify(val);
+        await poser(nom, cle, t);
+        return { ok: true, etag: empreinte(t) };
+      });
     }
   };
+}
+
+/* ============================================================
+   LA MISE À JOUR ATOMIQUE
+   Le trou qu'elle bouche : lire une fiche, la modifier, la réécrire n'est
+   pas une opération indivisible. Deux requêtes lancées à la même
+   milliseconde lisent toutes les deux « 400 crédits » et écrivent toutes
+   les deux « 300 » — deux cartons pour le prix d'un.
+   Ici on relit, on transforme, et on n'écrit QUE si personne n'a bougé
+   entre-temps. Sinon on recommence.
+
+   À utiliser partout où l'on débite des crédits, ajoute une carte,
+   vend une annonce ou crédite des jetons.
+   ============================================================ */
+export async function majAtomique(nomStore, cle, transformer, essais = 6) {
+  const s = await store(nomStore);
+  if (!s.lire || !s.ecrireSi) throw new Error("Ce rangement ne sait pas écrire sous condition.");
+  for (let i = 0; i < essais; i++) {
+    const { val, etag } = await s.lire(cle);
+    const sortie = await transformer(val);
+    if (sortie === undefined || sortie === null) return { ecrit: false, val, raison: "abandon" };
+    const r = await s.ecrireSi(cle, sortie, etag);
+    if (r.ok) return { ecrit: true, val: sortie, essais: i + 1 };
+    await new Promise(r2 => setTimeout(r2, 20 + Math.floor(Math.random() * 60) * (i + 1)));
+  }
+  return { ecrit: false, raison: "trop de collisions" };
 }
 
 export async function modeStockage() { await init(); return mode; }
