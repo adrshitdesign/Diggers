@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v1.5</title>
+<title>Diggers — v2.2</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -430,6 +430,13 @@ a.src:hover{color:var(--accent)}
 .b-neon{background:linear-gradient(120deg,#2a0f3d,#8b2b7a)}
 .b-papier{background:linear-gradient(120deg,#3b382f,#7d7663)}
 .b-sable{background:linear-gradient(120deg,#4a3a24,#a9834a)}
+.b-or{background:linear-gradient(120deg,#5a4310,#e7c86a 60%,#8a6a1e)}
+.b-chrome{background:linear-gradient(120deg,#2b2f36,#c3cbd6 55%,#4a525e)}
+.b-beton{background:linear-gradient(120deg,#2f3134,#6d7176)}
+.b-velours{background:linear-gradient(120deg,#2a0d1c,#7d1f45)}
+.bant.verrou{opacity:.4;cursor:not-allowed}
+.bant.verrou::after{content:" 🔒"}
+.pastille.verrou{opacity:.4;cursor:not-allowed}
 .bio{color:var(--ink-2);margin:12px 0 0;font-size:14px;max-width:62ch}
 .pal{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pastille{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
@@ -461,13 +468,35 @@ a.src:hover{color:var(--accent)}
 .modq-b{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
 .modq-b .src{margin:0}
 .lr .ex{padding:2px 9px;margin-left:8px;flex:none}
+
+/* ---- le défi du jour ---- */
+.defi-theme{font-size:clamp(21px,3.6vw,31px);line-height:1.22;font-weight:800;margin:0 0 6px;max-width:22ch}
+.defi-duo{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px 0 8px}
+.defi-c{background:var(--surface);border:1px solid var(--line-strong);border-radius:6px;padding:16px;
+  cursor:pointer;text-align:left;color:inherit;font:inherit;transition:transform .14s,border-color .14s}
+.defi-c:hover{transform:translateY(-5px);border-color:var(--accent)}
+.defi-c img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:4px;display:block;background:var(--line)}
+.defi-c .t{font-weight:750;margin-top:12px;line-height:1.25}
+.defi-c .a{color:var(--ink-3);font-size:13px;margin-top:2px}
+.defi-c audio{width:100%;margin-top:10px;height:34px}
+.defi-choix{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:12px;margin-top:16px}
+.defi-mini{background:var(--surface);border:1px solid var(--line-strong);border-radius:6px;padding:9px;
+  cursor:pointer;color:inherit;font:inherit;text-align:left;transition:border-color .14s}
+.defi-mini:hover{border-color:var(--accent)}
+.defi-mini img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:3px;display:block;background:var(--line)}
+.defi-mini .t{font-size:12.5px;font-weight:650;margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.defi-mini .a{font-size:11.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.defi-rang{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.defi-rang img{width:52px;height:52px;border-radius:4px;object-fit:cover;background:var(--line)}
+.defi-rang .n{font-family:"JetBrains Mono",monospace;font-size:20px;font-weight:700;width:34px;color:var(--ink-3)}
+@media(max-width:620px){.defi-duo{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v1.5 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.2 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -489,12 +518,14 @@ a.src:hover{color:var(--accent)}
     <button class="tab" role="tab" data-v="etagere" aria-selected="false">Étagère</button>
     <button class="tab" role="tab" data-v="marche" aria-selected="false">Marché</button>
     <button class="tab" role="tab" data-v="set" aria-selected="false">Le Set</button>
+    <button class="tab" role="tab" data-v="defi" aria-selected="false">Le Défi</button>
     <button class="tab" role="tab" data-v="regles" aria-selected="false">Règles</button>
     <button class="tab" role="tab" data-v="communaute" aria-selected="false">Communauté</button>
     <button class="tab" role="tab" data-v="profil" aria-selected="false">Profil</button>
     <button class="tab" role="tab" data-v="crew" aria-selected="false">Crew</button>
     <button class="tab" role="tab" data-v="classement" aria-selected="false">Classement</button>
     <button class="tab" role="tab" data-v="moderation" aria-selected="false" hidden>Modération</button>
+    <button class="tab" role="tab" data-v="boutique" aria-selected="false">Boutique</button>
     <button class="tab" role="tab" data-v="reglages" aria-selected="false">Réglages</button>
   </nav>
 </header>
@@ -525,12 +556,14 @@ a.src:hover{color:var(--accent)}
   <p class="kick">La Criée</p>
   <h2 class="h">Marché</h2>
   <div class="rule">
-    <p style="margin:0"><b>Chaque carte a une cote</b> — sa valeur en crédits, calculée sur son palier et son pressage. C'est la façon la plus concrète de comprendre le barème : une Pépite en Or vaut littéralement cent fois un Tube standard.</p>
-    <p style="margin:0"><b>On ne revend plus rien contre des crédits.</b> Un doublon se <b>fond en Éclats</b>, et les Éclats ne servent qu'à <b>presser</b> un titre que tu choisis toi-même. Acheter et presser sortent de l'argent du jeu ; rien n'en fait rentrer.</p>
-    <p style="margin:0"><b>Une carte achetée ou pressée arrive reconnue</b> — c'est tout l'intérêt — mais elle <b>ne compte pas</b> dans ton taux d'identification. On achète une collection, jamais un classement.</p>
+    <p style="margin:0"><b>Ici, tout vient d'une autre étagère.</b> Le site ne vend rien : les cartes en vitrine appartiennent à des joueurs qui les ont trouvées et qui s'en séparent. Tes doublons peuvent y aller aussi.</p>
+    <p style="margin:0"><b>Deux façons de traiter.</b> Payer le prix demandé en crédits, ou proposer une de tes cartes en échange — le vendeur accepte ou refuse.</p>
+    <p style="margin:0"><b>Chaque carte a une cote</b>, calculée sur son palier et son pressage : c'est le repère, pas le prix. Une Pépite en Or vaut cent fois un Tube standard.</p>
+    <p style="margin:0"><b>Une carte achetée ou échangée arrive reconnue</b> — c'est l'intérêt — mais elle <b>ne compte pas</b> dans ton taux d'identification. On achète une collection, jamais un classement.</p>
   </div>
   <div class="mktabs" role="tablist">
-    <button class="mktab" data-m="acheter" aria-selected="true">Acheter</button>
+    <button class="mktab" data-m="annonces" aria-selected="true">Les annonces</button>
+    <button class="mktab" data-m="vendre" aria-selected="false">Vendre</button>
     <button class="mktab" data-m="fondre" aria-selected="false">Fondre</button>
     <button class="mktab" data-m="presser" aria-selected="false">Presser</button>
   </div>
@@ -579,6 +612,26 @@ a.src:hover{color:var(--accent)}
   <div id="moderationbox"></div>
 </section>
 
+<section class="view" id="v-defi">
+  <p class="kick">Une question, une carte, tous les jours</p>
+  <h2 class="h">Le Défi</h2>
+  <div class="rule">
+    <p style="margin:0"><b>Un thème pour tout le monde</b>, le même de minuit à minuit. Tu poses <b>une</b> carte de ton étagère — donc il faut l'avoir, et l'avoir trouvée.</p>
+    <p style="margin:0"><b>Le vote est aveugle.</b> Deux cartes côte à côte, sans savoir qui les a posées : ce qui gagne, c'est le morceau, pas le pseudo. Le lendemain le palmarès tombe et le podium est payé.</p>
+  </div>
+  <div id="defibox"></div>
+</section>
+
+<section class="view" id="v-boutique">
+  <p class="kick">Du décor, rien d'autre</p>
+  <h2 class="h">Boutique</h2>
+  <div class="rule">
+    <p style="margin:0"><b>Les jetons n'achètent que de l'apparence.</b> Pas de cartes, pas de crédits, pas de cartons, aucun accès au marché. On ne peut pas acheter une collection, ni une place au classement — qui note ton oreille, pas ton argent.</p>
+    <p style="margin:0"><b>Le jeu entier reste gratuit</b> et jouable sans jamais passer ici. Si tu n'achètes jamais rien, tu ne rates aucune carte, aucun mode, aucun classement.</p>
+  </div>
+  <div id="boutiquebox"></div>
+</section>
+
 <section class="view" id="v-reglages">
   <p class="kick">Ton installation</p>
   <h2 class="h">Réglages</h2>
@@ -603,9 +656,20 @@ const EDITEUR = {
   adresse:   "",                    /* adresse du siège ou du domicile déclaré */
   contact:   "",                    /* une adresse e-mail de contact */
   directeur: "",                    /* directeur de la publication, souvent la même personne */
-  hebergeur: "Netlify, Inc. — 512 2nd Street, Suite 200, San Francisco, CA 94107, États-Unis"
+  hebergeur: "Netlify, Inc. — 512 2nd Street, Suite 200, San Francisco, CA 94107, États-Unis",
+  particulier: false                /* voir juste dessous */
 };
-function mentionsCompletes(){ return !!(EDITEUR.nom && EDITEUR.contact && EDITEUR.adresse); }
+/* Deux régimes, et il faut choisir le bon.
+   · Professionnel, ou site qui encaisse : nom, adresse et contact publics.
+   · Particulier qui édite à titre NON professionnel : la loi l'autorise à
+     rester anonyme vis-à-vis du public, à condition d'avoir donné son identité
+     à son hébergeur — ce qu'un compte Netlify fait déjà. Ce sont alors les
+     coordonnées de l'hébergeur qui sont publiées, plus un moyen de contact.
+   Dès que la boutique encaisse, le premier régime s'applique de nouveau. */
+function mentionsCompletes(){
+  if(EDITEUR.particulier) return !!(EDITEUR.contact && EDITEUR.hebergeur);
+  return !!(EDITEUR.nom && EDITEUR.contact && EDITEUR.adresse);
+}
 
 
 /* ============ RARETÉ ============
@@ -647,18 +711,40 @@ const PACKS=[
 const RANGS=[{min:0,n:"Curieux"},{min:20,n:"Chineur"},{min:35,n:"Digger"},
   {min:50,n:"Fouineur"},{min:65,n:"Oreille d'or"},{min:80,n:"Conservateur"}];
 
-const S={credits:400,eclats:0,shelf:[],silent:false,pseudo:"",bestSet:0,sets:0,setsWon:0,
-  api:"", jeton:"",   /* adresse du serveur et jeton de session */
-  lfm:"",fondus:0,achetes:0,presses:0,events:[],
-  /* Journal d'identification, indépendant de l'étagère : fondre ou acheter
-     une carte ne peut plus effacer un échec. Une entrée par tentative résolue. */
-  idLog:[],
-  jourDate:"", setsDate:"", setsToday:0, refreshDate:"", refreshUsed:0,
-  streak:0, lastPlayed:""};
+/* ============ L'ÉTAT DU JEU ============
+   Il n'est plus ici. La collection, les crédits, les éclats et le journal
+   d'identification vivent sur le serveur : ce navigateur en reçoit une copie
+   à chaque réponse, l'affiche, et n'en décide rien. C'est ce qui rend le
+   marché entre joueurs possible — une carte ne peut plus être inventée. */
+let JEU=null;
+const S={ silent:false, jeton:"",
+  /* miroir de l'état serveur, uniquement pour l'affichage */
+  credits:0, eclats:0, shelf:[], bestSet:0, sets:0, setsWon:0, setsToday:0,
+  streak:0, gouts:null, taux:null, fondus:0, achetes:0, presses:0, vendus:0 };
 
-function save(){ try{ localStorage.setItem("diggers9",JSON.stringify(S)); }catch(e){} }
-function load(){ try{ const r=JSON.parse(localStorage.getItem("diggers9")||"null");
-  if(r&&Array.isArray(r.shelf)) Object.assign(S,r); }catch(e){} }
+/* Seuls les réglages de cet appareil sont gardés ici. */
+function save(){ try{ localStorage.setItem("diggers10",
+  JSON.stringify({silent:S.silent,jeton:S.jeton})); }catch(e){} }
+function load(){ try{ const r=JSON.parse(localStorage.getItem("diggers10")||"null");
+  if(r&&typeof r==="object"){ S.silent=!!r.silent; S.jeton=r.jeton||""; } }catch(e){}
+  try{ localStorage.removeItem("diggers9"); }catch(e){} }
+
+function appliquerEtat(e){
+  if(!e) return;
+  JEU=e;
+  S.credits=e.credits; S.eclats=e.eclats; S.shelf=e.coffre||[];
+  S.bestSet=e.bestSet; S.sets=e.sets; S.setsWon=e.setsWon; S.setsToday=e.setsToday;
+  S.streak=e.streak; S.gouts=e.gouts; S.taux=e.taux;
+  S.fondus=e.fondus; S.achetes=e.achetes; S.presses=e.presses; S.vendus=e.vendus;
+  sync();
+}
+/* Un seul chemin vers le jeu : une intention part, un état revient. */
+async function apiJeu(action,corps){
+  const r=await apiAppel("/api/jeu",Object.assign({action:action},corps||{}));
+  if(r&&r.etat) appliquerEtat(r.etat);
+  if(r&&!r.ok&&r.erreur&&!r.horsLigne) flash(r.erreur);
+  return r;
+}
 
 /* ---- la journée ---- */
 function todayKey(){ const d=new Date();
@@ -670,19 +756,9 @@ function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0;
   return ((t^t>>>14)>>>0)/4294967296; }; }
 /* Le même tirage pour tout le monde, figé sur 24 h. */
 function rngDuJour(sel){ return mulberry32(seedOf(todayKey()+"|"+sel)); }
-function majJournee(){
-  const t=todayKey();
-  if(S.setsDate!==t){ S.setsDate=t; S.setsToday=0; }
-  if(S.refreshDate!==t){ S.refreshDate=t; S.refreshUsed=0; }
-  if(S.lastPlayed!==t){
-    const hier=new Date(); hier.setDate(hier.getDate()-1);
-    const hk=hier.getFullYear()+"-"+String(hier.getMonth()+1).padStart(2,"0")+"-"+String(hier.getDate()).padStart(2,"0");
-    S.streak=(S.lastPlayed===hk)?S.streak+1:1;
-    S.lastPlayed=t;
-  }
-  save();
-}
-function jourDispo(){ return S.jourDate!==todayKey(); }
+/* La journée est celle du serveur : avancer l'horloge de sa machine ne
+   redonne plus un carton, ne relance plus le Set, ne gonfle plus la série. */
+function jourDispo(){ return !!(JEU&&JEU.jourDispo); }
 
 let jid=0;
 function jsonp(url){
@@ -696,10 +772,8 @@ function jsonp(url){
     document.head.appendChild(sc);
   });
 }
-function pickW(l){ const t=l.reduce((a,b)=>a+b.w,0); let r=Math.random()*t;
-  for(const o of l){ if((r-=o.w)<=0) return o; } return l[l.length-1]; }
-function pickTier(){ const t=TIERS.slice(1).reduce((a,b)=>a+b.w,0); let r=Math.random()*t;
-  for(let i=1;i<TIERS.length;i++){ if((r-=TIERS[i].w)<=0) return i; } return 1; }
+/* Les tirages ont quitté cette page : ils se font au serveur, hors de portée
+   de la console. */
 function mmss(ms){const s=Math.round(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
 function nb(n){ if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace(".",",")+" M";
@@ -734,6 +808,12 @@ const VAGUE2=[
   ["Nina Simone",2],["Fela Kuti",1],["Manu Chao",2],["Charlotte Cardin",2],["Bad Bunny",3]
 ];
 
+/* La cadence d'interrogation d'Apple. Le chiffre qui comptait vraiment :
+   avant, on attendait 200 ms entre deux artistes, soit environ 300 appels par
+   minute. Apple en tolère une vingtaine. La plupart des artistes étaient donc
+   silencieusement recalés et la bibliothèque tombait à 6 titres par artiste au
+   lieu des 22 prévus. 3,4 s, c'est lent, mais ça répond à chaque fois. */
+const APPLE_PAUSE=3400, APPLE_LIMITE=200, APPLE_GARDE=35;
 const REJET=/\b(karaoke|karaok[ée]|tribute|made famous|in the style of|originally performed|instrumental|backing track|cover version|hommage|sound-alike|as made popular)\b/i;
 const REJET_TITRE=/\b(live|en concert|remix|edit|version|mix|acoustique|acoustic|d[ée]mo|interlude|intro|outro|skit|a cappella|sped up|slowed|reprise)\b/i;
 function norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
@@ -764,12 +844,17 @@ function nettoyer(artiste,poids,rows){
     const cle=norm(titre);
     if(vus.has(cle)) continue;
     vus.add(cle);
-    out.push({ id:r.trackId, title:titre, artist:r.artistName,
+    /* Le nom de l'artiste est celui qu'on a interrogé, pas la ligne de crédits
+       renvoyée par Apple. Sans ça, « Ninho & Niska » devenait un artiste à part
+       entière, avec un ou deux titres, et venait polluer l'écran des goûts et
+       les propositions de l'enquête. Le featuring reste affiché à côté. */
+    const credits = norm(r.artistName)===cible ? "" : r.artistName;
+    out.push({ id:r.trackId, title:titre, artist:artiste, credits:credits,
       album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
       year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
       art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
       url:r.trackViewUrl||null, poids });
-    if(out.length>=22) break;
+    if(out.length>=APPLE_GARDE) break;
   }
   return out;
 }
@@ -790,75 +875,27 @@ function ajouterAuCatalogue(propres){
 async function fetchDig(paire){
   const [artiste,poids]=paire;
   const url="https://itunes.apple.com/search?term="+encodeURIComponent(artiste)
-    +"&entity=song&limit=40&country=FR&lang=fr_fr";
+    +"&entity=song&limit="+APPLE_LIMITE+"&country=FR&lang=fr_fr";
   const d=await jsonp(url);
   return nettoyer(artiste,poids,(d&&d.results)?d.results:[]);
 }
 
-/* 1. le fichier, s'il est là */
-async function chargerFichier(){
-  try{
-    const r=await fetch("catalogue.json",{cache:"no-cache"});
-    if(!r.ok) return false;
-    const d=await r.json();
-    if(!d||!Array.isArray(d.tracks)||d.tracks.length<50) return false;
-    CAT=d.tracks.map(t=>Object.assign({listeners:null,plays:null},t));
-    CAT.forEach(t=>VUS_GLOBAL.add(norm(t.artist)+"|"+norm(t.title)));
-    CATMETA=d.meta||null; CATSOURCE="fichier";
-    return true;
-  }catch(e){ return false; }
-}
+/* Le catalogue vient de la bibliothèque du serveur, et de nulle part ailleurs.
+   Les deux replis d'autrefois — un catalogue.json posé à côté du jeu, puis un
+   appel direct à iTunes depuis le navigateur — servaient à jouer sans serveur.
+   Ce mode n'existe plus : sans serveur il n'y a pas de partie. */
 async function boot1(){
   const prog=document.getElementById("prog"), st=document.getElementById("lstat");
-  st.textContent="Recherche du catalogue…"; prog.style.width="20%";
-  if(await chargerFichier()){ prog.style.width="100%"; return true; }
-  CATSOURCE="direct";
-  st.textContent="Pas de catalogue local — appel direct à iTunes…";
-  prog.style.width="45%";
-  (await Promise.allSettled(VAGUE1.map(fetchDig))).forEach(r=>{ if(r.status==="fulfilled") ajouterAuCatalogue(r.value); });
+  st.textContent="Lecture de la bibliothèque…"; prog.style.width="30%";
+  const n=await chargerServeur(true);
   prog.style.width="100%";
-  return CAT.length>=20;
+  return n>=1;
 }
-async function boot2(){
-  if(CATSOURCE!=="direct") return;
-  for(let i=0;i<VAGUE2.length;i+=6){
-    (await Promise.allSettled(VAGUE2.slice(i,i+6).map(fetchDig)))
-      .forEach(r=>{ if(r.status==="fulfilled") ajouterAuCatalogue(r.value); });
-    syncFoot(); await new Promise(r=>setTimeout(r,500));
-  }
-}
+async function boot2(){}
 
-/* ---- Last.fm : de vrais compteurs d'écoutes ---- */
-function lfmDiag(k,m){ const d=document.getElementById("lfmdiag"); if(!d)return;
-  d.className="diag"+(k?" "+k:""); d.innerHTML=m; }
-async function lfmEnrich(c){
-  if(!S.lfm||c.listeners!==null) return;
-  try{
-    const u="https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key="+encodeURIComponent(S.lfm)
-      +"&artist="+encodeURIComponent(c.artist)+"&track="+encodeURIComponent(c.title)+"&format=json";
-    const d=await jsonp(u);
-    if(d&&d.track){ c.listeners=+d.track.listeners||0; c.plays=+d.track.playcount||0; }
-    else c.listeners=0;
-  }catch(e){ c.listeners=0; }
-}
-async function lfmTest(){
-  const f=document.getElementById("lfmkey"); if(!f)return;
-  const k=f.value.trim();
-  if(!k){ lfmDiag("ko","<b>Colle d'abord une clé.</b>"); return; }
-  lfmDiag("","Vérification…");
-  S.lfm=k;
-  const c={artist:"Daft Punk",title:"One More Time",listeners:null};
-  await lfmEnrich(c);
-  if(c.listeners>0){
-    save();
-    lfmDiag("ok","<b>Clé acceptée.</b> Daft Punk — One More Time : "+nb(c.listeners)
-      +" auditeurs, "+nb(c.plays)+" écoutes. Les cartes afficheront ce compteur dès le prochain carton.");
-  }else{
-    S.lfm=""; save();
-    lfmDiag("ko","<b>Aucune donnée reçue.</b> Soit la clé est invalide, soit Last.fm refuse l'appel depuis un fichier local — "
-      +"dans ce cas réessaie une fois le jeu mis en ligne. Le jeu fonctionne sans.");
-  }
-}
+/* Les compteurs d'écoutes ne passent plus par une clé Last.fm collée par le
+   joueur : c'est le serveur qui les relève, les range dans la bibliothèque avec
+   leur date, et les sert avec la carte. Voir Modération → Bibliothèque. */
 
 /* ============ AUDIO ============ */
 const SILENCE="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAIA+AAABAAgAZGF0YQAAAAA=";
@@ -929,58 +966,55 @@ function testAudio(){
 /* ============ CARTES ============ */
 function cardEl(c,o){
   o=o||{};
-  const t=TIERS[c.rarity], known=c.known!==false;
+  const t=TIERS[c.rarity]||TIERS[1], known=c.known!==false;
+  const ind=c.indices||{};
   const el=document.createElement(o.button?"button":"div");
   el.className="card "+(o.hot?"hot":"reveal");
   el.style.setProperty("--tier",t.c);
   if(o.button)el.type="button";
   if(o.delay)el.style.animationDelay=o.delay+"ms";
-  const sleeve=known?"full":(o.sleeve||"none");
+  /* Une carte qu'on n'a pas encore trouvée n'a pas de pochette à montrer :
+     le serveur ne l'envoie qu'une fois le révélateur payé. */
+  const art=known?c.art:ind.art;
+  const sleeve=known?"full":(ind.crop?"crop":ind.flou?"flou":"none");
   const cls=sleeve==="flou"?" flou":sleeve==="crop"?" crop":"";
-  const seed=String(c.id).split("").reduce((a,ch)=>a+ch.charCodeAt(0),0);
+  const seed=String(c.uid||c.id||"").split("").reduce((a,ch)=>a+ch.charCodeAt(0),0);
   const cx=((seed%5)-2)*8, cy=((Math.floor(seed/5)%5)-2)*8;
-  const hasL=typeof c.listeners==="number"&&c.listeners>0;
-  const eVal=hasL?nb(c.listeners):c.pop;
-  const eLbl=hasL?"AUDITEURS":"POPULARITÉ";
-  const eW=hasL?Math.min(100,Math.round(Math.log10(Math.max(c.listeners,10))/7*100)):c.pop;
+  const pop=known?c.pop:null, ms=known?c.ms:null;
+  /* Quand le serveur a relevé le nombre de fans de l'artiste, il remplace
+     l'indice de popularité : un vrai chiffre vaut mieux qu'une note sur 100. */
+  const fans=(known&&typeof c.fans==="number"&&c.fans>0)?c.fans:null;
+  const eLbl=fans?"FANS":"POPULARITÉ";
+  const eVal=fans?nb(fans):(pop==null?"—":pop);
+  const eW=fans?Math.min(100,Math.round(Math.log10(Math.max(fans,10))/7*100)):(pop==null?0:pop);
+  const coin = c.source==="communaute" ? "COMMU" : (known&&c.rank?"#"+c.rank:"·");
   el.innerHTML=
     '<div class="art'+cls+'" style="--cx:'+cx+'%;--cy:'+cy+'%">'
-      +(sleeve==="none"?'<div class="blind"><span>?</span></div>':'<img src="'+c.art+'" alt="" loading="lazy">')
-      +'<span class="tag-tl">'+(c.source==="communaute"?"COMMU":"#"+c.rank)+'</span>'
-      +'<span class="tag-tr">'+c.press+'</span>'
+      +((!art)?'<div class="blind"><span>?</span></div>':'<img src="'+art+'" alt="" loading="lazy">')
+      +'<span class="tag-tl">'+coin+'</span>'
+      +'<span class="tag-tr">'+esc(c.press||"")+'</span>'
       +(known?'':'<span class="todo-tag">À reconnaître</span>')
     +'</div>'
     +(known?'<p class="c-t">'+esc(c.title)+'</p><p class="c-a">'+esc(c.artist)+' · '+(c.year||"—")
+             +(c.credits?'<br><small style="color:var(--ink-3)">'+esc(c.credits)+'</small>':'')
              +(c.proposePar?' · trouvé par '+esc(c.proposePar):'')+'</p>'
-           :'<p class="c-t q">'+(o.maskLine?esc(o.maskLine):"? ? ?")+'</p><p class="c-a">Non identifié · '+(c.year||"—")+'</p>')
+           :'<p class="c-t q">'+(ind.mask?esc(ind.mask):"? ? ?")+'</p>'
+            +'<p class="c-a">'+(ind.genre?esc(ind.genre):"Non identifié")+'</p>')
     +'<div class="stats">'
       +'<div class="st"><span>'+eLbl+'</span><span class="pbar"><i style="width:'+eW+'%"></i></span><b>'+eVal+'</b></div>'
       +'<div class="st"><span>DURÉE</span><span class="pbar"><i style="width:'
-        +Math.min(100,Math.round(c.ms/1000/480*100))+'%"></i></span><b>'+mmss(c.ms)+'</b></div>'
+        +(ms?Math.min(100,Math.round(ms/1000/480*100)):0)+'%"></i></span><b>'+(ms?mmss(ms):"—")+'</b></div>'
     +'</div>'
     +'<div class="tier"><span>'+t.n+'</span><span class="odds">'+t.odds+'</span></div>'
-    +(o.cote?'<span class="cote">Cote <b>'+coteDe(c)+'</b></span>':'')
+    +(o.cote&&c.cote?'<span class="cote">Cote <b>'+c.cote+'</b></span>':'')
     /* Lien retour vers la fiche du morceau : exigé par les conditions d'usage
        de l'API iTunes. Uniquement hors bouton, pour ne pas imbriquer les liens. */
     +((known&&c.url&&!o.button)?'<a class="src" href="'+c.url+'" target="_blank" rel="noopener">Écouter sur Apple Music ↗</a>':'');
   return el;
 }
-function newCard(filtre){
-  const want=pickTier();
-  let pool=CAT.filter(c=>tierOf(c.pop)===want&&(!filtre||filtre(c)));
-  if(!pool.length) pool=CAT.filter(c=>!filtre||filtre(c));
-  if(!pool.length) pool=CAT;
-  const src=pool[Math.floor(Math.random()*pool.length)];
-  return Object.assign({},src,{
-    uid:src.id+"-"+Math.random().toString(36).slice(2,7),
-    rarity:tierOf(src.pop), press:pickW(PRESS).n, known:false, reveals:null, achete:false });
-}
-function distractors(c,n){
-  const pool=[...new Set(CAT.map(x=>x.artist))].filter(a=>a!==c.artist);
-  const out=[];
-  while(out.length<n&&pool.length) out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
-  return out;
-}
+/* newCard() et distractors() ont disparu : c'est le serveur qui tire les
+   cartes et qui compose les quatre propositions. Rien dans cette page ne
+   connaît la bonne réponse avant que le joueur ait cliqué. */
 function flash(msg){
   const d=document.createElement("div"); d.className="flash"; d.textContent=msg;
   document.body.appendChild(d); setTimeout(()=>d.remove(),2700);
@@ -1019,52 +1053,39 @@ function animOuverture(pack){
 }
 async function openPack(pack){
   if(busy)return;
+  if(!COMPTE){ flash("Il faut un compte pour ouvrir un carton"); go("profil"); return; }
   if(pack.id==="jour"&&!jourDispo())return;
   if(pack.p>0&&S.credits<pack.p)return;
-  if(!onboardingFait() && S.gouts===undefined){ await ouvrirOnboarding(); renderShop(); }
+  if(!onboardingFait()) await ouvrirOnboarding();
   unlock();
-  busy=true;
-  track("carton_ouvert",{type:pack.id,prix:pack.p});
-  if(pack.p>0) S.credits-=pack.p;
-  if(pack.id==="jour") S.jourDate=todayKey();
-  sync();
+  busy=true; renderShop();
   document.getElementById("pull").innerHTML="";
   document.getElementById("chint").textContent="";
-  let filtre=null, note="";
-  /* Premier carton : on pioche dans ce que le joueur a dit reconnaître. */
-  if(S.premierCarton && Array.isArray(S.gouts) && S.gouts.length>=5){
-    const g=new Set(S.gouts); filtre=c=>g.has(c.artist);
-    note=" · tiré dans les artistes que tu as cochés";
-    S.premierCarton=false;
-  }
-  else if(pack.id==="scene"){
-    const genres=[...new Set(CAT.map(c=>c.genre))];
-    const g=genres[Math.floor(Math.random()*genres.length)];
-    filtre=c=>c.genre===g; note=" · scène tirée : "+g;
-  }
+
+  /* Le carton est tiré par le serveur. Ce qui revient ici, ce sont cinq cartes
+     face cachée : ni titre, ni artiste, ni pochette, ni extrait. */
+  const r=await apiJeu("carton",{type:pack.id});
+  if(!r||!r.ok){ busy=false; renderShop(); return; }
+
   await animOuverture(pack);
+  const tirees=r.cartes||[];
   let found=0;
-  for(let i=0;i<5;i++){
-    const c=newCard(filtre);
-    await lfmEnrich(c);
-    S.shelf.push(c);
-    if(await enquete(c,i+1)) found++;
-    save(); sync();
-  }
+  for(let i=0;i<tirees.length;i++){ if(await enquete(tirees[i],i+1)) found++; }
+
   document.getElementById("stage").innerHTML="";
-  document.getElementById("chint").textContent=found+" reconnue(s) sur 5"+note+".";
-  track("carton_fini",{trouvees:found});
+  document.getElementById("chint").textContent=found+" reconnue(s) sur "+tirees.length+".";
   /* Le résultat d'un carton est partageable en carrés, comme un Wordle. */
-  const carres=S.shelf.slice(-5).map(c=>c.aSec?"■":(c.known?"▨":"□")).join(" ");
+  const etat=u=>S.shelf.find(x=>x.uid===u)||{};
+  const carres=tirees.map(c=>{const e=etat(c.uid); return e.aSec?"■":(e.known?"▨":"□");}).join(" ");
+  const aSec=tirees.filter(c=>etat(c.uid).aSec).length;
   document.getElementById("pullshare").innerHTML=
     '<div class="sharebox"><span class="sq">'+carres+'</span>'
-    +'<span class="hint">'+found+'/5 · '+S.shelf.slice(-5).filter(c=>c.aSec).length+' à sec</span>'
+    +'<span class="hint">'+found+'/'+tirees.length+' · '+aSec+' à sec</span>'
     +'<button class="btn ghost sm" id="shcart">Copier le résultat</button></div>';
   document.getElementById("shcart").onclick=async()=>{
-    const t="Diggers "+todayKey()+"\n"+carres+"\n"+found+"/5 reconnues\n"+location.origin+location.pathname;
+    const t="Diggers "+todayKey()+"\n"+carres+"\n"+found+"/"+tirees.length+" reconnues\n"+location.origin+location.pathname;
     try{ await navigator.clipboard.writeText(t); flash("Résultat copié"); }
     catch(e){ prompt("Copie :",t); }
-    track("partage_carton",{trouvees:found});
   };
   busy=false; renderShop();
 }
@@ -1072,37 +1093,31 @@ async function openPack(pack){
 /* ============ L'ENQUÊTE ============ */
 function enquete(c,nth){
   return new Promise(resolve=>{
-    /* Les quatre propositions sont tirées une seule fois et gravées sur la carte :
-       revenir dessus ne redistribue plus rien, donc plus d'attaque par intersection. */
-    if(!c.choices) c.choices=distractors(c,3).concat([c.artist]).sort(()=>Math.random()-0.5);
-    if(typeof c.tries!=="number") c.tries=0;
-
+    /* `carte` est la carte telle que le serveur la montre : elle s'enrichit à
+       chaque révélateur payé, et ne se retourne qu'au moment de la réponse. */
+    let carte=c;
     const stage=document.getElementById("stage");
     stage.innerHTML='<div class="stage" id="sg"></div>';
     const sg=stage.firstChild;
     const left=document.createElement("div"), right=document.createElement("div");
     right.className="stage-q"; sg.appendChild(left); sg.appendChild(right);
 
-    const used=new Set();
-    let value=LADDER[Math.min(c.tries,LADDER.length-1)];
-    let sleeve="none", maskLine=null, genreShown=false, heard=!!c.heard;
-
-    const dejaConnu=()=>S.shelf.some(x=>x.uid!==c.uid&&x.id===c.id&&x.known);
+    let heard=!!carte.heard, fini=false;
+    const dejaConnu=()=>S.shelf.some(x=>x.uid!==carte.uid&&x.known&&x.id&&carte.id&&x.id===carte.id);
     const drawCard=()=>{ left.innerHTML="";
-      left.appendChild(cardEl(c,{sleeve,maskLine,genre:genreShown,hot:c.rarity>=5&&c.known})); };
+      left.appendChild(cardEl(carte,{hot:carte.rarity>=5&&carte.known})); };
     const drawHead=()=>{
-      const dup=dejaConnu();
-      right.querySelector("#cnt").innerHTML=
-        '<span>'+(nth?"Disque "+nth+" sur 5":"Reprise")+' · '+TIERS[c.rarity].n
-        +(c.tries?' · tentative '+(c.tries+1):'')+'</span>'
-        +'<span class="val">'+(dup?"Doublon : "+GAIN_DOUBLON+" crédits":"Valeur : "+value+" crédits")+'</span>';
+      const el=right.querySelector("#cnt"); if(!el) return;
+      el.innerHTML='<span>'+(nth?"Disque "+nth+" sur 5":"Reprise")+' · '+(TIERS[carte.rarity]||TIERS[1]).n
+        +(carte.tries?' · tentative '+(carte.tries+1):'')+'</span>'
+        +'<span class="val">Valeur : '+(carte.valeur!=null?carte.valeur:LADDER[0])+' crédits</span>';
     };
 
     right.innerHTML='<p class="counter" id="cnt"></p>'
       +'<p class="kick" style="color:var(--accent)">Enquête</p><h3 class="disp">Qui joue ça ?</h3>'
-      +'<p style="color:var(--ink-2);font-size:14px;margin:0">Les stats visibles sont gratuites. '
-      +'Un révélateur coûte sur la valeur ; se tromper la fait chuter à '+LADDER.slice(1).join(', puis ')+'.</p>'
-      +(c.tries?'<p style="color:var(--bad);font-size:13px;margin:8px 0 0">Déjà tenté '+c.tries
+      +'<p style="color:var(--ink-2);font-size:14px;margin:0">Chaque révélateur se paie sur la valeur de la carte, '
+      +'jamais sur ta cagnotte. Se tromper la fait tomber à '+LADDER.slice(1).join(', puis ')+'.</p>'
+      +(carte.tries?'<p style="color:var(--bad);font-size:13px;margin:8px 0 0">Déjà tenté '+carte.tries
         +' fois — cette carte ne comptera plus comme trouvée à sec.</p>':'')
       +'<div class="clues" id="cl"></div><div class="found" id="fd"></div>'
       +'<div class="choices" id="ch"></div><div id="vd"></div>';
@@ -1111,83 +1126,84 @@ function enquete(c,nth){
     try{ sg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
 
     const cl=right.querySelector("#cl"), fd=right.querySelector("#fd");
+    const ch=right.querySelector("#ch"), vd=right.querySelector("#vd");
     const addFound=(l,v,m)=>{ const d=document.createElement("div"); d.className="fl";
       d.innerHTML='<span>'+l+'</span><b'+(m?' class="mask"':'')+'>'+esc(v)+'</b>'; fd.appendChild(d); };
     const off=2+Math.random()*15;
+
+    /* Les indices déjà achetés lors d'un passage précédent restent acquis. */
+    const dejaLa=new Set(Object.keys(carte.indices||{}));
 
     CLUES.forEach(cd=>{
       if(cd.audio&&S.silent)return;
       const b=document.createElement("button");
       b.className="clue"+(cd.cost===0?" free":""); b.type="button"; b.dataset.k=cd.k;
-      /* L'extrait ne coûte pas de crédits, mais il sort la carte du « à sec » :
-         écouter est une aide, et le classement doit en tenir compte. */
       b.innerHTML=cd.lbl+'<i>'+(cd.cost===0?(heard?"écouté":"sort du à sec"):"−"+cd.cost)+'</i>';
-      b.onclick=()=>{
-        if(cd.audio){ unlock(); heard=true; c.heard=true; b.querySelector("i").textContent="écouté";
-          snip(c,4000,off); return; }
-        if(used.has(cd.k))return;
-        used.add(cd.k); b.disabled=true;
-        value=Math.max(LADDER[LADDER.length-1],value-cd.cost);
-        if(cd.k==="genre"){ genreShown=true; addFound("Genre",c.genre); drawCard(); }
-        if(cd.k==="album") addFound("Album",c.album);
-        if(cd.k==="mask"){ maskLine=maskTitle(c.title); addFound("Titre",maskLine,true); drawCard(); }
-        if(cd.k==="flou"){ sleeve="flou"; drawCard(); }
-        if(cd.k==="crop"){ sleeve="crop"; drawCard();
-          const f=cl.querySelector('[data-k="flou"]'); if(f&&!used.has("flou")){f.disabled=true;used.add("flou");} }
-        drawHead();
+      b.onclick=async()=>{
+        if(fini||b.disabled)return;
+        b.disabled=true;
+        const r=await apiJeu("indice",{uid:carte.uid,cle:cd.k});
+        if(!r||!r.ok){ b.disabled=false; return; }
+        carte=r.carte; const ind=carte.indices||{};
+        if(cd.audio){
+          /* L'extrait ne coûte pas de crédits, mais il sort la carte du « à sec » :
+             écouter est une aide, et le classement doit en tenir compte. */
+          unlock(); heard=true; b.disabled=false;
+          b.querySelector("i").textContent="écouté";
+          if(ind.preview) snip({preview:ind.preview},4000,off);
+          return;
+        }
+        if(cd.k==="genre"&&ind.genre) addFound("Genre",ind.genre);
+        if(cd.k==="album"&&ind.album) addFound("Album",ind.album);
+        if(cd.k==="mask"&&ind.mask) addFound("Titre",ind.mask,true);
+        if(cd.k==="crop"){ const f=cl.querySelector('[data-k="flou"]'); if(f) f.disabled=true; }
+        drawCard(); drawHead();
       };
+      if(dejaLa.has(cd.k)&&!cd.audio) b.disabled=true;
       cl.appendChild(b);
     });
-    /* Plus d'extrait automatique : le son ne se déclenche que si on le demande. */
 
-    const ch=right.querySelector("#ch");
-    const vd=right.querySelector("#vd");
-
-    const clore=(good,passe)=>{
+    const repondre=async(choix,passe,btn)=>{
+      if(fini)return;
+      fini=true;
+      [...ch.children].forEach(x=>x.disabled=true);
+      [...cl.children].forEach(x=>x.disabled=true);
+      const r=await apiJeu("repondre",{uid:carte.uid,choix:choix||"",passe:!!passe});
+      if(!r||!r.ok){ fini=false; [...ch.children].forEach(x=>x.disabled=false); return; }
       hush();
-      [...ch.children].forEach(b=>b.disabled=true);
-      [...cl.children].forEach(b=>b.disabled=true);
-      /* Une entrée par tentative résolue, réussie ou non. C'est le dénominateur. */
-      const aSec = good && !passe && c.tries===0 && used.size===0 && !heard;
-      S.idLog.push(aSec);
-      if(S.idLog.length>200) S.idLog.shift();
-
-      track("identification",{ok:good,passe:!!passe,tentative:c.tries+1,
-        reveles:used.size,ecoute:heard,palier:TIERS[c.rarity].n});
-      if(good||passe){
-        const dup=dejaConnu();
-        const gain = passe ? 0 : (dup ? GAIN_DOUBLON : value);
-        c.known=true; c.reveals=used.size; c.aSec=aSec;
-        S.credits+=gain;
-        sleeve="full"; drawCard();
-        vd.innerHTML = passe
-          ? '<p class="verdict no">C\'était <b style="color:var(--ink)">'+esc(c.artist)+'</b> — carte gravée, 0 crédit</p>'
-          : '<p class="verdict ok">Reconnue · +'+gain+' crédit'+(gain>1?'s':'')
-            +(dup?' · doublon':(aSec?' · à sec':' · avec aide'))+'</p>';
+      carte=r.carte;
+      if(r.bon||r.passe){
+        const bon=[...ch.children].find(x=>x.textContent===carte.artist);
+        if(bon) bon.classList.add("good");
+        if(btn&&!r.bon) btn.classList.add("wrong");
+        drawCard();
+        vd.innerHTML = r.passe
+          ? '<p class="verdict no">C\'était <b style="color:var(--ink)">'+esc(carte.artist)+'</b> — carte gravée, 0 crédit</p>'
+          : '<p class="verdict ok">Reconnue · +'+r.gain+' crédit'+(r.gain>1?'s':'')
+            +(r.doublon?' · doublon':(r.aSec?' · à sec':' · avec aide'))+'</p>';
       }else{
-        c.tries++;
+        if(btn) btn.classList.add("wrong");
         vd.innerHTML='<p class="verdict no">Raté — la carte reste face cachée, valeur ramenée à '
-          +LADDER[Math.min(c.tries,LADDER.length-1)]+'</p>';
+          +(r.valeur!=null?r.valeur:LADDER[LADDER.length-1])+'</p>';
       }
-      save();
-      setTimeout(()=>{ document.getElementById("pull").appendChild(cardEl(c,{cote:true})); resolve(good); },
-        (good||passe)?1300:1600);
+      drawHead();
+      setTimeout(()=>{
+        document.getElementById("pull").appendChild(cardEl(S.shelf.find(x=>x.uid===carte.uid)||carte,{cote:true}));
+        resolve(!!r.bon);
+      },(r.bon||r.passe)?1300:1600);
     };
 
-    c.choices.forEach(a=>{
+    (carte.choices||[]).forEach(a=>{
       const b=document.createElement("button");
       b.className="choice"; b.type="button"; b.textContent=a;
-      b.onclick=()=>{ const g=a===c.artist; b.classList.add(g?"good":"wrong");
-        if(!g){ const t=[...ch.children].find(x=>x.textContent===c.artist); if(t) t.classList.add("good"); }
-        clore(g,false); };
+      b.onclick=()=>repondre(a,false,b);
       ch.appendChild(b);
     });
     const pass=document.createElement("button");
     pass.className="btn ghost sm"; pass.type="button"; pass.style.marginTop="10px";
     pass.textContent="Je passe — révéler la réponse";
-    pass.onclick=()=>{ [...ch.children].forEach(x=>{ if(x.textContent===c.artist) x.classList.add("good"); });
-      clore(false,true); };
-    right.querySelector("#ch").after(pass);
+    pass.onclick=()=>repondre("",true,null);
+    ch.after(pass);
   });
 }
 
@@ -1207,7 +1223,7 @@ function renderShelf(){
       if(c.known){ unlock(); snip(c,7000,0); return; }
       if(busy)return;
       busy=true; go("accueil");
-      await enquete(c,0); save(); sync();
+      await enquete(c,0); sync();
       document.getElementById("stage").innerHTML=""; busy=false; go("etagere");
     });
     box.appendChild(el);
@@ -1217,141 +1233,241 @@ function renderShelf(){
 }
 
 /* ============ MARCHÉ ============
-   Plus aucun rachat par la maison : la vente contre crédits était une création
-   monétaire pure. Un doublon se FOND en Éclats, et les Éclats ne servent qu'à
-   presser un titre choisi — c'est le puits terminal, et la réponse à la promesse
-   de départ (aller chercher un morceau précis au lieu de l'attendre). */
-let mkMode="acheter", OFFRES=[], pressQ="";
+   Le marché appartient aux joueurs. Le site ne met plus une seule carte en
+   vente : ce qui est en vitrine est sorti d'une étagère, et y retourne si
+   l'annonce est retirée. Restent deux puits qui font disparaître de la
+   matière plutôt que d'en créer : fondre un doublon, presser un titre. */
+let mkMode="annonces", pressQ="", ANNONCES=[], MESANN=null;
 
 function doublons(){
-  const vus={}, out=[];
-  S.shelf.forEach(c=>{ if(!c.known)return; vus[c.id]=(vus[c.id]||0)+1; });
-  const gardes={};
+  const n={}; S.shelf.forEach(c=>{ if(c.known) n[c.id]=(n[c.id]||0)+1; });
+  const out=[], gardes={};
   S.shelf.forEach(c=>{
-    if(!c.known||vus[c.id]<2)return;
-    if(!gardes[c.id]){ gardes[c.id]=c; return; }   /* on garde le meilleur exemplaire */
-    if(coteDe(c)>coteDe(gardes[c.id])){ out.push(gardes[c.id]); gardes[c.id]=c; }
+    if(!c.known||n[c.id]<2) return;
+    if(!gardes[c.id]){ gardes[c.id]=c; return; }
+    if((c.cote||0)>(gardes[c.id].cote||0)){ out.push(gardes[c.id]); gardes[c.id]=c; }
     else out.push(c);
   });
   return out;
 }
-function eclatsDe(c){ return Math.max(2, Math.round(coteDe(c)/2)); }
+function eclatsDe(c){ return Math.max(2, Math.round((c.cote||0)/2)); }
 
-function refreshOffres(){
-  OFFRES=[];
-  for(let i=0;i<12;i++){
-    const c=newCard(); c.known=true; c.achete=true; c.reveals=null; c.aSec=false;
-    if(c.press==="Test press") c.press="Vinyle";
-    c.prix=Math.max(5,Math.round(coteDe(c)*(0.75+Math.random()*0.55)));
-    OFFRES.push(c);
-  }
+async function apiMarche(action,corps){
+  const r=await apiAppel("/api/marche",Object.assign({action:action},corps||{}));
+  if(r&&r.etat) appliquerEtat(r.etat);
+  if(r&&!r.ok&&r.erreur&&!r.horsLigne) flash(r.erreur);
+  return r;
 }
+
 function renderMarche(){
-  majJournee();
   const box=document.getElementById("marchebox");
   document.querySelectorAll(".mktab").forEach(t=>t.setAttribute("aria-selected",t.dataset.m===mkMode));
-
-  if(mkMode==="acheter"){
-    if(!OFFRES.length) refreshOffres();
-    const coutR = S.refreshUsed===0 ? 0 : COUT_REFRESH;
-    box.innerHTML='<div class="bar"><button class="btn ghost sm" id="refr"'
-      +(coutR&&S.credits<coutR?' disabled':'')+'>Renouveler les offres'+(coutR?' — '+coutR:' — offert')+'</button>'
-      +'<span class="hint">Douze vendeurs. Acheter dépense des crédits — c\'est une sortie, pas un gain.</span></div>'
-      +'<div class="grid" id="offers"></div>';
-    const g=document.getElementById("offers");
-    OFFRES.slice().forEach((c,i)=>{
-      const wrap=document.createElement("div"); wrap.className="offer";
-      wrap.appendChild(cardEl(c,{delay:i*20,cote:true}));
-      const cote=coteDe(c), ecart=Math.round((c.prix-cote)/cote*100);
-      const act=document.createElement("div"); act.className="act";
-      act.innerHTML='<button'+(S.credits<c.prix?' disabled':'')+'>Acheter '+c.prix+'</button>'
-        +'<span class="deal '+(ecart>0?"up":"down")+'">'+(ecart>0?"+":"")+ecart+' % vs cote</span>';
-      act.querySelector("button").onclick=()=>{
-        if(S.credits<c.prix)return;
-        S.credits-=c.prix; S.achetes++;
-        const copy=Object.assign({},c); delete copy.prix;
-        copy.uid=c.id+"-"+Math.random().toString(36).slice(2,7);
-        S.shelf.push(copy);
-        const k=OFFRES.indexOf(c); if(k>=0) OFFRES.splice(k,1);
-        save(); sync(); renderMarche();
-        flash("Achetée — "+copy.artist+" · "+copy.title);
-      };
-      wrap.appendChild(act); g.appendChild(wrap);
-    });
-    document.getElementById("refr").onclick=()=>{
-      if(coutR){ if(S.credits<coutR)return; S.credits-=coutR; }
-      S.refreshUsed++; refreshOffres(); save(); sync(); renderMarche();
-    };
-
-  }else if(mkMode==="fondre"){
-    const dbl=doublons();
-    if(!dbl.length){
-      box.innerHTML='<div class="empty">Aucun doublon à fondre.<br>'
-        +'<span style="font-size:13px">Un doublon est une carte reconnue dont tu possèdes déjà un autre exemplaire. '
-        +'Le meilleur des deux est toujours conservé.</span></div>'; return;
-    }
-    const tot=dbl.reduce((a,c)=>a+eclatsDe(c),0);
-    box.innerHTML='<div class="bar"><button class="btn" id="foldall">Tout fondre — '+tot+' éclats</button>'
-      +'<span class="hint">'+dbl.length+' doublon(s). Fondre ne rapporte jamais de crédits : '
-      +'les éclats ne servent qu\'à presser un titre que tu choisis.</span></div><div class="grid" id="dbl"></div>';
-    const g=document.getElementById("dbl");
-    dbl.slice().sort((a,b)=>eclatsDe(b)-eclatsDe(a)).forEach((c,i)=>{
-      const wrap=document.createElement("div"); wrap.className="offer";
-      wrap.appendChild(cardEl(c,{delay:i*18,cote:true}));
-      const act=document.createElement("div"); act.className="act";
-      act.innerHTML='<button class="sell">Fondre → '+eclatsDe(c)+' éclats</button>';
-      act.querySelector("button").onclick=()=>{
-        S.eclats+=eclatsDe(c); S.fondus++;
-        const k=S.shelf.findIndex(x=>x.uid===c.uid); if(k>=0) S.shelf.splice(k,1);
-        save(); sync(); renderMarche(); flash("+"+eclatsDe(c)+" éclats");
-      };
-      wrap.appendChild(act); g.appendChild(wrap);
-    });
-    document.getElementById("foldall").onclick=()=>{
-      let n=0; dbl.forEach(c=>{ S.eclats+=eclatsDe(c); n++;
-        const k=S.shelf.findIndex(x=>x.uid===c.uid); if(k>=0) S.shelf.splice(k,1); });
-      S.fondus+=n; save(); sync(); renderMarche(); flash(n+" doublons fondus · +"+tot+" éclats");
-    };
-
-  }else{
-    const q=pressQ.trim().toLowerCase();
-    const res=(q?CAT.filter(c=>(c.artist+" "+c.title).toLowerCase().includes(q)):CAT).slice(0,24);
-    box.innerHTML='<div class="rule"><p style="margin:0"><b>Presser à la demande</b> — tu choisis le titre, '
-      +'le pressage reste tiré au sort. C\'est la seule façon d\'aller chercher un morceau précis '
-      +'au lieu de l\'attendre, et le seul usage des éclats.</p>'
-      +'<p style="margin:0">Une carte pressée arrive reconnue, mais <b>ne compte pas</b> dans ton taux d\'identification.</p></div>'
-      +'<div class="keyrow" style="margin:0 0 18px"><input id="pq" placeholder="Chercher un artiste ou un titre" '
-      +'value="'+esc(pressQ)+'" autocomplete="off"><span class="hint">'+CAT.length+' titres · '
-      +'<b style="color:var(--accent)">'+S.eclats+' éclats</b></span></div>'
-      +'<div class="scale" style="margin-top:0"><div class="sc head"><span>Palier</span>'
-      +'<span>Coût en éclats</span><span class="odds">Chances au carton</span><span class="val"></span></div>'
-      +TIERS.slice(1).map((t,i)=>'<div class="sc"><span class="nm" style="color:'+t.c+'">'+t.n+'</span>'
-        +'<span class="dsc">'+ECLAT_PRESSAGE[i+1]+' éclats</span><span class="odds">'+t.odds+'</span>'
-        +'<span class="val"></span></div>').join("")+'</div>'
-      +'<div class="grid" id="pres"></div>';
-    const g=document.getElementById("pres");
-    res.forEach((src,i)=>{
-      const t=tierOf(src.pop), cout=ECLAT_PRESSAGE[t];
-      const view=Object.assign({},src,{rarity:t,press:"Standard",known:true,uid:"p"+src.id});
-      const wrap=document.createElement("div"); wrap.className="offer";
-      wrap.appendChild(cardEl(view,{delay:i*15}));
-      const act=document.createElement("div"); act.className="act";
-      act.innerHTML='<button'+(S.eclats<cout?' disabled':'')+'>Presser — '+cout+' éclats</button>';
-      act.querySelector("button").onclick=()=>{
-        if(S.eclats<cout)return;
-        S.eclats-=cout; S.presses++;
-        const c=Object.assign({},src,{uid:src.id+"-"+Math.random().toString(36).slice(2,7),
-          rarity:t, press:pickW(PRESS).n, known:true, reveals:null, achete:true, aSec:false});
-        S.shelf.push(c);
-        save(); sync(); renderMarche();
-        flash("Pressée — "+c.artist+" · "+c.title+" ("+c.press+")");
-      };
-      wrap.appendChild(act); g.appendChild(wrap);
-    });
-    const inp=document.getElementById("pq");
-    inp.oninput=()=>{ pressQ=inp.value; const pos=inp.selectionStart; renderMarche();
-      const n=document.getElementById("pq"); if(n){ n.focus(); try{n.setSelectionRange(pos,pos);}catch(e){} } };
+  if(!COMPTE){
+    box.innerHTML='<div class="empty">Le marché se fait entre joueurs : il faut un compte pour y entrer.<br>'
+      +'<span style="font-size:13px">Onglet Profil — trente secondes, pas d\'adresse e-mail.</span></div>';
+    return;
   }
+  if(mkMode==="annonces") return vueAnnonces(box);
+  if(mkMode==="vendre") return vueVendre(box);
+  if(mkMode==="fondre") return vueFondre(box);
+  return vuePresser(box);
+}
+
+/* ---------- ce que les autres proposent ---------- */
+async function vueAnnonces(box){
+  box.innerHTML='<p class="notice">Lecture des annonces…</p>';
+  const r=await apiMarche("liste",{q:pressQ});
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Marché indisponible.")+'</div>'; return; }
+  ANNONCES=r.annonces||[];
+  box.innerHTML='<div class="bar"><input id="mq" placeholder="Chercher un artiste, un titre…" value="'+esc(pressQ)+'" style="flex:1;min-width:200px">'
+    +'<span class="hint">'+ANNONCES.length+' annonce(s) · tes crédits : <b style="color:var(--accent)">'+S.credits+'</b></span></div>'
+    +'<div class="grid" id="ann"></div>';
+  const q=document.getElementById("mq");
+  q.oninput=()=>{ pressQ=q.value; clearTimeout(q._t); q._t=setTimeout(()=>renderMarche(),350); };
+  const g=document.getElementById("ann");
+  if(!ANNONCES.length){
+    g.innerHTML='<div class="empty" style="grid-column:1/-1">Personne n\'a rien posé pour l\'instant.<br>'
+      +'<span style="font-size:13px">Tes doublons sont peut-être les premiers : onglet <b>Vendre</b>.</span></div>';
+    return;
+  }
+  ANNONCES.forEach((a,i)=>{
+    const wrap=document.createElement("div"); wrap.className="offer";
+    wrap.appendChild(cardEl(a.carte,{delay:i*20,cote:true}));
+    const act=document.createElement("div"); act.className="act";
+    if(a.mien){
+      act.innerHTML='<button class="sell" data-r="1">Retirer mon annonce</button>'
+        +'<span class="deal">'+a.prix+' cr · '+a.offres+' offre(s)</span>';
+      act.querySelector("button").onclick=async()=>{ await apiMarche("retirer",{id:a.id}); renderMarche(); };
+    }else{
+      act.innerHTML='<button'+(S.credits<a.prix?' disabled':'')+'>Acheter '+a.prix+'</button>'
+        +'<button class="sell" data-t="1">Proposer un échange</button>'
+        +'<span class="deal '+(a.ecart>0?"up":"down")+'">'+(a.ecart>0?"+":"")+a.ecart+' % vs cote · '+esc(a.vendeur)+'</span>';
+      act.querySelector("button").onclick=async()=>{
+        const r2=await apiMarche("acheter",{id:a.id});
+        if(r2&&r2.ok) flash("Achetée à "+esc(a.vendeur)+" — "+r2.achetee.artist);
+        renderMarche();
+      };
+      act.querySelector('[data-t]').onclick=()=>proposerEchange(a);
+    }
+    wrap.appendChild(act); g.appendChild(wrap);
+  });
+}
+
+/* Choisir laquelle de mes cartes je mets sur la table. */
+function choisirCarte(titre,intro){
+  return new Promise(res=>{
+    const mes=S.shelf.filter(c=>c.known&&c.press!=="Test press")
+      .sort((x,y)=>(y.cote||0)-(x.cote||0)).slice(0,80);
+    const ov=document.createElement("div"); ov.className="onb";
+    ov.innerHTML='<div class="onb-in modale"><h2 class="disp onb-h" style="font-size:clamp(22px,4vw,30px)">'+titre+'</h2>'
+      +'<div class="modbody"><p class="notice">'+intro+'</p>'
+      +'<div class="ladder" style="max-height:46vh;overflow:auto">'
+      +(mes.length?mes.map(c=>'<button type="button" class="lr" data-v="'+esc(c.uid)+'" style="width:100%;text-align:left;background:none;border:0;cursor:pointer">'
+        +'<span class="who"><b>'+esc(c.artist)+'</b> · '+esc(c.title)+'</span>'
+        +'<span class="hint">'+esc(c.press)+' · cote '+(c.cote||0)+'</span></button>').join("")
+        :'<div class="empty">Tu n\'as encore aucune carte reconnue à proposer.</div>')
+      +'</div></div><div class="onb-bar"><button class="btn ghost sm" id="mkno">Annuler</button></div></div>';
+    document.body.appendChild(ov);
+    const fin=v=>{ ov.remove(); res(v); };
+    ov.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>fin(b.dataset.v));
+    ov.querySelector("#mkno").onclick=()=>fin(null);
+    ov.addEventListener("keydown",e=>{ if(e.key==="Escape") fin(null); });
+  });
+}
+async function proposerEchange(a){
+  if(!S.shelf.some(c=>c.known&&c.press!=="Test press")){ flash("Tu n'as encore rien à échanger"); return; }
+  const choix=await choisirCarte("Proposer un échange",
+    'Contre <b>'+esc(a.carte.artist)+' · '+esc(a.carte.title)+'</b> ('+esc(a.carte.press)+', cote '+a.cote+').<br>'
+    +'La carte que tu proposes quitte ton étagère tant que '+esc(a.vendeur)+' n\'a pas répondu — elle te revient s\'il refuse.');
+  if(!choix) return;
+  const r=await apiMarche("offrir",{id:a.id,uid:choix});
+  if(r&&r.ok) flash("Offre envoyée à "+a.vendeur);
+  renderMarche();
+}
+
+/* ---------- poser ses propres cartes ---------- */
+async function vueVendre(box){
+  box.innerHTML='<p class="notice">Lecture de tes annonces…</p>';
+  const r=await apiMarche("miennes");
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Indisponible.")+'</div>'; return; }
+  MESANN=r;
+  const posables=S.shelf.filter(c=>c.known&&c.press!=="Test press");
+  const dbl=new Set(doublons().map(c=>c.uid));
+
+  let html='<h3 class="sect" style="margin-top:0">Tes annonces en cours <span class="exp">'+r.posees+' / '+r.max+'</span></h3>';
+  if(!r.annonces.length) html+='<div class="empty">Rien en vitrine pour le moment.</div>';
+  else html+='<div class="ladder">'+r.annonces.map(a=>
+    '<div class="lr"><span class="who"><b>'+esc(a.carte.artist)+'</b> · '+esc(a.carte.title)+'</span>'
+    +'<span class="hint">'+esc(a.carte.press)+' · '+a.prix+' cr · '+a.offres+' offre(s)</span>'
+    +'<button class="btn ghost sm" data-ret="'+esc(a.id)+'">Retirer</button></div>'
+    +(a.detailOffres.length?'<div class="rule" style="margin:6px 0 14px">'+a.detailOffres.map(o=>
+        '<p style="margin:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+        +'<b>'+esc(o.par)+'</b> propose <b>'+esc(o.carte.artist)+' · '+esc(o.carte.title)+'</b> '
+        +'<span class="hint">'+esc(o.carte.press)+' · cote '+(o.carte.cote||0)+'</span>'
+        +'<button class="btn sm" data-oui="'+esc(a.id)+'|'+esc(o.id)+'">Accepter</button>'
+        +'<button class="btn ghost sm" data-non="'+esc(a.id)+'|'+esc(o.id)+'">Refuser</button></p>').join("")+'</div>':'')
+    ).join("")+'</div>';
+
+  html+='<h3 class="sect">Poser une carte</h3>'
+    +'<p class="notice">Un doublon part sans rien te coûter — tu gardes toujours le meilleur exemplaire. '
+    +'Tu peux aussi vendre une carte unique, mais elle quitte vraiment ta collection. '
+    +'Un <b>Test press</b> ne se vend jamais : il n\'en existe qu\'un.</p>'
+    +'<div class="grid" id="vgrid"></div>';
+  box.innerHTML=html;
+
+  box.querySelectorAll("[data-ret]").forEach(b=>b.onclick=async()=>{
+    await apiMarche("retirer",{id:b.dataset.ret}); renderMarche(); });
+  box.querySelectorAll("[data-oui]").forEach(b=>b.onclick=async()=>{
+    const [id,offre]=b.dataset.oui.split("|");
+    const r2=await apiMarche("repondre-offre",{id:id,offre:offre,oui:true});
+    if(r2&&r2.ok) flash("Échange conclu avec "+esc(r2.avec));
+    renderMarche(); });
+  box.querySelectorAll("[data-non]").forEach(b=>b.onclick=async()=>{
+    const [id,offre]=b.dataset.non.split("|");
+    await apiMarche("repondre-offre",{id:id,offre:offre,oui:false}); renderMarche(); });
+
+  const g=document.getElementById("vgrid");
+  if(!posables.length){ g.innerHTML='<div class="empty" style="grid-column:1/-1">Rien de reconnu à vendre pour l\'instant.</div>'; return; }
+  posables.slice().sort((a,b)=>(dbl.has(b.uid)-dbl.has(a.uid))||((b.cote||0)-(a.cote||0))).slice(0,60).forEach((c,i)=>{
+    const wrap=document.createElement("div"); wrap.className="offer";
+    wrap.appendChild(cardEl(c,{delay:i*15,cote:true}));
+    const act=document.createElement("div"); act.className="act";
+    act.innerHTML='<input type="number" min="1" step="1" value="'+(c.cote||10)+'" style="width:90px">'
+      +'<button>Poser</button>'
+      +'<span class="deal '+(dbl.has(c.uid)?"down":"up")+'">'+(dbl.has(c.uid)?"doublon":"exemplaire unique")+'</span>';
+    act.querySelector("button").onclick=async()=>{
+      const prix=Math.round(Number(act.querySelector("input").value));
+      if(!(prix>0)){ flash("Il faut un prix"); return; }
+      const r2=await apiMarche("poser",{uid:c.uid,prix:prix});
+      if(r2&&r2.ok) flash("En vitrine : "+esc(c.artist)+" · "+prix+" crédits");
+      renderMarche();
+    };
+    wrap.appendChild(act); g.appendChild(wrap);
+  });
+}
+
+/* ---------- fondre ---------- */
+function vueFondre(box){
+  const dbl=doublons();
+  if(!dbl.length){
+    box.innerHTML='<div class="empty">Aucun doublon à fondre.<br>'
+      +'<span style="font-size:13px">Un doublon est une carte reconnue dont tu possèdes déjà un autre exemplaire. '
+      +'Le meilleur des deux est toujours conservé.</span></div>'; return;
+  }
+  const tot=dbl.reduce((a,c)=>a+eclatsDe(c),0);
+  box.innerHTML='<div class="bar"><button class="btn" id="foldall">Tout fondre — '+tot+' éclats</button>'
+    +'<span class="hint">'+dbl.length+' doublon(s). Fondre ne rapporte jamais de crédits : '
+    +'les éclats ne servent qu\'à presser un titre que tu choisis.</span></div><div class="grid" id="dbl"></div>';
+  const g=document.getElementById("dbl");
+  dbl.slice().sort((a,b)=>eclatsDe(b)-eclatsDe(a)).forEach((c,i)=>{
+    const wrap=document.createElement("div"); wrap.className="offer";
+    wrap.appendChild(cardEl(c,{delay:i*20,cote:true}));
+    const act=document.createElement("div"); act.className="act";
+    act.innerHTML='<button class="sell">Fondre → '+eclatsDe(c)+' éclats</button>';
+    act.querySelector("button").onclick=async()=>{
+      const r=await apiJeu("fondre",{uids:[c.uid]});
+      if(r&&r.ok) flash("+"+r.eclats+" éclats");
+      renderMarche();
+    };
+    wrap.appendChild(act); g.appendChild(wrap);
+  });
+  document.getElementById("foldall").onclick=async()=>{
+    const r=await apiJeu("fondre",{uids:dbl.map(c=>c.uid)});
+    if(r&&r.ok) flash("+"+r.eclats+" éclats");
+    renderMarche();
+  };
+}
+
+/* ---------- presser ---------- */
+function vuePresser(box){
+  const q=norm(pressQ);
+  const res=q?CAT.filter(c=>norm(c.artist+" "+c.title).includes(q)).slice(0,24):[];
+  box.innerHTML='<div class="rule"><p style="margin:0"><b>Presser à la demande</b> — tu choisis le titre, '
+    +'le pressage reste tiré au sort. C\'est le seul moyen d\'aller chercher un morceau précis sans attendre '
+    +'qu\'il sorte d\'un carton, et le seul usage des éclats.</p></div>'
+    +'<div class="bar"><input id="pq" placeholder="Chercher un titre ou un artiste…" value="'+esc(pressQ)+'" style="flex:1;min-width:200px">'
+    +'<span class="hint">Tu as <b style="color:var(--accent)">'+S.eclats+' éclats</b></span></div>'
+    +'<div class="grid" id="prs"></div>';
+  const inp=document.getElementById("pq");
+  inp.oninput=()=>{ pressQ=inp.value; clearTimeout(inp._t); inp._t=setTimeout(()=>renderMarche(),300); };
+  const g=document.getElementById("prs");
+  if(!q){ g.innerHTML='<div class="empty" style="grid-column:1/-1">Cherche un morceau du catalogue.</div>'; return; }
+  if(!res.length){ g.innerHTML='<div class="empty" style="grid-column:1/-1">Rien de ce nom dans la bibliothèque.</div>'; return; }
+  res.forEach((src,i)=>{
+    const t=tierOf(src.pop), cout=ECLAT_PRESSAGE[t];
+    const vue=Object.assign({},src,{rarity:t,press:"Standard",known:true,uid:"p-"+src.id});
+    const wrap=document.createElement("div"); wrap.className="offer";
+    wrap.appendChild(cardEl(vue,{delay:i*15}));
+    const act=document.createElement("div"); act.className="act";
+    act.innerHTML='<button'+(S.eclats<cout?' disabled':'')+'>Presser — '+cout+' éclats</button>'
+      +'<span class="deal down">pressage tiré au sort</span>';
+    act.querySelector("button").onclick=async()=>{
+      const r=await apiJeu("presser",{id:src.id});
+      if(r&&r.ok) flash("Pressée en "+r.carte.press);
+      renderMarche();
+    };
+    wrap.appendChild(act); g.appendChild(wrap);
+  });
 }
 
 /* ============ RÈGLES : tout le jeu, en une page ============ */
@@ -1369,8 +1485,8 @@ function renderRegles(){
   '<div class="resume"><p><b>En une minute.</b> Tu ouvres des cartons de cinq disques. Chaque disque sort '
   +'pochette blanche : à toi de dire qui joue. Ce que tu reconnais entre dans ta collection et devient jouable ; '
   +'ce que tu rates y reste face cachée jusqu\'à ce que tu le trouves. Avec ce que tu as reconnu, tu composes '
-  +'des sets de cinq morceaux pour affronter d\'autres joueurs. Ce que tu ne veux pas, tu le vends ; ce qui te '
-  +'manque, tu l\'achètes. Et le classement ne mesure qu\'une chose : ce que tu reconnais sans aide.</p></div>'
+  +'des sets de cinq morceaux pour affronter d\'autres joueurs. Ce que tu as en double, tu le vends ou tu l\'échanges '
+  +'avec d\'autres joueurs ; ce qui te manque, tu le leur achètes. Et le classement ne mesure qu\'une chose : ce que tu reconnais sans aide.</p></div>'
 
   +'<div class="toc">'+toc.map(t=>'<a href="#'+t[0]+'">'+t[1]+'</a>').join("")+'</div>'
 
@@ -1424,9 +1540,9 @@ function renderRegles(){
   +'écouteurs, jamais un passage obligé — le bouton SON en haut le coupe partout, et il disparaît alors de la '
   +'liste au lieu de rester grisé. Un jeu qui exigerait d\'écouter exclurait les sourds, les gens dans le métro '
   +'et tous ceux qui jouent d\'une main.</p>'
-  +'<p>Les stats visibles sur la carte sont <b>toujours gratuites</b> : popularité (ou nombre d\'auditeurs si une '
-  +'clé Last.fm est activée), durée, année, et le badge <b>#N</b> qui donne le rang du titre chez son artiste. '
-  +'Un titre en #1 est un single évident, un #18 est un fond d\'album.</p></section>'
+  +'<p>Les stats visibles sur la carte sont <b>toujours gratuites</b> : la popularité du titre — ou le nombre de '
+  +'fans de l\'artiste quand le compteur a été relevé —, la durée, l\'année, et le badge <b>#N</b> qui donne le rang '
+  +'du titre chez son artiste. Un titre en #1 est un single évident, un #18 est un fond d\'album.</p></section>'
 
   /* 4 */
   +'<section class="rsec" id="r4"><h3><em>04</em>Reconnue, ou face cachée</h3>'
@@ -1472,31 +1588,30 @@ function renderRegles(){
    .map(r=>'<div class="sc"><span class="nm">'+r[0]+'</span><span class="dsc">'+r[1]+' × '+r[2]+'</span>'
     +'<span class="odds">'+r[3]+'</span><span class="val" style="color:var(--accent)">'+Math.round(r[1]*r[2])+'</span></div>').join("")
   +'</div>'
-  +'<p><b>On ne revend plus rien contre des crédits.</b> C\'était une imprimante à billets : le jeu rachetait à un '
-  +'prix qu\'il calculait lui-même, donc chaque carton rapportait près de dix fois son coût. À la place, un doublon '
-  +'se <b>fond en Éclats</b> (la moitié de sa cote, le meilleur exemplaire est toujours gardé), et les Éclats servent '
-  +'à une seule chose : <b>presser</b> un titre que tu choisis dans tout le catalogue. C\'est la seule façon d\'aller '
-  +'chercher un morceau précis au lieu de l\'attendre — le pressage, lui, reste tiré au sort.</p>'
-  +'<p>Acheter et presser <b>sortent</b> des crédits du jeu ; plus rien n\'en fait rentrer par le marché. '
-  +'Le premier renouvellement des offres de la journée est offert, les suivants coûtent 20 crédits.</p>'
-  +'<p style="display:none">Au marché, <b>vendre</b> rapporte la cote moins <b>8 % de taxe de criée</b>. Ce n\'est pas un détail de '
-  +'confort : c\'est le principal mécanisme qui retire des crédits du jeu. Sans lui, l\'inflation rend les cartons '
-  +'gratuits en quelques mois.</p>'
-  +'<p><b>Acheter</b> se fait parmi douze offres, à un prix qui tourne autour de la cote — l\'écart en pourcentage '
-  +'est affiché, et repérer une offre à −20 % fait partie du jeu.</p>'
-  +'<ul><li>Une carte achetée arrive <b>déjà reconnue</b>, c\'est tout son intérêt.</li>'
+  +'<p><b>Le marché appartient aux joueurs.</b> Le site ne vend rien et n\'achète rien : chaque carte en vitrine '
+  +'est sortie de l\'étagère de quelqu\'un. Tu poses un doublon au prix que tu veux, un autre joueur l\'achète, '
+  +'et les crédits passent de lui à toi. La cote sert de repère — l\'écart entre ton prix et elle est affiché '
+  +'à côté de l\'annonce — mais c\'est toi qui fixes le prix.</p>'
+  +'<p><b>Ou bien on échange.</b> Sur n\'importe quelle annonce, tu peux proposer une de tes cartes au lieu de payer. '
+  +'Le vendeur accepte ou refuse. Tant qu\'il n\'a pas répondu, la carte que tu as proposée quitte ton étagère : '
+  +'elle t\'est rendue s\'il refuse ou s\'il retire son annonce.</p>'
+  +'<p><b>Et si personne n\'en veut, il reste les Éclats.</b> Fondre un doublon donne la moitié de sa cote en Éclats — '
+  +'le meilleur exemplaire est toujours conservé — et les Éclats ne servent qu\'à une chose : <b>presser</b> un titre '
+  +'que tu choisis toi-même dans tout le catalogue. C\'est la seule façon d\'aller chercher un morceau précis au lieu '
+  +'de l\'attendre. Le pressage, lui, reste tiré au sort.</p>'
+  +'<ul><li>Une carte achetée ou échangée arrive <b>déjà reconnue</b> : c\'est tout son intérêt.</li>'
   +'<li>Mais elle <b>ne compte pas</b> dans ton taux d\'identification. On achète une collection, jamais un classement.</li>'
-  +'<li>Une carte face cachée ne se vend pas : il faut savoir ce qu\'on vend.</li>'
-  +'<li>Les <b>Test Press</b> ne se vendent jamais. Un exemplaire unique qui devient négociable devient une monnaie, '
-  +'et le jeu devient une bourse.</li></ul></section>'
+  +'<li>Une carte encore face cachée ne se vend pas : il faut savoir ce qu\'on vend.</li>'
+  +'<li>Les <b>Test press</b> ne se vendent ni ne s\'échangent. Il n\'en existe qu\'un.</li>'
+  +'<li>Douze annonces en cours au maximum, pour que le marché reste lisible.</li></ul></section>'
 
   /* 7 */
   +'<section class="rsec" id="r7"><h3><em>07</em>Le Set</h3>'
   +'<p class="lede">Cinq morceaux, dans l\'ordre que tu choisis, et <b>cinq artistes différents</b>. On ne compare pas les cartes une à une — on note la sélection entière.</p>'
-  +'<p>Trois règles ont été ajoutées pour qu\'il y ait vraiment un choix à faire : <b>un seul titre par artiste</b> '
-  +'(c\'est aussi une règle de DJ), <b>le bonus du même genre s\'épuise</b> d\'une transition à l\'autre (60, 52, 40, 28), '
-  +'et le <b>pressage de la carte de clôture</b> ajoute un petit bonus. La contrainte, elle, vient du jour et non de '
-  +'ton bac : on ne peut plus la désactiver en vidant sa collection.</p>'
+  +'<p>Trois règles pour qu\'il y ait vraiment un choix à faire : <b>un seul titre par artiste</b> — c\'est aussi une '
+  +'règle de DJ —, <b>le bonus du même genre s\'épuise</b> d\'une transition à l\'autre (60, 52, 40, 28), et le '
+  +'<b>pressage de la carte de clôture</b> ajoute un petit bonus. La contrainte du jour est la même pour tout le monde '
+  +'et change à minuit.</p>'
   +'<div class="scale"><div class="sc head"><span>Critère</span><span>Ce qui est noté</span><span class="odds">Poids</span><span class="val">Max</span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--accent)">Montée</span>'
     +'<span class="dsc">La popularité doit grimper du premier au dernier morceau — et l\'amplitude compte plus que la simple progression. Passer de 5 à 20 n\'a fait monter personne.</span>'
@@ -1507,39 +1622,44 @@ function renderRegles(){
   +'<div class="sc"><span class="nm" style="color:var(--accent)">Pépites</span>'
     +'<span class="dsc">La popularité moyenne inversée : plus les titres sont peu écoutés, plus la note monte.</span>'
     +'<span class="odds">25 %</span><span class="val">100</span></div></div>'
-  +'<p><b>Le piège est volontaire :</b> une pépite est par définition peu populaire, donc elle plombe la montée. '
+  +'<p><b>Le piège :</b> une pépite est par définition peu populaire, donc elle plombe la montée. '
   +'On ne peut pas maximiser les trois. Un set de pures pépites marque environ 76, un set de purs tubes 58, '
   +'et le bon compromis passe les 85 — c\'est l\'arbitrage qui fait le mode.</p>'
-  +'<p><b>La contrainte</b> est tirée à chaque partie (« rien après 1999 », « aucun Tube », « moins de 4 minutes »…) '
-  +'et filtre ton bac. Elle t\'empêche de rejouer éternellement le même set gagnant, et elle fait que l\'étendue de '
-  +'ta collection compte autant que sa valeur.</p>'
+  +'<p><b>La contrainte du jour</b> (« rien après 1999 », « aucun Tube », « moins de 4 minutes »…) filtre ton bac, et '
+  +'elle est la même pour tous les joueurs pendant vingt-quatre heures. Elle t\'empêche de rejouer éternellement le '
+  +'même set gagnant, et elle fait que l\'étendue de ta collection compte autant que sa valeur.</p>'
   +'<p><b>La note de l\'adversaire est affichée avant que tu composes.</b> Tu sais ce que tu dois battre, la courbe '
   +'de popularité se dessine au fur et à mesure, et chaque transition t\'explique sa note en français. '
-  +'Gain : 60 crédits si tu gagnes, 25 en cas d\'égalité, 20 si tu perds.</p></section>'
+  +'Gain : <b>40</b> crédits si tu gagnes, <b>20</b> en cas d\'égalité, <b>12</b> si tu perds — pour les cinq premiers '
+  +'sets de la journée. Au-delà, on joue pour le classement.</p></section>'
 
   /* 8 */
   +'<section class="rsec" id="r8"><h3><em>08</em>Les crédits</h3>'
-  +'<p class="lede">Une seule monnaie dans le prototype, et elle se gagne uniquement en jouant.</p>'
+  +'<p class="lede">Une seule monnaie, et elle se gagne en jouant ou en vendant à un autre joueur. Jamais en payant.</p>'
   +'<div class="scale"><div class="sc head"><span>Tu gagnes</span><span>Quand</span><span class="odds">Montant</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Reconnaissance</span><span class="dsc">Titre jamais possédé. Un <b>doublon ne rapporte que 3</b>.</span><span class="odds">4 à 26</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Reconnaissance</span><span class="dsc">Un titre que tu n\'avais pas. Un <b>doublon ne rapporte que 3</b>.</span><span class="odds">4 à 26</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Set gagné</span><span class="dsc">Plafonné à <b>5 sets récompensés par jour</b>.</span><span class="odds">40</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set perdu</span><span class="dsc">Consolation — on ne repart jamais les mains vides.</span><span class="odds">12</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set nul, set perdu</span><span class="dsc">On ne repart jamais les mains vides.</span><span class="odds">20 · 12</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Vente au marché</span><span class="dsc">Le prix que tu as demandé, payé par un autre joueur.</span><span class="odds">ton prix</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Fondre un doublon</span><span class="dsc">Donne des <b>Éclats</b>, jamais des crédits.</span><span class="odds">cote / 2</span><span class="val"></span></div></div>'
   +'<div class="scale"><div class="sc head"><span>Tu dépenses</span><span>Pour quoi</span><span class="odds">Montant</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton standard</span><span class="dsc">Cinq disques au hasard.</span><span class="odds">100</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton de scène</span><span class="dsc">Cinq disques d\'un seul genre.</span><span class="odds">220</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Révélateurs</span><span class="dsc">Retirés de la valeur de la carte. Le puits invisible : on ne paie pas, on renonce à gagner.</span><span class="odds">2 à 7</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Achat au marché</span><span class="dsc">Autour de la cote, selon le vendeur.</span><span class="odds">variable</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Presser un titre</span><span class="dsc">Le puits terminal : 800 à 14 000 <b>Éclats</b> selon le palier.</span><span class="odds">éclats</span><span class="val"></span></div></div>'
-  +'<p>Un carton coûte 100 et rapporte au mieux 130 quand tout est neuf — donc à peine rentable au début, et '
-  +'franchement déficitaire une fois la collection installée, puisque les doublons ne paient que 3. '
-  +'<b>C\'est la forme correcte : positif en collection, négatif en monnaie.</b></p>'
-  +'<p>Dans la version complète, une <b>seconde monnaie achetée avec de l\'argent réel</b> servira uniquement au '
-  +'cosmétique — habillages de pressage, thèmes d\'étagère, bannières de crew. Elle ne se convertit jamais en '
-  +'crédits et n\'a aucun accès au marché. C\'est la règle qui protège à la fois l\'équité entre joueurs et la '
-  +'légalité du marché.</p>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Révélateurs</span><span class="dsc">Retirés de la valeur de la carte : on ne paie pas, on renonce à gagner.</span><span class="odds">2 à 7</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Achat au marché</span><span class="dsc">Le prix demandé par le joueur qui vend.</span><span class="odds">variable</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Presser un titre</span><span class="dsc">De 800 à 14 000 <b>Éclats</b> selon le palier.</span><span class="odds">éclats</span><span class="val"></span></div></div>'
+  +'<p>Le carton du jour est offert. Un carton payant coûte 100 et rapporte au mieux 130 quand la collection est '
+  +'neuve : à peine rentable au début, franchement déficitaire ensuite, puisque les doublons ne paient que 3. '
+  +'C\'est voulu — les crédits doivent servir à jouer, pas à s\'accumuler.</p>'
+  +'<p><b>Le jeu est gratuit et le restera.</b> La boutique ne vend que du décor : des bannières et des couleurs '
+  +'de profil, payées en <b>jetons</b>. Les jetons ne se transforment jamais en crédits, n\'ouvrent aucun carton, '
+  +'n\'entrent pas au marché et ne pèsent rien au classement — qui note ton oreille, pas ton argent. '
+  +'Un joueur qui n\'achète jamais rien ne rate aucune carte, aucun mode, aucune place.</p>'
+  +'<p>C\'est aussi pour ça qu\'il n\'y a <b>rien d\'aléatoire à vendre</b> : pas de carton payant, pas de pochette '
+  +'surprise contre des euros. On sait exactement ce qu\'on achète avant de payer.</p>'
   +(S.shelf.length?'<p style="color:var(--ink-3)">Chez toi : <b style="color:var(--accent)">'+S.credits
-    +'</b> crédits, '+S.achetes+' carte(s) achetée(s), '+S.vendus+' vendue(s).</p>':'')
+    +'</b> crédits, <b style="color:var(--accent)">'+S.eclats+'</b> éclats, '+(S.achetes||0)+' carte(s) achetée(s), '
+    +(S.vendus||0)+' vendue(s).</p>':'')
   +'</section>'
 
   /* 9 */
@@ -1567,15 +1687,15 @@ function renderRegles(){
   +'<li><b>Le Clash</b> — saison de sept jours, un thème imposé, <b>trois sets classés par membre au maximum</b>, '
   +'et seuls les cinq meilleurs sets du crew comptent. Huit bons joueurs battent vingt joueurs moyens.</li></ul></section>'
 
-  /* limites honnêtes */
-  +'<div class="todo-list"><h4>Ce qui n\'est pas encore dans ce prototype</h4>'
-  +'<p style="margin:0;color:var(--ink-2);font-size:14px;max-width:70ch">Il n\'y a <b style="color:var(--ink)">pas de compte</b> : '
-  +'tout est stocké dans ce navigateur, et Safari efface le stockage d\'un site non visité pendant sept jours. '
-  +'C\'est le prochain chantier et il bloque une ouverture au public. Les crews, le classement et les autres '
-  +'joueurs sont <b style="color:var(--ink)">simulés</b> : il n\'y a pas encore de serveur, donc pas de comptes, '
-  +'pas d\'échange entre joueurs, pas de vraies enchères. Le marché tourne contre douze vendeurs générés. '
-  +'Tes chiffres à toi — collection, taux d\'identification, cotes, meilleur set — sont eux bien réels, '
-  +'calculés sur ta partie. Le tempo (BPM) manque aussi : il viendra de l\'API Deezer, non appelée ici.</p></div>';
+  /* ce qui manque encore, dit au joueur, pas au développeur */
+  +'<div class="todo-list"><h4>Ce qui n\'existe pas encore</h4>'
+  +'<p style="margin:0;color:var(--ink-2);font-size:14px;max-width:70ch">Ton compte n\'a <b style="color:var(--ink)">pas '
+  +'besoin d\'adresse e-mail</b> et n\'en demandera jamais pour jouer. Mais sans adresse, personne ne peut te rendre '
+  +'un mot de passe perdu : si tu veux un filet, pose-en une dans <b style="color:var(--ink)">Réglages</b> — elle ne '
+  +'servira qu\'à ça. Le <b style="color:var(--ink)">Clash de crew</b> '
+  +'et les paliers de bac collectif décrits plus haut sont en construction : les crews existent, leur saison pas '
+  +'encore. Et le catalogue est encore jeune — s\'il manque un morceau que tu connais, l\'onglet '
+  +'<b style="color:var(--ink)">Communauté</b> est là pour ça.</p></div>';
 
   /* défilement doux depuis le sommaire */
   document.querySelectorAll("#reglesbox .toc a").forEach(a=>{
@@ -1635,70 +1755,38 @@ function noter(s){
   const m=noteMontee(s),f=noteFil(s),p=notePepites(s),b=bonusPress(s);
   return {m,f,p,b,total:Math.min(100,Math.round(m*0.40+f*0.35+p*0.25)+b)};
 }
-function botSet(cont){
-  const pool=[]; let g=0;
-  while(pool.length<5&&g++<600){ const c=newCard(); c.known=true;
-    if(cont.f(c)&&!pool.some(x=>x.id===c.id)&&!pool.some(x=>x.artist===c.artist)) pool.push(c); }
-  /* Le repli respecte la contrainte : l'adversaire ne joue jamais ce qui t'est interdit. */
-  while(pool.length<5){ const c=newCard(); c.known=true;
-    if(cont.f(c)&&!pool.some(x=>x.id===c.id)) pool.push(c); }
-  pool.sort((a,b)=>a.pop-b.pop);
-  if(Math.random()<0.45){ const i=1+Math.floor(Math.random()*3); [pool[i],pool[i+1]]=[pool[i+1],pool[i]]; }
-  return pool;
-}
-function contrainteDuJour(){
-  const r=rngDuJour("set");
-  return CONTRAINTES[Math.floor(r()*CONTRAINTES.length)];
-}
-function startSet(){
-  majJournee();
-  /* La contrainte vient du jour, pas du bac : on ne peut plus la désactiver
-     en vendant sa collection. */
-  const cont=contrainteDuJour();
-  const mine=S.shelf.filter(c=>c.known), elig=mine.filter(cont.f);
-  const artistes=new Set(elig.map(c=>c.artist)).size;
-  if(elig.length<5||artistes<5){
-    document.getElementById("setbox").innerHTML=
-      '<div class="epreuve"><span class="lbl">Contrainte du jour · la même pour tout le monde</span><p>'+cont.l+'</p></div>'
-      +'<div class="empty">Il te faut <b>5 cartes reconnues d\'artistes différents</b> qui respectent la contrainte du jour.<br>'
-      +'<span style="font-size:13px">Tu en as '+elig.length+' pour '+artistes+' artiste(s). '
-      +'La contrainte ne dépend plus de ton bac — c\'est ce qui rend une collection large utile.</span></div>';
+/* L'adversaire, la contrainte et la note sont au serveur : cette page ne fait
+   que composer et montrer. Le calcul local qui suit ne sert qu'à l'aperçu en
+   direct pendant qu'on pose les cartes — c'est le serveur qui tranche. */
+async function startSet(){
+  const box=document.getElementById("setbox");
+  if(!COMPTE){
+    box.innerHTML='<div class="empty">Le Set se joue avec un compte : la contrainte, l\'adversaire et la note '
+      +'viennent du serveur.<br><span style="font-size:13px">Onglet Profil pour en créer un.</span></div>';
     return;
   }
-  const adv=botSet(cont);
-  SET={cont,elig,slots:[null,null,null,null,null],adv,advNote:noter(adv)};
+  box.innerHTML='<p class="notice">Lecture de la contrainte du jour…</p>';
+  const r=await apiJeu("set");
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Le Set est indisponible.")+'</div>'; return; }
+  const elig=r.eligibles||[];
+  const artistes=new Set(elig.map(c=>c.artist)).size;
+  if(elig.length<5||artistes<5){
+    box.innerHTML='<div class="epreuve"><span class="lbl">Contrainte du jour · la même pour tout le monde</span><p>'+esc(r.contrainte.l)+'</p></div>'
+      +'<div class="empty">Il te faut <b>5 cartes reconnues d\'artistes différents</b> qui respectent la contrainte du jour.<br>'
+      +'<span style="font-size:13px">Tu en as '+elig.length+' pour '+artistes+' artiste(s). '
+      +'La contrainte ne dépend pas de ton bac — c\'est ce qui rend une collection large utile.</span></div>';
+    return;
+  }
+  SET={cont:r.contrainte, elig:elig, slots:[null,null,null,null,null],
+       advTotal:r.adverseNote==null?"—":r.adverseNote, joue:r.joue, cap:r.cap};
   renderSet();
 }
-function courbeSVG(slots){
-  const W=100,H=74,pad=10;
-  const pts=slots.map((c,i)=>({x:pad+i*((W-2*pad)/4), y:c?H-8-((c.pop/100)*(H-24)):null, c}));
-  const line=pts.filter(p=>p.y!==null);
-  let path="";
-  if(line.length>1) path='<polyline fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round" points="'
-    +line.map(p=>p.x.toFixed(1)+","+p.y.toFixed(1)).join(" ")+'"/>';
-  const dots=pts.map(p=>p.y===null
-    ?'<circle cx="'+p.x.toFixed(1)+'" cy="'+(H-16)+'" r="1.6" fill="var(--line-strong)"/>'
-    :'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="2.6" fill="var(--accent)"/>'
-      +'<text x="'+p.x.toFixed(1)+'" y="'+(p.y-5).toFixed(1)+'" text-anchor="middle" font-size="6" '
-      +'font-family="JetBrains Mono, monospace" fill="var(--ink-2)">'+p.c.pop+'</text>').join("");
-  return '<svg class="curve" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" aria-hidden="true">'
-    +'<line x1="0" y1="'+(H-8)+'" x2="'+W+'" y2="'+(H-8)+'" stroke="var(--line)" stroke-width="0.6"/>'
-    +path+dots
-    +'<text x="2" y="10" font-size="5.5" font-family="JetBrains Mono, monospace" fill="var(--ink-3)">POPULARITÉ · la courbe doit monter</text></svg>';
-}
-function courbesHTML(titre,n,big){
-  const rows=[["Montée · 40 %",n.m],["Enchaînements · 35 %",n.f],["Pépites · 25 %",n.p]];
-  return '<div class="cb'+(big?" big":"")+'"><div class="cbh"><span>'+titre+'</span><b>'+n.total+'</b></div>'
-    +rows.map(r=>'<div class="cbr"><span>'+r[0]+'</span><span class="pbar"><i style="width:'+r[1]+'%"></i></span><b>'+r[1]+'</b></div>').join("")
-    +'<div class="cbr"><span>Pressage · bonus</span><span class="pbar"><i style="width:'+(n.b/12*100)+'%"></i></span><b>+'+n.b+'</b></div>'
-    +'</div>';
-}
-function compact(){ const k=SET.slots.filter(Boolean); SET.slots=[0,1,2,3,4].map(i=>k[i]||null); }
 function renderSet(){
   const chosen=SET.slots.filter(Boolean);
   const live=chosen.length>=5?noter(chosen):null;
-  const diff=live?live.total-SET.advNote.total:null;
-  const restants=SET_CAP-S.setsToday;
+  const advT=typeof SET.advTotal==="number"?SET.advTotal:null;
+  const diff=(live&&advT!=null)?live.total-advT:null;
+  const restants=SET.cap-SET.joue;
   document.getElementById("setbox").innerHTML=
     '<div class="rule"><p style="margin:0"><b>Cinq morceaux, dans l\'ordre, et cinq artistes différents.</b> '
       +'On note la sélection entière : <b>montée</b> (la popularité doit grimper, franchement), '
@@ -1709,9 +1797,9 @@ function renderSet(){
     +'<div class="epreuve"><span class="lbl">Contrainte du jour · la même pour tout le monde, jusqu\'à minuit</span><p>'+SET.cont.l
       +' <span style="color:var(--ink-3)">· '+SET.elig.length+' cartes éligibles · '
       +(restants>0?restants+' set(s) récompensé(s) restant(s) aujourd\'hui':'plafond du jour atteint, on joue pour le classement')+'</span></p></div>'
-    +'<div class="target"><span class="lab">Note à battre</span><span class="big theirs">'+SET.advNote.total+'</span>'
+    +'<div class="target"><span class="lab">Note à battre</span><span class="big theirs">'+(advT==null?"—":advT)+'</span>'
       +'<span class="lab">Ton set</span><span class="big mine">'+(live?live.total:"—")+'</span>'
-      +'<span class="gap">'+(live?(diff>0?"Tu mènes de "+diff:diff===0?"À égalité":"Il te manque "+(-diff))
+      +'<span class="gap">'+(live?(diff==null?"Note calculée au lancement":diff>0?"Tu mènes de "+diff:diff===0?"À égalité":"Il te manque "+(-diff))
         :"La note s\'affiche quand les cinq cartes sont posées")+'</span></div>'
     +courbeSVG(SET.slots)
     +'<div class="slots" id="slots"></div>'
@@ -1758,17 +1846,13 @@ function renderSet(){
   const g=document.getElementById("go2");
   if(g&&!g.disabled) g.onclick=jouerSet;
 }
-function jouerSet(){
-  majJournee();
-  const mine=SET.slots.filter(Boolean), me=noter(mine), them=SET.advNote;
-  const won=me.total>them.total, tie=me.total===them.total;
-  const paye=S.setsToday<SET_CAP;
-  const gain=paye?(won?GAIN_WIN:(tie?GAIN_TIE:GAIN_LOSS)):0;
-  track("set_joue",{note:me.total,adversaire:them.total,gagne:won,contrainte:SET.cont.id});
-  S.credits+=gain; S.sets++; if(won)S.setsWon++;
-  if(paye) S.setsToday++;
-  if(me.total>S.bestSet)S.bestSet=me.total;
-  save(); sync();
+async function jouerSet(){
+  const mine=SET.slots.filter(Boolean);
+  const g2=document.getElementById("go2"); if(g2) g2.disabled=true;
+  const r=await apiJeu("set-jouer",{uids:mine.map(c=>c.uid)});
+  if(!r||!r.ok){ if(g2) g2.disabled=false; return; }
+  const me=r.note, them=r.adverseNote, won=r.won, tie=r.tie, gain=r.gain, paye=r.paye;
+  const adv=(r.adverse||[]).map(c=>Object.assign({},c,{known:true,uid:"adv-"+c.id}));
   const runs=transRuns(mine), lignes=[];
   let rc=0;
   for(let i=0;i<mine.length-1;i++){
@@ -1781,8 +1865,8 @@ function jouerSet(){
     +'<div class="epreuve" style="border-color:'+(won?"var(--ok)":tie?"var(--line-strong)":"var(--bad)")+';background:none">'
       +'<span class="lbl" style="color:'+(won?"var(--ok)":tie?"var(--ink-3)":"var(--bad)")+'">'
       +(won?"Set remporté":tie?"Égalité":"Set perdu")+'</span><p>'+me.total+' contre '+them.total+'. '
-      +(paye?'+'+gain+' crédits.':'<b>Plafond de '+SET_CAP+' sets récompensés atteint pour aujourd\'hui</b> — celui-ci compte pour le classement, pas pour la bourse.')
-      +' <span style="color:var(--ink-3)">Contrainte : '+SET.cont.l+'</span></p></div>'
+      +(paye?'+'+gain+' crédits.':'<b>Plafond de '+SET.cap+' sets récompensés atteint pour aujourd\'hui</b> — celui-ci compte pour le classement, pas pour la bourse.')
+      +' <span style="color:var(--ink-3)">Contrainte : '+esc(SET.cont.l)+'</span></p></div>'
     +'<div class="vsgrid">'+courbesHTML("Toi",me,true)+courbesHTML("Adversaire",them,true)+'</div>'
     +'<h3 class="sect">Ton set, dans l\'ordre</h3>'+courbeSVG(mine)+'<div class="grid" id="finalset"></div>'
     +'<div class="log">'+lignes.map(l=>'<div class="logline '+l.k+'"><span>'+l.n+'</span><b>'+esc(l.t)+'</b></div>').join("")+'</div>'
@@ -1793,44 +1877,35 @@ function jouerSet(){
   document.getElementById("shimg").onclick=()=>partagerSet(mine,me.total,SET.cont.l);
   document.getElementById("shlien").onclick=()=>copierLien(mine,me.total);
   const fs=document.getElementById("finalset"); mine.forEach((c,i)=>fs.appendChild(cardEl(c,{delay:i*70})));
-  const as=document.getElementById("advset"); SET.adv.forEach((c,i)=>as.appendChild(cardEl(c,{delay:i*70})));
+  const as=document.getElementById("advset"); adv.forEach((c,i)=>as.appendChild(cardEl(c,{delay:i*70})));
   document.getElementById("again").onclick=startSet;
 }
 
 /* ============ PROFIL · CREW · CLASSEMENT ============ */
 /* Le taux se lit dans le journal des tentatives, pas dans l'étagère :
    un échec y reste inscrit même si la carte est fondue ou n'est jamais trouvée. */
-function tauxSec(){
-  if(!S.idLog.length) return null;
-  const k=S.idLog.slice(-200);
-  return Math.round(k.filter(Boolean).length/k.length*100);
-}
+/* Le taux est calculé par le serveur, sur le journal qu'il tient lui-même :
+   fondre une carte ou la vendre n'efface plus un échec. */
+function tauxSec(){ return (S.taux==null?null:S.taux); }
 function rangDe(t){ let r=RANGS[0]; for(const x of RANGS) if(t>=x.min) r=x; return r.n; }
-function pseudo(){ return S.pseudo||"Toi"; }
-const AUTRES=[
-  {n:"vinylkid",c:"Les Bacs du 93",t:91,col:1240},{n:"marlo.wav",c:"Sillon Sud",t:87,col:2110},
-  {n:"crate_anna",c:"Les Bacs du 93",t:84,col:640},{n:"dj_mouss",c:"Face B Club",t:78,col:3050},
-  {n:"lena93",c:"Les Bacs du 93",t:74,col:410},{n:"prod.karim",c:"Sillon Sud",t:69,col:1870},
-  {n:"soraya_k",c:"Les Bacs du 93",t:61,col:520},{n:"tonton.jazz",c:"Face B Club",t:57,col:980},
-  {n:"nabil.mp3",c:"Les Bacs du 93",t:48,col:1330},{n:"clarisse",c:"Sillon Sud",t:42,col:290},
-  {n:"yaya_2000",c:"Face B Club",t:36,col:2450},{n:"bruno.b",c:"Les Bacs du 93",t:29,col:770},
-  {n:"sam_ette",c:"Sillon Sud",t:22,col:160},{n:"kevin.dl",c:"Face B Club",t:14,col:4120}];
+function pseudo(){ return (COMPTE&&COMPTE.pseudo)||"Toi"; }
 function renderProfil(){
   const known=S.shelf.filter(c=>c.known), t=tauxSec(), box=document.getElementById("profilbox");
   if(!known.length){ box.innerHTML='<div class="empty">Ton profil se remplit quand tu reconnais des cartes.</div>'; return; }
   const sec=S.shelf.filter(c=>c.known&&!c.achete&&c.reveals===0).length;
   const propres=S.shelf.filter(c=>c.known&&!c.achete).length;
-  const valeur=known.reduce((a,c)=>a+coteDe(c),0);
+  const valeur=known.reduce((a,c)=>a+(c.cote||0),0);
   const counts={}; S.shelf.forEach(c=>counts[c.rarity]=(counts[c.rarity]||0)+1);
-  box.innerHTML='<div class="hero"><div><div class="pseudo"><input id="pseudoin" value="'+esc(pseudo())+'" maxlength="20" aria-label="Ton pseudo"></div>'
-    +'<p style="color:var(--ink-3);margin:6px 0 0;font-size:14px">Membre de <b style="color:var(--ink)">Les Bacs du 93</b> · scène : Rap FR</p></div>'
+  box.innerHTML='<div class="hero"><div><div class="pseudo">'+esc(pseudo())+'</div>'
+    +'<p style="color:var(--ink-3);margin:6px 0 0;font-size:14px">'
+      +(CREW?'Crew : <b style="color:var(--ink)">'+esc(CREW.nom)+'</b>':'Sans crew pour le moment')+'</p></div>'
     +'<span class="rankbadge">'+rangDe(t===null?0:t)+'</span></div>'
     +'<div class="kpis">'
       +'<div class="kpi"><span>Identification à sec</span><b>'+(t===null?"—":t)+'<em>%</em></b>'
         +'<p>'+sec+' sur '+propres+' trouvées sans révélateur. Les cartes achetées ne comptent pas. <b style="color:var(--ink)">C\'est le seul chiffre qui classe.</b></p></div>'
       +'<div class="kpi"><span>Collection</span><b>'+S.shelf.length+'</b><p>'+known.length+' reconnues, '
         +(S.shelf.length-known.length)+' face cachée.</p></div>'
-      +'<div class="kpi"><span>Valeur du bac</span><b>'+valeur+'</b><p>Somme des cotes. '+(S.fondus||0)+' fondue(s), '+(S.achetes||0)+' achetée(s).</p></div>'
+      +'<div class="kpi"><span>Valeur du bac</span><b>'+valeur+'</b><p>Somme des cotes. '+(S.fondus||0)+' fondue(s), '+(S.achetes||0)+' achetée(s), '+(S.vendus||0)+' vendue(s).</p></div>'
       +'<div class="kpi"><span>Meilleur set</span><b>'+(S.bestSet||"—")+'</b>'
         +'<p>'+(S.sets?S.setsWon+" gagné(s) sur "+S.sets:"Aucun set joué.")+'</p></div></div>'
     +'<h3 class="sect">Répartition de l\'étagère</h3><div class="chips">'
@@ -1842,85 +1917,26 @@ function renderProfil(){
     el.addEventListener("click",()=>{unlock();snip(c,7000,0);});
     rec.appendChild(el);
   });
-  const inp=document.getElementById("pseudoin");
-  inp.onchange=()=>{ S.pseudo=inp.value.trim().slice(0,20); save(); };
 }
-function renderCrew(){
-  const known=S.shelf.filter(c=>c.known);
-  const membres=AUTRES.filter(a=>a.c==="Les Bacs du 93");
-  const bac=Math.min(500,268+Math.min(known.length,120)), contrat=Math.min(500,317+known.length);
-  document.getElementById("crewbox").innerHTML=
-    '<div class="apercu"><b>Aperçu de conception.</b> Les crews n\'existent pas encore : il n\'y a pas de serveur, '
-    +'donc pas de comptes ni d\'autres joueurs. Les membres et les scores ci-dessous sont inventés. '
-    +'Ce qui vient de ta partie, c\'est ton apport au bac et ta ligne dans le tableau.</div>'
-    +'<div class="hero"><div><h3 class="disp" style="font-size:clamp(24px,4vw,32px);font-weight:800">Les Bacs du 93</h3>'
-    +'<p style="color:var(--ink-3);margin:6px 0 0;font-size:14px">Scène : <b style="color:var(--ink)">Rap FR</b> · '+(membres.length+1)+' membres sur 20</p></div>'
-    +'<span class="rankbadge">Aperçu</span></div>'
-    +'<div class="two" style="margin-top:14px">'
-      +'<div class="panel"><h3 class="sect" style="margin-top:0">Le bac collectif</h3>'
-        +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 10px">L\'union des étagères de tous les membres. Une carte que tu es seul à détenir compte pour tout le crew.</p>'
-        +'<div class="prog"><i style="width:'+Math.round(bac/5)+'%"></i></div>'
-        +'<div class="progline"><span>Rap FR 2010-2020</span><span>'+bac+' / 500</span></div>'
-        +'<p style="color:var(--ink-3);font-size:13px;margin:12px 0 0">Ton apport : <b style="color:var(--accent)">'+Math.min(known.length,120)+' titres</b>.</p></div>'
-      +'<div class="panel"><h3 class="sect" style="margin-top:0">Contrat de la semaine</h3>'
-        +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 10px">Identifier 500 cartes à nous tous. Le pot est redistribué au prorata.</p>'
-        +'<div class="prog"><i style="width:'+Math.round(contrat/5)+'%"></i></div>'
-        +'<div class="progline"><span>Identifications</span><span>'+contrat+' / 500</span></div>'
-        +'<p style="color:var(--ink-3);font-size:13px;margin:12px 0 0">Ta part : <b style="color:var(--accent)">'+Math.round(known.length/Math.max(contrat,1)*100)+' %</b> du pot.</p></div></div>'
-    +'<h3 class="sect">Les membres</h3><div class="lad">'
-      +'<div class="lr head"><span>#</span><span>Membre</span><span class="num">À sec</span><span class="num">Cartes</span></div>'
-      +[{n:pseudo(),t:tauxSec()||0,col:S.shelf.length,me:true}].concat(membres).sort((a,b)=>b.t-a.t)
-        .map((m,i)=>'<div class="lr'+(m.me?" me":"")+'"><span class="pos">'+(i+1)+'</span>'
-          +'<span class="who">'+esc(m.n)+(m.me?' <small>toi</small>':'')+'</span>'
-          +'<span class="num hi">'+m.t+'%</span><span class="num">'+m.col+'</span></div>').join("")+'</div>'
-    +'<h3 class="sect">Le Clash en cours</h3>'
-    +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 12px">Thème : <b>1995-2005</b>. Trois sets classés par membre au maximum, '
-      +'et seuls les cinq meilleurs du crew comptent — huit bons joueurs battent vingt joueurs moyens.</p>'
-    +'<div class="lad"><div class="lr head"><span>#</span><span>Crew</span><span class="num">Score</span><span class="num">Membres</span></div>'
-      +[{n:"Sillon Sud",s:412,m:16},{n:"Face B Club",s:389,m:20},
-        {n:"Les Bacs du 93",s:351+Math.min(S.bestSet,100),m:membres.length+1,me:true},
-        {n:"Radio Cassette",s:298,m:12}].sort((a,b)=>b.s-a.s)
-        .map((c,i)=>'<div class="lr'+(c.me?" me":"")+'"><span class="pos">'+(i+1)+'</span>'
-          +'<span class="who">'+esc(c.n)+(c.me?' <small>ton crew</small>':'')+'</span>'
-          +'<span class="num hi">'+c.s+'</span><span class="num">'+c.m+'</span></div>').join("")+'</div>';
-}
-function renderLadder(){
-  const t=tauxSec(), box=document.getElementById("ladderbox");
-  if(t===null){ box.innerHTML='<div class="empty">Reconnais quelques cartes pour entrer au classement.</div>'; return; }
-  const rows=AUTRES.concat([{n:pseudo(),c:"Les Bacs du 93",t,col:S.shelf.length,me:true}]).sort((a,b)=>b.t-a.t);
-  const pos=rows.findIndex(r=>r.me)+1, next=RANGS.find(r=>r.min>t);
-  box.innerHTML='<div class="apercu"><b>Aperçu de conception.</b> Les quatorze diggers de ce tableau sont inventés — '
-    +'il n\'y a pas encore de serveur, donc pas de vrai classement. <b>Ton taux, lui, est réel</b> : '
-    +'il est calculé sur tes tentatives, et c\'est la mesure qui comptera le jour où le classement existera.</div>'
-    +'<div class="rule"><p style="margin:0"><b>On classe sur l\'identification à sec</b> — le pourcentage de cartes reconnues sans dépenser un révélateur, '
-      +'et hors cartes achetées. Pas sur la taille de la collection, qui ne mesure que le temps et l\'argent. La colonne « cartes » est là pour le montrer : elle ne trie rien.</p></div>'
-    +'<div class="kpis" style="margin-top:0">'
-      +'<div class="kpi"><span>Ta place</span><b>'+pos+'<em>ᵉ</em></b><p>sur '+rows.length+' diggers.</p></div>'
-      +'<div class="kpi"><span>Ton taux</span><b>'+t+'<em>%</em></b><p>Rang : '+rangDe(t)+'.</p></div>'
-      +'<div class="kpi"><span>Pour monter</span><b>'+(next?next.min-t:0)+'<em>pts</em></b>'
-        +'<p>'+(next?"pour devenir "+next.n+".":"Tu es au sommet.")+'</p></div></div>'
-    +'<div class="lad"><div class="lr head"><span>#</span><span>Digger</span><span class="num">À sec</span><span class="num">Cartes</span></div>'
-      +rows.map((r,i)=>'<div class="lr'+(r.me?" me":"")+'"><span class="pos">'+(i+1)+'</span>'
-        +'<span class="who">'+esc(r.n)+'<small>'+esc(r.c)+'</small></span>'
-        +'<span class="num hi">'+r.t+'%</span><span class="num">'+r.col+'</span></div>').join("")+'</div>'
-    +'<h3 class="sect">Les rangs</h3><div class="chips">'
-      +RANGS.map(r=>'<span class="chip" style="color:'+(rangDe(t)===r.n?"var(--accent)":"var(--ink-3)")+'">'+r.n+' · '+r.min+'%+</span>').join("")+'</div>';
+/* Le crew et le classement viennent du serveur, et de nulle part ailleurs :
+   les tableaux d'exemple qui vivaient ici ont disparu avec le mode hors ligne. */
+function renderCrew(){ renderCrewServeur(); }
+function renderLadder(){ renderLadderServeur(); }
+
+/* Un artiste n'apparaît dans l'écran des goûts que s'il a de quoi remplir un
+   carton : un nom qui ne porte qu'un ou deux titres n'est pas un artiste du
+   jeu, c'est un accident de catalogue. */
+function artistesDuCatalogue(minimum){
+  const par={}, n={};
+  CAT.forEach(c=>{ n[c.artist]=(n[c.artist]||0)+1;
+    if(!par[c.artist]||c.pop>par[c.artist].pop) par[c.artist]=c; });
+  const seuil=minimum==null?3:minimum;
+  const assez=Object.values(par).filter(c=>n[c.artist]>=seuil);
+  const liste=assez.length>=20?assez:Object.values(par);
+  return liste.sort((a,b)=>b.pop-a.pop);
 }
 
-/* ============ ONBOARDING ============
-   Un joueur qui n'écoute pas de rap FR faisait 0 sur 5 à son premier carton,
-   sans gagner un crédit ni apprendre une réponse. On lui demande donc d'abord
-   ce qu'il reconnaîtrait, et son premier carton est tiré là-dedans.
-   Pas de connexion Spotify : un écran d'autorisation avant toute preuve de
-   valeur fait perdre entre 30 et 60 % des nouveaux joueurs. */
-
-function artistesDuCatalogue(){
-  const par={};
-  CAT.forEach(c=>{ if(!par[c.artist]||c.pop>par[c.artist].pop) par[c.artist]=c; });
-  return Object.values(par).sort((a,b)=>b.pop-a.pop);
-}
-
-function onboardingFait(){ return Array.isArray(S.gouts) && S.gouts.length>=5; }
+function onboardingFait(){ return Array.isArray(S.gouts); }
 
 function ouvrirOnboarding(){
   return new Promise(res=>{
@@ -1955,218 +1971,109 @@ function ouvrirOnboarding(){
       g.appendChild(b);
     });
     maj();
-    go.onclick=()=>{ S.gouts=[...choisis]; S.premierCarton=true; save();
+    go.onclick=async()=>{ await apiJeu("gouts",{artistes:[...choisis]});
       track("onboarding_fini",{n:choisis.size}); ov.remove(); res(true); };
-    ov.querySelector("#onbskip").onclick=()=>{ S.gouts=["__passe__"]; S.premierCarton=false; save();
+    ov.querySelector("#onbskip").onclick=async()=>{ await apiJeu("gouts",{artistes:[]});
       track("onboarding_passe",{}); ov.remove(); res(false); };
   });
 }
 
-/* ============ SAUVEGARDE PORTABLE ============
-   Pas de compte, donc pas de synchronisation automatique. À défaut,
-   un code que l'on copie et que l'on colle sur un autre appareil.
-   On n'y met que ce qui ne se recalcule pas : le catalogue est
-   reconstruit à l'import à partir des identifiants. */
-function compacte(){
-  return {v:1, c:S.credits, e:S.eclats, p:S.pseudo, b:S.bestSet,
-    s:S.sets, sw:S.setsWon, g:S.gouts||[], st:S.streak, lp:S.lastPlayed,
-    jd:S.jourDate, sd:S.setsDate, sn:S.setsToday, si:S.silent?1:0,
-    l:(S.idLog||[]).map(x=>x?1:0).join(""),
-    k:S.shelf.map(c=>[c.id, c.rarity, Math.max(0,PRESS.findIndex(x=>x.n===c.press)),
-      c.known?1:0, (c.reveals==null?-1:c.reveals), c.aSec?1:0, c.tries||0, c.achete?1:0])};
-}
-function codeSauvegarde(){
-  try{ return btoa(unescape(encodeURIComponent(JSON.stringify(compacte())))); }
-  catch(e){ return ""; }
-}
-function restaurer(code){
-  let d;
-  try{ d=JSON.parse(decodeURIComponent(escape(atob(code.trim())))); }
-  catch(e){ return {ok:false, raison:"Code illisible"}; }
-  if(!d || d.v!==1 || !Array.isArray(d.k)) return {ok:false, raison:"Ce n'est pas un code Diggers"};
-  const index={}; CAT.forEach(t=>index[t.id]=t);
-  const shelf=[]; let perdues=0;
-  d.k.forEach(a=>{
-    const src=index[a[0]];
-    if(!src){ perdues++; return; }
-    shelf.push(Object.assign({}, src, {
-      uid:a[0]+"-"+Math.random().toString(36).slice(2,7),
-      rarity:a[1], press:(PRESS[a[2]]||PRESS[0]).n,
-      known:!!a[3], reveals:(a[4]<0?null:a[4]), aSec:!!a[5],
-      tries:a[6]||0, achete:!!a[7], listeners:null, plays:null }));
-  });
-  S.credits=d.c|0; S.eclats=d.e|0; S.pseudo=d.p||""; S.bestSet=d.b|0;
-  S.sets=d.s|0; S.setsWon=d.sw|0; S.gouts=d.g||[]; S.streak=d.st|0;
-  S.lastPlayed=d.lp||""; S.jourDate=d.jd||""; S.setsDate=d.sd||"";
-  S.setsToday=d.sn|0; S.silent=!!d.si;
-  S.idLog=(d.l||"").split("").map(x=>x==="1");
-  S.shelf=shelf;
-  save();
-  return {ok:true, cartes:shelf.length, perdues};
-}
-
 /* ============ MESURE ============
-   Aucun service externe : les événements restent dans le navigateur et
-   s'exportent. Renseigne ANALYTICS_URL pour les envoyer quelque part. */
-const ANALYTICS_URL = "";
-function track(ev, data){
-  try{
-    const e={t:new Date().toISOString(), ev, ...(data||{})};
-    S.events=S.events||[]; S.events.push(e);
-    if(S.events.length>800) S.events.splice(0,S.events.length-800);
-    if(ANALYTICS_URL && navigator.sendBeacon)
-      navigator.sendBeacon(ANALYTICS_URL, new Blob([JSON.stringify(e)],{type:"application/json"}));
-  }catch(err){}
-}
+   Il n'y a plus de journal d'événements dans ce navigateur. La fonction reste
+   pour ne pas semer des appels morts dans le code ; elle ne fait rien. */
+function track(){}
 
-/* ============ RÉGLAGES ============ */
+/* ============ RÉGLAGES ============
+   Cet écran a beaucoup maigri. Tout ce qui servait à survivre sans serveur —
+   fichier de sauvegarde, code de transfert entre appareils, adresse du serveur
+   à coller à la main, clé Last.fm, journal d'événements — n'a plus d'objet :
+   la partie est sur le compte, et le compte suit le joueur. */
 function renderReglages(){
-  const octets=(()=>{ try{ return new Blob([localStorage.getItem("diggers9")||""]).size; }catch(e){ return 0; } })();
-  const ko=Math.round(octets/1024);
-  document.getElementById("reglagesbox").innerHTML=
+  const box=document.getElementById("reglagesbox");
+  box.innerHTML=
 
-    '<h3 class="sect" style="margin-top:0">Ta sauvegarde</h3>'
+    '<h3 class="sect" style="margin-top:0">Ta partie</h3>'
     +'<div class="rule"><p style="margin:0">'+(COMPTE
-      ? '<b>Ta partie est enregistrée sur ton compte</b> et remonte au serveur à chaque changement. '
-        +'Elle redescend sur n\'importe quel appareil où tu te connectes. Le fichier et le code ci-dessous '
-        +'restent utiles pour en garder une copie à toi.'
-      : (apiPossible()
-        ? '<b>Tu n\'es pas connecté.</b> Tout est rangé dans ce navigateur — et Safari efface le stockage '
-          +'d\'un site non visité pendant sept jours. <b>Crée un compte</b> dans l\'onglet Profil pour que '
-          +'ta collection te suive, ou exporte ta partie ci-dessous.'
-        : '<b>Le jeu tourne sans serveur.</b> Tout est rangé dans ce navigateur, et Safari efface le stockage '
-          +'d\'un site non visité pendant sept jours. <b>Exporte ta partie</b> si tu y tiens.'))+'</p></div>'
-    +'<div class="bar"><button class="btn" id="expo">Télécharger un fichier</button>'
-      +'<button class="btn ghost sm" id="impo">Charger un fichier</button>'
-      +'<button class="btn ghost sm" id="raz">Tout effacer</button>'
-      +'<span class="hint">'+S.shelf.length+' cartes · '+ko+' Ko occupés</span></div>'
-    +'<input type="file" id="impf" accept="application/json" hidden>'
-    +'<h3 class="sect">Passer d\'un appareil à l\'autre</h3>'
-    +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 10px;max-width:70ch">Copie ce code, colle-le '
-      +'sur ton autre appareil, et ta collection y arrive. Il ne contient que des identifiants de morceaux — '
-      +'le reste est reconstruit à partir du catalogue.</p>'
-    +'<div class="keyrow"><input id="codeout" readonly value="'+esc(codeSauvegarde())+'">'
-      +'<button class="btn sm" id="copiecode">Copier</button></div>'
-    +'<div class="keyrow" style="margin-top:8px"><input id="codein" placeholder="Coller un code reçu d\'un autre appareil" autocomplete="off">'
-      +'<button class="btn ghost sm" id="restaure">Restaurer</button></div>'
-    +'<div class="diag" id="codediag" style="margin-top:10px"></div>'
+      ? '<b>Ta collection est sur ton compte.</b> Elle est tenue par le serveur : elle te suit d\'un appareil '
+        +'à l\'autre, elle ne se perd pas si tu vides ton navigateur, et personne ne peut la modifier depuis '
+        +'l\'extérieur. Il n\'y a rien à sauvegarder à la main.'
+      : '<b>Tu n\'es pas connecté.</b> Le jeu a besoin d\'un compte : c\'est ce qui garde ta collection et ce qui '
+        +'rend le marché entre joueurs possible. Onglet <b>Profil</b> pour en créer un — trente secondes, sans e-mail.')
+      +'</p></div>'
+    +(COMPTE?'<div class="bar"><span class="hint">'+S.shelf.length+' cartes · '
+      +S.shelf.filter(c=>c.known).length+' reconnues · '+S.credits+' crédits · '+S.eclats+' éclats</span></div>':'')
+
+    +(COMPTE?'<h3 class="sect">Retrouver ton mot de passe <span class="exp">Facultatif</span></h3>'
+      +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 10px;max-width:70ch">'
+      +'Ton compte n\'a pas besoin d\'adresse e-mail, et il n\'en demandera jamais pour jouer. '
+      +'Mais sans adresse, <b>un mot de passe perdu est une collection perdue</b> : personne ne peut te la rendre. '
+      +'Si tu en poses une, elle ne servira qu\'à ça — aucun message, aucune lettre d\'information, '
+      +'et elle part avec ton compte le jour où tu l\'effaces.</p>'
+      +((COMPTE.email&&COMPTE.email.adresse)
+        ? '<div class="diag '+(COMPTE.email.verifie?'ok':'')+'" style="margin-bottom:10px">'
+          +(COMPTE.email.verifie
+            ? '<b>'+esc(COMPTE.email.adresse)+'</b> — confirmée. Tu pourras te dépanner tout seul.'
+            : '<b>'+esc(COMPTE.email.adresse)+'</b> — pas encore confirmée. Clique le lien reçu, '
+              +'ou renvoie-le en réenregistrant l\'adresse.')+'</div>'
+        : '')
+      +'<div class="keyrow"><input id="mailin" type="email" autocomplete="email" placeholder="ton@adresse.fr" value="'
+        +esc((COMPTE.email&&COMPTE.email.adresse)||"")+'">'
+      +'<button class="btn sm" type="button" id="mailgo">Enregistrer</button>'
+      +((COMPTE.email&&COMPTE.email.adresse)?'<button class="btn ghost sm" type="button" id="mailoff">Retirer</button>':'')
+      +'</div><p class="notice" id="maildiag"></p>':'')
 
     +'<h3 class="sect">Son</h3>'
+    +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 10px;max-width:70ch">Le jeu est <b>entièrement jouable '
+      +'sans le son</b> : l\'extrait n\'est qu\'un révélateur parmi d\'autres, et il disparaît de la liste quand le son '
+      +'est coupé. Rien ne t\'oblige à entendre quoi que ce soit pour reconnaître une carte.</p>'
     +'<div class="bar"><button class="btn ghost sm" id="rgmute">'+(S.silent?"Rallumer le son":"Couper le son")+'</button>'
       +'<button class="btn ghost sm" id="testaudio2">Tester le son</button></div>'
     +'<div class="diag" id="diag2"></div>'
 
-    +'<h3 class="sect">Compteurs d\'écoutes <span class="exp">Optionnel</span></h3>'
-    +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 4px;max-width:70ch">Last.fm publie gratuitement le '
-      +'nombre d\'auditeurs de chaque titre. Avec une clé, les cartes affichent un vrai compteur au lieu d\'un '
-      +'indice sur 100. Sans clé, le jeu fonctionne pareil.</p>'
-    +'<div class="keyrow"><input id="lfmkey" placeholder="Clé API Last.fm" value="'+esc(S.lfm||"")+'" autocomplete="off" spellcheck="false">'
-      +'<button class="btn sm" id="lfmgo">Activer</button>'
-      +'<button class="btn ghost sm" id="lfmoff">Retirer</button></div>'
-    +'<div class="diag" id="lfmdiag" style="margin-top:10px"></div>'
-
-    +'<h3 class="sect">Mesure</h3>'
-    +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 10px;max-width:70ch">'
-      +(S.events?S.events.length:0)+' événements enregistrés dans ce navigateur, et nulle part ailleurs. '
-      +'Rien n\'est envoyé tant qu\'aucune adresse de collecte n\'est renseignée dans le code.</p>'
-    +'<div class="bar"><button class="btn ghost sm" id="expev">Exporter les événements</button></div>'
-
     +'<h3 class="sect">Mentions légales</h3>'
     +(mentionsCompletes()?'':'<div class="diag ko" style="margin-bottom:14px"><b>Ces mentions sont incomplètes.</b> '
-      +((COMPTE&&COMPTE.role==="admin")?'Remplis-les dans <b>Modération &#8594; Mentions légales</b> : elles seront enregistrées sur le serveur et affichées ici pour tout le monde. ':'Le responsable du site doit les remplir. ')
+      +((COMPTE&&COMPTE.role==="admin")?'Remplis-les dans <b>Modération &#8594; Mentions légales</b>. ':'Le responsable du site doit les remplir. ')
       +'C\'est obligatoire en France dès qu\'un site est accessible au public.</div>')
     +'<div class="scale"><div class="sc head"><span>Point</span><span>Contenu</span><span class="odds"></span><span class="val"></span></div>'
     +'<div class="sc"><span class="nm">Éditeur</span><span class="dsc">'
-      +(EDITEUR.nom?esc(EDITEUR.nom)+(EDITEUR.statut?', '+esc(EDITEUR.statut):'')
-        +(EDITEUR.adresse?'<br>'+esc(EDITEUR.adresse):'')+(EDITEUR.contact?'<br>'+esc(EDITEUR.contact):'')
-        :'<b style="color:var(--bad)">À remplir</b>')+'</span><span class="odds"></span><span class="val"></span></div>'
-    +'<div class="sc"><span class="nm">Publication</span><span class="dsc">'
-      +(EDITEUR.directeur?esc(EDITEUR.directeur):(EDITEUR.nom?esc(EDITEUR.nom):'<b style="color:var(--bad)">À remplir</b>'))
-      +'</span><span class="odds"></span><span class="val"></span></div>'
-    +'<div class="sc"><span class="nm">Hébergeur</span><span class="dsc">'+esc(EDITEUR.hebergeur)
-      +'<br><span style="color:var(--ink-3)">À corriger si tu héberges ailleurs.</span></span><span class="odds"></span><span class="val"></span></div>'
-    +'<div class="sc"><span class="nm">Données</span><span class="dsc">'
-      +'<b>Sans compte</b> : rien ne quitte ton navigateur. La partie est rangée dans ce navigateur, '
-      +'il n&rsquo;y a ni cookie de suivi ni traceur publicitaire.<br>'
-      +'<b>Avec un compte</b> : ton pseudo, ton mot de passe (haché, jamais lisible en clair), ta partie, '
-      +'ton profil et tes propositions sont enregistrés chez l&rsquo;hébergeur indiqué ci-dessus. '
-      +'Tu peux tout effacer toi-même depuis <b>Profil &#8594; Effacer mon compte</b>, '
-      +'ou écrire à l&rsquo;adresse de contact.</span><span class="odds"></span><span class="val"></span></div>'
-    +'<div class="sc"><span class="nm">Sources</span><span class="dsc">Métadonnées, pochettes et extraits de 30 s : '
-      +'API iTunes Search d\'Apple. Chaque carte reconnue renvoie vers la fiche du morceau, comme l\'exigent '
-      +'les conditions d\'usage. Compteurs d\'écoutes : Last.fm.</span><span class="odds"></span><span class="val"></span></div>'
-    +'<div class="sc"><span class="nm">Musique</span><span class="dsc">Les enregistrements appartiennent à leurs '
-      +'ayants droit. Diggers n\'héberge aucun fichier audio et ne vend aucun accès à de la musique.</span><span class="odds"></span><span class="val"></span></div>'
-    +'</div>'
-    +'<p class="notice">Diggers est gratuit, sans publicité et ne vend rien. Aucune donnée ne quitte ton navigateur : '
-      +'pas de compte, pas de cookie, pas de traceur. Le jour où les comptes existeront, cette page devra être réécrite '
-      +'et une politique de confidentialité ajoutée. Avant toute monétisation, faire relire par quelqu\'un dont c\'est le métier.</p>';
+      +(EDITEUR.particulier
+        ? 'Site édité par un particulier à titre non professionnel. Conformément à la loi, son identité '
+          +'n\'est pas publiée ici : elle est détenue par l\'hébergeur, qui la communique sur réquisition '
+          +'de l\'autorité judiciaire.'
+          +(EDITEUR.contact?'<br>Contact : '+esc(EDITEUR.contact):'')
+        : (EDITEUR.nom?esc(EDITEUR.nom)+(EDITEUR.statut?', '+esc(EDITEUR.statut):'')
+          +(EDITEUR.adresse?'<br>'+esc(EDITEUR.adresse):'')+(EDITEUR.contact?'<br>'+esc(EDITEUR.contact):'')
+          :'<b style="color:var(--bad)">À remplir</b>'))+'</span><span class="odds"></span><span class="val"></span></div>'
+    +(EDITEUR.particulier?''
+      :'<div class="sc"><span class="nm">Directeur de publication</span><span class="dsc">'
+      +(EDITEUR.directeur?esc(EDITEUR.directeur):'<b style="color:var(--bad)">À remplir</b>')+'</span><span class="odds"></span><span class="val"></span></div>')
+    +'<div class="sc"><span class="nm">Hébergeur</span><span class="dsc">'+esc(EDITEUR.hebergeur||"—")+'</span><span class="odds"></span><span class="val"></span></div>'
+    +'<div class="sc"><span class="nm">Tes données</span><span class="dsc">Un pseudo, un mot de passe haché, et ta partie. '
+      +'Pas d\'adresse e-mail, pas de traceur, pas de publicité. Tu peux effacer ton compte toi-même depuis l\'onglet Profil : '
+      +'tout part du serveur.</span><span class="odds"></span><span class="val"></span></div>'
+    +'<div class="sc"><span class="nm">Musique</span><span class="dsc">Aucun fichier audio n\'est hébergé ici. Extraits, '
+      +'pochettes et fiches viennent du catalogue d\'Apple, et chaque carte reconnue renvoie vers sa fiche, '
+      +'comme l\'exigent les conditions d\'usage.</span><span class="odds"></span><span class="val"></span></div></div>';
 
-  document.getElementById("expo").onclick=()=>{
-    const blob=new Blob([JSON.stringify(S)],{type:"application/json"});
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download="diggers-"+todayKey()+".json"; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-    track("export_partie",{cartes:S.shelf.length});
-    flash("Partie exportée");
+  const mg=document.getElementById("mailgo");
+  if(mg) mg.onclick=async()=>{
+    const d=document.getElementById("maildiag");
+    const a=document.getElementById("mailin").value.trim();
+    if(!a){ d.innerHTML="Il faut une adresse."; return; }
+    d.innerHTML="…";
+    const r=await apiAppel("/api/compte",{action:"email",adresse:a});
+    if(r&&r.ok){ adopterCompte(r); renderReglages();
+      const d2=document.getElementById("maildiag");
+      if(d2) d2.innerHTML='<b style="color:var(--ok)">Lettre envoyée.</b> Clique le lien qu\'elle contient pour confirmer.'; }
+    else d.innerHTML='<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>';
   };
-  document.getElementById("impo").onclick=()=>document.getElementById("impf").click();
-  document.getElementById("impf").onchange=e=>{
-    const f=e.target.files[0]; if(!f)return;
-    const r=new FileReader();
-    r.onload=()=>{ try{
-      const d=JSON.parse(r.result);
-      if(!d||!Array.isArray(d.shelf)) throw new Error("format");
-      Object.assign(S,d); save(); sync(); renderReglages();
-      flash("Partie importée — "+S.shelf.length+" cartes");
-    }catch(err){ flash("Fichier illisible"); } };
-    r.readAsText(f);
-  };
-  document.getElementById("raz").onclick=()=>{
-    if(!confirm("Effacer toute ta partie ? C'est définitif, et rien n'est sauvegardé ailleurs."))return;
-    try{ localStorage.removeItem("diggers9"); }catch(e){}
-    location.reload();
-  };
-  document.getElementById("expev").onclick=()=>{
-    const blob=new Blob([JSON.stringify(S.events||[],null,1)],{type:"application/json"});
-    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-    a.download="diggers-evenements.json"; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  };
-  const co=document.getElementById("copiecode");
-  if(co) co.onclick=async()=>{
-    const v=document.getElementById("codeout").value;
-    try{ await navigator.clipboard.writeText(v); flash("Code copié"); }
-    catch(e){ document.getElementById("codeout").select(); flash("Sélectionné — copie-le"); }
-    track("code_copie",{cartes:S.shelf.length});
-  };
-  const rs=document.getElementById("restaure");
-  if(rs) rs.onclick=()=>{
-    const v=document.getElementById("codein").value;
-    if(!v.trim()){ document.getElementById("codediag").className="diag ko";
-      document.getElementById("codediag").innerHTML="<b>Colle d'abord un code.</b>"; return; }
-    const r=restaurer(v);
-    const d=document.getElementById("codediag");
-    if(!r.ok){ d.className="diag ko"; d.innerHTML="<b>"+r.raison+".</b>"; return; }
-    const msg="<b>Restaurée.</b> "+r.cartes+" cartes"
-      +(r.perdues?" — "+r.perdues+" absente(s) de ce catalogue, écartée(s)":"")+".";
-    sync(); renderReglages();
-    /* renderReglages redessine le bloc : on repose le message après. */
-    const d2=document.getElementById("codediag");
-    if(d2){ d2.className="diag ok"; d2.innerHTML=msg; }
-    flash(r.cartes+" cartes restaurées");
-    track("code_restaure",{cartes:r.cartes,perdues:r.perdues});
+  const mo=document.getElementById("mailoff");
+  if(mo) mo.onclick=async()=>{
+    const r=await apiAppel("/api/compte",{action:"email-retirer"});
+    if(r&&r.ok){ adopterCompte(r); renderReglages(); flash("Adresse retirée"); }
   };
   document.getElementById("rgmute").onclick=()=>{ S.silent=!S.silent; save(); syncMute(); renderReglages(); };
-  document.getElementById("testaudio2").onclick=testAudio;
-  document.getElementById("lfmgo").onclick=lfmTest;
-  document.getElementById("lfmoff").onclick=()=>{ S.lfm=""; save();
-    document.getElementById("lfmkey").value=""; lfmDiag("","Clé retirée."); };
-  lfmDiag(S.lfm?"ok":"", S.lfm?"<b>Une clé est enregistrée.</b> Les nouvelles cartes afficheront un compteur d'auditeurs."
-    :"Aucune clé. Les cartes affichent la popularité sur 100.");
-  setDiag("", S.silent?"Son coupé — le jeu reste entièrement jouable."
-    :"Si tu n'entends rien, touche « Tester le son » : il dira exactement ce qui bloque.");
+  document.getElementById("testaudio2").onclick=()=>testAudio("diag2");
 }
 
 /* ============ PARTAGE ============
@@ -2333,11 +2240,12 @@ function renderSetPartage(){
 
 let COMPTE=null, JETON="", TITRES=[], ENLIGNE=null, MESPROPS=[], CREW=null, CREWCHEF=false;
 
-function apiBase(){ return (S.api||"").replace(/\/+$/,""); }
-function apiPossible(){ return !!(apiBase() || location.protocol==="http:" || location.protocol==="https:"); }
+/* Le serveur, c'est le site lui-même. Il n'y a plus d'adresse à coller à la
+   main : ce champ n'existait que pour ouvrir le jeu depuis un fichier local. */
+function apiBase(){ return ""; }
+function apiPossible(){ return true; }
 
 async function apiAppel(chemin, corps, methode){
-  if(!apiPossible()) return {horsLigne:true, erreur:"Pas de serveur joignable depuis un fichier local."};
   const o={ method: methode||(corps?"POST":"GET"), headers:{} };
   if(corps){ o.headers["content-type"]="application/json"; o.body=JSON.stringify(corps); }
   if(JETON) o.headers["authorization"]="Bearer "+JETON;
@@ -2395,7 +2303,9 @@ async function initServeur(){
 
 function adopterCompte(r){
   if(r.moi) COMPTE=r.moi;
-  if(r.jeton){ JETON=r.jeton; S.jeton=r.jeton; }
+  /* Le jeton est la seule chose qu'on garde dans ce navigateur, et il faut
+     l'écrire tout de suite : plus rien d'autre ne déclenche une sauvegarde. */
+  if(r.jeton){ JETON=r.jeton; S.jeton=r.jeton; save(); }
   if(r.titres) TITRES=r.titres;
   majOngletsServeur();
 }
@@ -2419,54 +2329,21 @@ function majOngletsServeur(){
 
 /* Que faire quand le compte et l'appareil ont chacun une partie ? */
 async function apresConnexion(r, silencieux){
-  const dist=r.partie&&r.partie.code?r.partie.code:null;
-  const locales=S.shelf.length;
-  if(dist){
-    let d=null; try{ d=JSON.parse(decodeURIComponent(escape(atob(dist)))); }catch(e){}
-    const distCartes=d&&Array.isArray(d.k)?d.k.length:0;
-    if(locales===0 && distCartes>0){ appliquerDistant(dist); }
-    else if(distCartes>0 && locales>0 && distCartes!==locales){
-      const choix=await modale("Deux parties",
-        '<p>Ce compte a une partie de <b>'+distCartes+' cartes</b>. Cet appareil en a <b>'+locales+'</b>.<br>'
-        +'Laquelle garde-t-on ? L\'autre sera écrasée.</p>',
-        [{v:"dist",n:"Celle du compte ("+distCartes+")"},{v:"loc",n:"Celle de l\'appareil ("+locales+")",g:true}]);
-      if(choix==="dist") appliquerDistant(dist); else pousser(true);
-    }
-  } else if(locales>0) pousser(true);
+  /* Plus d'arbitrage entre « la partie de l'appareil » et « celle du compte » :
+     il n'y en a plus qu'une, et elle est au serveur. */
+  const e=await apiJeu("etat");
+  if(e&&e.ok){ majOngletsServeur(); renderShop(); }
   await rafraichirPropositions();
   if(!silencieux) flash("Connecté — "+COMPTE.pseudo);
 }
 
-function appliquerDistant(code){
-  SANS_POUSSE=true;
-  const r=restaurer(code);
-  SANS_POUSSE=false;
-  if(r&&r.ok){ sync(); flash("Partie du compte chargée"); }
-}
-
-/* ---- la sauvegarde monte toute seule ---- */
-let SANS_POUSSE=false, minuteur=null;
-function planifierPousse(){
-  if(!JETON||SANS_POUSSE) return;
-  clearTimeout(minuteur);
-  minuteur=setTimeout(()=>pousser(),4000);
-}
-async function pousser(immediat){
-  if(!JETON) return;
-  clearTimeout(minuteur);
-  await apiAppel("/api/compte",{action:"sauver", code:codeSauvegarde(),
-    resume:{cartes:S.shelf.length, taux:tauxSec(), meilleurSet:S.bestSet||0, serie:S.streak||0}});
-  if(immediat) return;
-}
-
 /* ============ PREMIÈRE VISITE ============
-   Un compte d'abord : c'est lui qui fait suivre la collection d'un appareil à
-   l'autre, qui donne le droit de proposer des sons et qui classe pour de vrai.
-   La porte reste ouverte : on peut entrer sans compte et en créer un plus tard. */
+   Le compte n'est plus une option. Toute la partie est tenue par le serveur :
+   sans compte il n'y a ni étagère, ni crédits, ni marché. C'est aussi ce qui
+   permet de garantir un classement honnête — un jeu qui tourne entièrement
+   dans le navigateur ne peut pas empêcher qu'on s'y écrive ce qu'on veut. */
 
-function bienvenueDue(){
-  return !COMPTE && !S.accueilVu && apiPossible() && ENLIGNE!==false;
-}
+function bienvenueDue(){ return !COMPTE; }
 
 function ouvrirBienvenue(){
   return new Promise(res=>{
@@ -2494,7 +2371,7 @@ function ouvrirBienvenue(){
         +'<button class="btn" type="button" id="bgo">'+(neuf?"Créer mon compte":"Me connecter")+'</button>'
         +'<button class="btn ghost sm" type="button" id="bbascule">'
           +(neuf?"J’ai déjà un compte":"Créer un compte à la place")+'</button>'
-        +'<button class="btn ghost sm" type="button" id="bplustard">Jouer sans compte</button>'
+        +(neuf?'':'<button class="btn ghost sm" type="button" id="boubli">Mot de passe oublié</button>')
         +'</div></div>';
       const diag=m=>{ document.getElementById("bwdiag").innerHTML=m; };
       const envoyer=async()=>{
@@ -2505,7 +2382,6 @@ function ouvrirBienvenue(){
         const r=await apiAppel("/api/compte",{action:mode,pseudo,mdp});
         if(r&&r.ok){
           adopterCompte(r);
-          S.accueilVu=true; save();
           await apresConnexion(r,true);
           ov.remove(); res(true);
           if(r.fondateur) flash("Premier compte du site : tu es administrateur");
@@ -2516,16 +2392,104 @@ function ouvrirBienvenue(){
       document.getElementById("bbascule").onclick=()=>{
         mode = mode==="inscription" ? "connexion" : "inscription"; dessine();
       };
-      document.getElementById("bplustard").onclick=()=>{
-        S.accueilVu=true; save();
-        flash("Tu pourras créer un compte depuis Profil");
-        ov.remove(); res(false);
-      };
+      const ob=document.getElementById("boubli");
+      if(ob) ob.onclick=()=>demanderOubli(document.getElementById("bpseudo").value.trim());
       const p=ov.querySelector("#bpseudo"); if(p) p.focus();
     };
     document.body.appendChild(ov);
     dessine();
   });
+}
+
+/* ============ MOT DE PASSE PERDU ============
+   Le compte n'a pas d'adresse e-mail obligatoire, et c'est un choix. Mais qui
+   veut pouvoir se dépanner peut en poser une : elle ne sert qu'à ça, et le
+   serveur ne s'en sert que si elle a été confirmée. */
+
+function demanderOubli(prerempli){
+  return new Promise(res=>{
+    const ov=document.createElement("div"); ov.className="onb";
+    ov.innerHTML='<div class="onb-in modale"><h2 class="disp onb-h" style="font-size:clamp(22px,4vw,30px)">Mot de passe oublié</h2>'
+      +'<div class="modbody"><p class="notice">Donne ton pseudo, ou l\'adresse e-mail que tu as rattachée à ton compte. '
+      +'Si une adresse confirmée existe, un lien part dessus — valable une heure.</p>'
+      +'<div class="compte" style="max-width:460px"><input id="oid" placeholder="Pseudo ou adresse e-mail" value="'+esc(prerempli||"")+'">'
+      +'<p class="notice" id="odiag"></p></div></div>'
+      +'<div class="onb-bar"><button class="btn" type="button" id="ogo">Envoyer le lien</button>'
+      +'<button class="btn ghost sm" type="button" id="ono">Fermer</button></div></div>';
+    document.body.appendChild(ov);
+    const diag=m=>{ const d=ov.querySelector("#odiag"); if(d) d.innerHTML=m; };
+    ov.querySelector("#ono").onclick=()=>{ ov.remove(); res(false); };
+    ov.querySelector("#ogo").onclick=async()=>{
+      const id=ov.querySelector("#oid").value.trim();
+      if(!id){ diag("Il faut un pseudo ou une adresse."); return; }
+      diag("…");
+      const r=await apiAppel("/api/compte",{action:"oubli",identifiant:id});
+      if(r&&r.ok) diag('<b style="color:var(--ok)">Si un compte correspond et qu\'une adresse y est confirmée, '
+        +'le lien vient de partir.</b> Regarde aussi tes indésirables.');
+      else diag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Impossible pour le moment.")+'</b>');
+    };
+    const i=ov.querySelector("#oid"); if(i) i.focus();
+  });
+}
+
+/* Le lien reçu par e-mail ouvre directement le choix du nouveau mot de passe. */
+function ecranReinit(cle){
+  return new Promise(res=>{
+    const ov=document.createElement("div"); ov.className="onb";
+    ov.innerHTML='<div class="onb-in modale"><p class="kick" style="color:var(--accent)">Reprendre la main</p>'
+      +'<h2 class="disp onb-h">Choisis un nouveau mot de passe</h2>'
+      +'<div class="modbody"><p class="notice">Huit signes au minimum. Toutes tes autres sessions seront fermées.</p>'
+      +'<div class="compte" style="max-width:460px">'
+      +'<input id="rmdp" type="password" maxlength="200" autocomplete="new-password" placeholder="nouveau mot de passe">'
+      +'<p class="notice" id="rdiag"></p></div></div>'
+      +'<div class="onb-bar"><button class="btn" type="button" id="rgo">Enregistrer</button>'
+      +'<button class="btn ghost sm" type="button" id="rno">Plus tard</button></div></div>';
+    document.body.appendChild(ov);
+    const diag=m=>{ const d=ov.querySelector("#rdiag"); if(d) d.innerHTML=m; };
+    const fin=v=>{ ov.remove(); res(v); };
+    ov.querySelector("#rno").onclick=()=>fin(false);
+    ov.querySelector("#rgo").onclick=async()=>{
+      const mdp=ov.querySelector("#rmdp").value;
+      if(mdp.length<8){ diag("Huit signes au minimum."); return; }
+      diag("…");
+      const r=await apiAppel("/api/compte",{action:"reinit",cle:cle,mdp:mdp});
+      if(r&&r.ok){
+        adopterCompte(r);
+        await apresConnexion(r,true);
+        flash("Mot de passe changé — te voilà connecté");
+        fin(true);
+      } else diag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>');
+    };
+    const i=ov.querySelector("#rmdp"); if(i) i.focus();
+  });
+}
+
+/* Les liens arrivent en paramètre d'adresse ; on les consomme et on nettoie
+   la barre d'adresse pour ne pas les laisser traîner dans l'historique. */
+async function liensDArrivee(){
+  const p=new URLSearchParams(location.search);
+  const reinit=p.get("reinit"), verif=p.get("email"), paiement=p.get("paiement");
+  if(paiement){
+    try{ history.replaceState({},"",location.pathname); }catch(e){}
+    if(paiement==="ok"){
+      /* Stripe nous renvoie ici tout de suite, mais c'est son message au serveur
+         qui crédite : on laisse une seconde, puis on relit. */
+      flash("Paiement reçu — tes jetons arrivent");
+      setTimeout(async()=>{ const m=await apiAppel("/api/compte",{action:"moi"});
+        if(m&&m.ok){ adopterCompte(m); if(document.querySelector("#v-boutique.on")) renderBoutique(); } },2500);
+    } else flash("Paiement annulé — rien n'a été débité");
+  }
+  if(!reinit&&!verif) return false;
+  const propre=()=>{ try{ history.replaceState({},"",location.pathname); }catch(e){} };
+  if(verif){
+    const r=await apiAppel("/api/compte",{action:"verifier-email",cle:verif});
+    propre();
+    flash(r&&r.ok ? "Adresse confirmée" : ((r&&r.erreur)||"Lien de vérification périmé"));
+    return false;
+  }
+  propre();
+  await ecranReinit(reinit);
+  return true;
 }
 
 /* ============ LA BIBLIOTHÈQUE ============
@@ -2610,11 +2574,6 @@ async function encaisser(dues){
 
 function renderCommunaute(){
   const box=document.getElementById("communautebox");
-  if(!apiPossible()){
-    box.innerHTML='<div class="apercu"><b>Ouvert seulement en ligne.</b> Cette page a besoin du serveur. '
-      +'Ouvre le jeu depuis son adresse web, ou renseigne l\'adresse du serveur dans Réglages.</div>';
-    return;
-  }
   if(!COMPTE){
     box.innerHTML='<div class="rule"><p style="margin:0"><b>Le catalogue s\'agrandit par les joueurs.</b> '
       +'Un son que tu connais et qui n\'est pas dans le jeu ? Propose-le. Si la modération le valide, '
@@ -2842,48 +2801,124 @@ function ficheModeration(p){
    seul moyen de construire le catalogue quand on n'a pas accès à un terminal.
    Les appels partent du poste de l'administrateur, pas du serveur. */
 const ARTISTES_APPLE=[
- // --- rap et pop urbaine FR ---
- ["Gims",3],["Ninho",3],["Jul",3],["SDM",3],["Keblack",3],["Hamza",2],["Damso",3],
- ["Aya Nakamura",3],["Tiakola",3],["Gazo",3],["Werenoi",2],["PLK",2],["Dadju",2],
- ["Booba",3],["Naps",2],["Franglish",2],["Niska",2],["Soso Maness",2],["Zola",2],
- ["Rim'K",2],["Sch",3],["Freeze Corleone",2],["Alpha Wann",1],["Nekfeu",3],
- ["Orelsan",3],["Lomepal",2],["Vald",2],["Laylow",2],["Josman",2],["Hatik",2],
- ["Tayc",2],["Dtf",1],["Leto",2],["Koba LaD",2],["Heuss L'Enfoiré",2],
- // --- pop et variété FR ---
- ["Stromae",3],["Angèle",3],["Clara Luciani",2],["Vianney",2],["Louane",2],
- ["Zaho de Sagazan",2],["Pomme",1],["Juliette Armanet",2],["Christine and the Queens",2],
- ["Eddy de Pretto",1],["Julien Doré",2],["Benjamin Biolay",1],["Camélia Jordana",1],
- ["-M-",1],["Yseult",1],["Voyou",1],["Terrenoire",1],
- // --- patrimoine FR ---
- ["Serge Gainsbourg",2],["Jacques Brel",2],["Édith Piaf",2],["Charles Aznavour",2],
- ["Francis Cabrel",2],["Jean-Jacques Goldman",2],["Michel Berger",2],["France Gall",2],
- ["Téléphone",2],["Indochine",2],["Noir Désir",2],["Alain Bashung",1],["Étienne Daho",1],
- ["Mylène Farmer",2],["Johnny Hallyday",2],["Renaud",2],["Véronique Sanson",1],
- ["Barbara",1],["Léo Ferré",1],["Georges Brassens",2],["Claude Nougaro",1],
- ["MC Solaar",2],["IAM",2],["Suprême NTM",2],["Assassin",1],["Oxmo Puccino",1],
- ["Diam's",2],["Sinik",1],["Rohff",2],["Sniper",1],["Lunatic",1],
- ["Daft Punk",3],["Justice",2],["Air",2],["Cassius",1],["Laurent Garnier",1],
- ["Gojira",1],["Superbus",1],["Louise Attaque",2],["Zebda",1],["Tryo",1],
- // --- international très écouté en France ---
- ["The Weeknd",3],["Dua Lipa",3],["Bruno Mars",3],["Ed Sheeran",3],["Billie Eilish",3],
- ["SZA",2],["Drake",3],["Rihanna",3],["Beyoncé",3],["Adele",3],["Coldplay",3],
- ["Eminem",3],["Kendrick Lamar",3],["Travis Scott",2],["Doja Cat",2],["Harry Styles",2],
- ["Taylor Swift",3],["Post Malone",2],["Miley Cyrus",2],["Lady Gaga",3],
- ["Michael Jackson",3],["Queen",3],["Nirvana",2],["Daft Punk",3],["Amy Winehouse",2],
- ["Bob Marley",3],["Stevie Wonder",2],["Prince",2],["David Bowie",2],["Pink Floyd",2],
- ["The Beatles",3],["Fleetwood Mac",2],["Radiohead",2],["Massive Attack",1],
- ["Portishead",1],["Björk",1],["Gorillaz",2],["The Strokes",1],["Arctic Monkeys",2],
- ["Lana Del Rey",2],["Tame Impala",1],["Aphex Twin",1],["Burial",1],
- ["Fela Kuti",1],["Youssou N'Dour",1],["Cesária Évora",1],["Manu Chao",2],
- ["Buena Vista Social Club",1],["Ibrahim Maalouf",1],["Nina Simone",2],
- ["Miles Davis",1],["John Coltrane",1],["Ella Fitzgerald",2],["Frank Sinatra",2],
- ["Donna Summer",2],["ABBA",3],["Bee Gees",2],["Earth, Wind & Fire",2],
- ["Charlotte Cardin",2],["Rosalía",2],["Bad Bunny",3],["Shakira",3],["Rosé",2]
+ ["Gims", 3],["Ninho", 3],["Jul", 3],["SDM", 3],["Keblack", 3],["Hamza", 2],["Damso", 3],
+ ["Aya Nakamura", 3],["Tiakola", 3],["Gazo", 3],["Werenoi", 2],["PLK", 2],["Dadju", 2],
+ ["Booba", 3],["Naps", 2],["Franglish", 2],["Niska", 2],["Soso Maness", 2],["Zola", 2],
+ ["Rim'K", 2],["Sch", 3],["Freeze Corleone", 2],["Alpha Wann", 1],["Nekfeu", 3],["Orelsan", 3],
+ ["Lomepal", 2],["Vald", 2],["Laylow", 2],["Josman", 2],["Hatik", 2],["Tayc", 2],["Dtf", 1],
+ ["Leto", 2],["Koba LaD", 2],["Heuss L'Enfoiré", 2],["Stromae", 3],["Angèle", 3],
+ ["Clara Luciani", 2],["Vianney", 2],["Louane", 2],["Zaho de Sagazan", 2],["Pomme", 1],
+ ["Juliette Armanet", 2],["Christine and the Queens", 2],["Eddy de Pretto", 1],
+ ["Julien Doré", 2],["Benjamin Biolay", 1],["Camélia Jordana", 1],["-M-", 1],["Yseult", 1],
+ ["Voyou", 1],["Terrenoire", 1],["Serge Gainsbourg", 2],["Jacques Brel", 2],["Édith Piaf", 2],
+ ["Charles Aznavour", 2],["Francis Cabrel", 2],["Jean-Jacques Goldman", 2],["Michel Berger", 2],
+ ["France Gall", 2],["Téléphone", 2],["Indochine", 2],["Noir Désir", 2],["Alain Bashung", 1],
+ ["Étienne Daho", 1],["Mylène Farmer", 2],["Johnny Hallyday", 2],["Renaud", 2],
+ ["Véronique Sanson", 1],["Barbara", 1],["Léo Ferré", 1],["Georges Brassens", 2],
+ ["Claude Nougaro", 1],["MC Solaar", 2],["IAM", 2],["Suprême NTM", 2],["Assassin", 1],
+ ["Oxmo Puccino", 1],["Diam's", 2],["Sinik", 1],["Rohff", 2],["Sniper", 1],["Lunatic", 1],
+ ["Daft Punk", 3],["Justice", 2],["Air", 2],["Cassius", 1],["Laurent Garnier", 1],["Gojira", 1],
+ ["Superbus", 1],["Louise Attaque", 2],["Zebda", 1],["Tryo", 1],["The Weeknd", 3],
+ ["Dua Lipa", 3],["Bruno Mars", 3],["Ed Sheeran", 3],["Billie Eilish", 3],["SZA", 2],
+ ["Drake", 3],["Rihanna", 3],["Beyoncé", 3],["Adele", 3],["Coldplay", 3],["Eminem", 3],
+ ["Kendrick Lamar", 3],["Travis Scott", 2],["Doja Cat", 2],["Harry Styles", 2],
+ ["Taylor Swift", 3],["Post Malone", 2],["Miley Cyrus", 2],["Lady Gaga", 3],
+ ["Michael Jackson", 3],["Queen", 3],["Nirvana", 2],["Amy Winehouse", 2],["Bob Marley", 3],
+ ["Stevie Wonder", 2],["Prince", 2],["David Bowie", 2],["Pink Floyd", 2],["The Beatles", 3],
+ ["Fleetwood Mac", 2],["Radiohead", 2],["Massive Attack", 1],["Portishead", 1],["Björk", 1],
+ ["Gorillaz", 2],["The Strokes", 1],["Arctic Monkeys", 2],["Lana Del Rey", 2],
+ ["Tame Impala", 1],["Aphex Twin", 1],["Burial", 1],["Fela Kuti", 1],["Youssou N'Dour", 1],
+ ["Cesária Évora", 1],["Manu Chao", 2],["Buena Vista Social Club", 1],["Ibrahim Maalouf", 1],
+ ["Nina Simone", 2],["Miles Davis", 1],["John Coltrane", 1],["Ella Fitzgerald", 2],
+ ["Frank Sinatra", 2],["Donna Summer", 2],["ABBA", 3],["Bee Gees", 2],["Earth, Wind & Fire", 2],
+ ["Charlotte Cardin", 2],["Rosalía", 2],["Bad Bunny", 3],["Shakira", 3],["Rosé", 2],
+ ["Lacrim", 2],["Kaaris", 2],["Maes", 2],["Timal", 2],["Da Uzi", 1],["Guy2Bezbar", 1],
+ ["Bosh", 2],["Lartiste", 2],["Sofiane", 2],["Kalash Criminel", 2],["Youssoupha", 2],
+ ["Disiz", 1],["Kery James", 2],["Médine", 1],["L'Algérino", 2],["Dinos", 2],["Népal", 1],
+ ["Isha", 1],["Roméo Elvis", 2],["Lous and the Yakuza", 1],["Shay", 1],["Chilla", 1],
+ ["Meryl", 2],["Ronisia", 2],["Wejdene", 2],["Eva", 2],["Marwa Loud", 2],["Imen Es", 2],
+ ["Naza", 2],["Landy", 1],["Kekra", 1],["Deen Burbigo", 1],["S.Pri Noir", 1],["Sneazzy", 1],
+ ["Lujipeka", 1],["Luidji", 1],["Prince Waly", 1],["Jazzy Bazz", 1],["Squidji", 1],
+ ["Winnterzuko", 1],["Ashe 22", 1],["Zuukou Mayzie", 1],["Slimka", 1],["Di-Meh", 1],
+ ["Makala", 1],["La Fève", 1],["Zamdane", 1],["Green Montana", 1],["Bolémvn", 1],
+ ["Hornet La Frappe", 1],["Ziak", 2],["Gambi", 1],["Sadek", 1],["Lefa", 1],["Alonzo", 2],
+ ["Elams", 1],["Le Rat Luciano", 1],["Fonky Family", 1],["Akhenaton", 1],["Shurik'n", 1],
+ ["Psy 4 de la Rime", 1],["Soprano", 2],["Keny Arkana", 1],["Bigflo & Oli", 2],["Columbine", 1],
+ ["Georgio", 1],["Lorenzo", 2],["Vegedream", 2],["Black M", 2],["Sexion d'Assaut", 2],
+ ["Mac Tyer", 1],["Hugo TSR", 1],["Rilès", 1],["Bekar", 1],["Jorrdee", 1],["Ichon", 1],
+ ["Muddy Monk", 1],["Myth Syzer", 1],["Alpha 5.20", 1],["Ali", 1],["Casey", 1],["La Rumeur", 1],
+ ["Scylla", 1],["Caballero & JeanJass", 1],["Krisy", 1],["Tsew The Kid", 1],["Doums", 1],
+ ["Nemir", 1],["Fixpen Sill", 1],["Loveni", 1],["Zinée", 1],["Le Motif", 1],["Tif", 1],
+ ["Rounhaa", 1],["Khali", 1],["J9ueve", 1],["Nahir", 1],["So La Lune", 1],["Zeg P", 1],
+ ["Favé", 2],["Jolagreen23", 1],["Kerchak", 1],["Hoshi", 2],["Aloïse Sauvage", 1],["Suzane", 1],
+ ["Feu! Chatterton", 1],["La Femme", 1],["Fishbach", 1],["Odezenne", 1],["Thérapie Taxi", 1],
+ ["Videoclub", 1],["Malik Djoudi", 1],["Flavien Berger", 1],["Bagarre", 1],["Structures", 1],
+ ["November Ultra", 1],["Léonie Pernet", 1],["Adé", 1],["Vendredi sur Mer", 1],
+ ["Petit Biscuit", 1],["Fakear", 1],["Rone", 1],["Superpoze", 1],["Møme", 1],["Kavinsky", 1],
+ ["Breakbot", 1],["Yuksek", 1],["Étienne de Crécy", 1],["Vitalic", 1],["Agar Agar", 1],
+ ["Polo & Pan", 2],["L'Impératrice", 2],["Parcels", 1],["Phoenix", 2],["Sébastien Tellier", 1],
+ ["Alex Gopher", 1],["Modjo", 2],["Stardust", 1],["Bob Sinclar", 2],["David Guetta", 3],
+ ["Martin Solveig", 2],["DJ Snake", 3],["Gesaffelstein", 1],["The Blaze", 1],
+ ["Vanessa Paradis", 2],["Alain Souchon", 2],["Laurent Voulzy", 1],["Michel Polnareff", 2],
+ ["Serge Reggiani", 1],["Jacques Dutronc", 2],["Françoise Hardy", 2],["Nino Ferrer", 1],
+ ["Michel Jonasz", 1],["Julien Clerc", 2],["Maxime Le Forestier", 1],["Yves Montand", 1],
+ ["Charles Trenet", 1],["Jacques Higelin", 1],["Bernard Lavilliers", 1],["Alain Chamfort", 1],
+ ["Christophe", 2],["Daniel Balavoine", 2],["Jean Ferrat", 1],["Anne Sylvestre", 1],
+ ["Juliette Gréco", 1],["Dalida", 2],["Sylvie Vartan", 1],["Claude François", 2],
+ ["Serge Lama", 1],["Michel Sardou", 2],["Eddy Mitchell", 2],["Trust", 1],["Bérurier Noir", 1],
+ ["Mano Negra", 2],["Les Négresses Vertes", 1],["Les Rita Mitsouko", 2],["Dionysos", 1],
+ ["Saez", 1],["Cali", 1],["Miossec", 1],["Dominique A", 1],["Arthur H", 1],["Camille", 1],
+ ["Emily Loizeau", 1],["Keren Ann", 1],["Carla Bruni", 1],["Vincent Delerm", 1],["Bénabar", 1],
+ ["Grand Corps Malade", 2],["Fauve", 1],["Salut c'est cool", 1],["J. Cole", 2],
+ ["Tyler, The Creator", 2],["Frank Ocean", 2],["A$AP Rocky", 2],["Playboi Carti", 2],
+ ["21 Savage", 2],["Metro Boomin", 2],["Future", 2],["Lil Baby", 2],["Gunna", 2],["Cardi B", 2],
+ ["Nicki Minaj", 3],["Megan Thee Stallion", 2],["Ice Spice", 1],["Central Cee", 2],["Dave", 2],
+ ["Stormzy", 2],["Skepta", 1],["Little Simz", 1],["Burna Boy", 2],["Wizkid", 2],["Davido", 2],
+ ["Rema", 2],["Tems", 1],["Asake", 1],["Fally Ipupa", 2],["Koffi Olomidé", 1],["Karol G", 2],
+ ["J Balvin", 2],["Peso Pluma", 2],["Feid", 2],["Anitta", 2],["Sfera Ebbasta", 1],["Ghali", 1],
+ ["Måneskin", 2],["Mahmood", 1],["Olivia Rodrigo", 3],["Sabrina Carpenter", 2],
+ ["Chappell Roan", 2],["Charli XCX", 2],["FKA twigs", 1],["James Blake", 1],["Bon Iver", 2],
+ ["Sufjan Stevens", 1],["The National", 1],["Fontaines D.C.", 1],["Idles", 1],["Wet Leg", 1],
+ ["Alvvays", 1],["Beach House", 1],["Mac DeMarco", 1],["King Krule", 1],["Sampha", 1],
+ ["Kaytranada", 2],["Thundercat", 1],["Anderson .Paak", 2],["Kali Uchis", 2],["Steve Lacy", 2],
+ ["Solange", 1],["Erykah Badu", 1],["D'Angelo", 1],["Marvin Gaye", 2],["Curtis Mayfield", 1],
+ ["Otis Redding", 2],["Aretha Franklin", 2],["Sam Cooke", 2],["Ray Charles", 2],
+ ["James Brown", 2],["Sly and the Family Stone", 1],["Funkadelic", 1],["Parliament", 1],
+ ["Chic", 2],["Kool & The Gang", 2],["The Isley Brothers", 1],["Al Green", 1],
+ ["Bill Withers", 2],["Roy Ayers", 1],["Herbie Hancock", 1],["Alice Coltrane", 1],["Sun Ra", 1],
+ ["Pharoah Sanders", 1],["Charles Mingus", 1],["Thelonious Monk", 1],["Bill Evans", 1],
+ ["Chet Baker", 1],["Billie Holiday", 2],["Sarah Vaughan", 1],["Tony Allen", 1],
+ ["Ali Farka Touré", 1],["Amadou & Mariam", 1],["Tinariwen", 1],["Rachid Taha", 1],
+ ["Souad Massi", 1],["Idir", 1],["Khaled", 2],["Cheb Mami", 1],["Warda", 1],["Fairuz", 1],
+ ["Oum Kalthoum", 1],["Alpha Blondy", 1],["Tiken Jah Fakoly", 1],["Magic System", 2],
+ ["Angélique Kidjo", 1],["Caetano Veloso", 1],["Gilberto Gil", 1],["João Gilberto", 1],
+ ["Tom Jobim", 1],["Jorge Ben Jor", 1],["Seu Jorge", 1],["Astrud Gilberto", 1],["Stan Getz", 1],
+ ["Compay Segundo", 1],["Celia Cruz", 1],["Héctor Lavoe", 1],["Willie Colón", 1]
 ];
 
 
 let BIB=null, BQ="", BPAGE=0;
 const PAR_PAGE=40, PAQUET=250;
+
+/* On appelle le serveur par paquets : chaque appel traite quelques artistes et
+   dit combien il en reste. Le navigateur ne fait que tourner la manivelle. */
+async function releverEcoutes(){
+  const d=document.getElementById("bdiag"); if(!d) return;
+  let artistes=0, titres=0, tours=0;
+  for(;;){
+    d.innerHTML='<b>Relève en cours…</b> '+artistes+' artiste(s) interrogé(s), '+titres+' carte(s) mises à jour.';
+    const r=await apiAppel("/api/moderation",{action:"ecoutes"});
+    if(!r||!r.ok){ d.innerHTML='<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Relève impossible.")+'</b>'; return; }
+    artistes+=r.artistes||0; titres+=r.titres||0;
+    if(r.fini||!r.artistes||++tours>400){
+      d.innerHTML='<b style="color:var(--ok)">Compteurs à jour.</b> '+artistes+' artiste(s) interrogé(s), '
+        +titres+' carte(s) portent désormais un nombre de fans.'
+        +(r.restants?' Il en reste '+r.restants+' à faire.':'');
+      break;
+    }
+  }
+  await vueBiblio();
+}
 
 async function vueBiblio(){
   const box=document.getElementById("modbox");
@@ -2913,12 +2948,17 @@ function dessinerBiblio(){
       +'<button class="btn ghost sm" type="button" id="bimport">Importer catalogue.json</button>'
       +'<button class="btn ghost sm" type="button" id="bfichier">Importer un fichier…</button>'
       +'<input type="file" id="bfile" accept=".json,application/json" hidden>'
+      +'<button class="btn ghost sm" type="button" id="becoutes">Relever les compteurs d\'écoutes</button>'
       +'<button class="btn ghost sm" type="button" id="bexport">Exporter en JSON</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
       +ARTISTES_APPLE.length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
       +'aucun fichier, aucun terminal. Compte trois à cinq minutes, et ne ferme pas l\'onglet. '
-      +'Dans tous les cas, un son déjà présent est ignoré, jamais dupliqué.</p>':'')
+      +'Dans tous les cas, un son déjà présent est ignoré, jamais dupliqué.<br><br>'
+      +'<b style="color:var(--ink-2)">Relever les compteurs d\'écoutes</b> demande à Deezer, qui publie '
+      +'librement le nombre de fans d\'un artiste. Le chiffre est rangé avec sa date et s\'affiche sur les '
+      +'cartes à la place de l\'indice de popularité. Il bouge tout le temps : on le rafraîchit quand on veut, '
+      +'par paquets, et le jeu marche très bien sans.</p>':'')
     +'<div class="keyrow"><input id="bq" placeholder="Chercher un titre, un artiste, un genre" value="'+esc(BQ)+'"></div>'
     +'<div id="blist"></div>';
 
@@ -2926,6 +2966,7 @@ function dessinerBiblio(){
   q.oninput=()=>{ BQ=q.value; BPAGE=0; listeBiblio(); };
   if(admin){
     document.getElementById("bconstruire").onclick=()=>construireDepuisApple();
+    document.getElementById("becoutes").onclick=()=>releverEcoutes();
     document.getElementById("bimport").onclick=()=>importerDepuisSite();
     document.getElementById("bfichier").onclick=()=>document.getElementById("bfile").click();
     document.getElementById("bfile").onchange=e=>{
@@ -3052,7 +3093,18 @@ async function construireDepuisApple(){
   if(stop) stop.onclick=()=>{ STOP_CONSTRUCTION=true; };
   const prog=m=>{ const e=document.getElementById("bprog"); if(e) e.innerHTML=m; };
 
+  /* La construction dure une demi-heure : un écran qui s'endort, un onglet
+     fermé ou un Wi-Fi qui saute ne doivent pas tout faire recommencer. On note
+     où on en est à chaque artiste, et on repart de là. */
+  const REPRISE="diggers.construction";
+  let repere=null;
+  try{ repere=JSON.parse(localStorage.getItem(REPRISE)||"null"); }catch(e){}
+  if(q.remp) repere=null;
   let attente=[], premier=true, total=0, ajoutes=0, ignores=0, refuses=0, muets=0, i=0;
+  if(repere&&repere.i>0&&repere.i<ARTISTES_APPLE.length){
+    i=repere.i; ajoutes=repere.ajoutes||0; ignores=repere.ignores||0;
+    refuses=repere.refuses||0; muets=repere.muets||0; total=repere.total||0; premier=false;
+  }
 
   const envoyer=async()=>{
     if(!attente.length) return true;
@@ -3064,11 +3116,14 @@ async function construireDepuisApple(){
     return true;
   };
 
-  for(const paire of ARTISTES_APPLE){
+  const depart=i;
+  while(i<ARTISTES_APPLE.length){
     if(STOP_CONSTRUCTION) break;
-    i++;
-    prog(i+" / "+ARTISTES_APPLE.length+" — "+esc(paire[0])
-      +" · <b>"+ajoutes+"</b> titres entrés"+(muets?" · "+muets+" artiste(s) sans réponse":""));
+    const paire=ARTISTES_APPLE[i];
+    const reste=Math.round((ARTISTES_APPLE.length-i)*APPLE_PAUSE/60000);
+    prog((i+1)+" / "+ARTISTES_APPLE.length+" — "+esc(paire[0])
+      +" · <b>"+ajoutes+"</b> titres entrés · encore ~"+reste+" min"
+      +(muets?" · "+muets+" artiste(s) sans réponse":""));
     try{
       const propres=await fetchDig(paire);
       if(!propres.length) muets++;
@@ -3077,12 +3132,18 @@ async function construireDepuisApple(){
         attente.push(t);
       });
     }catch(e){ muets++; }
+    i++;
     if(attente.length>=PAQUET && !(await envoyer())) return;
-    await new Promise(r=>setTimeout(r,200));
+    try{ localStorage.setItem(REPRISE,JSON.stringify({i,ajoutes,ignores,refuses,muets,total})); }catch(e){}
+    if(i<ARTISTES_APPLE.length) await new Promise(r=>setTimeout(r,APPLE_PAUSE));
   }
   if(!(await envoyer())) return;
+  if(i>=ARTISTES_APPLE.length){ try{ localStorage.removeItem(REPRISE); }catch(e){} }
+  else { try{ localStorage.setItem(REPRISE,JSON.stringify({i,ajoutes,ignores,refuses,muets,total})); }catch(e){} }
 
-  bdiag('<b style="color:var(--ok)">'+(STOP_CONSTRUCTION?"Arrêté.":"Catalogue construit.")+'</b> '
+  bdiag('<b style="color:var(--ok)">'+(i<ARTISTES_APPLE.length
+      ?"Arrêté à l'artiste "+i+" — relance « Construire depuis Apple » pour reprendre ici même."
+      :"Catalogue construit.")+'</b> '
     +ajoutes+' titre(s) entré(s), '+ignores+' déjà présent(s)'
     +(refuses?', '+refuses+' écarté(s)':'')+(muets?', '+muets+' artiste(s) sans réponse d\'Apple':'')
     +'. La bibliothèque compte '+total+' sons.');
@@ -3146,25 +3207,46 @@ async function vueMentions(){
     +'<input id="'+id+'" maxlength="240" value="'+esc(val||"")+'" placeholder="'+esc(ph)+'">';
   box.innerHTML=
     '<div class="rule"><p style="margin:0"><b>Obligatoire en France</b> dès que le site est ouvert à des inconnus. '
-    +'Ce que tu écris ici est enregistré dans la base et affiché dans les Réglages du jeu, '
-    +'pour tout le monde. Tant que le nom, l\'adresse et le contact sont vides, un bandeau rouge le rappelle.</p></div>'
+    +'Ce que tu écris ici est enregistré dans la base et affiché dans les Réglages du jeu, pour tout le monde.</p>'
+    +'<p style="margin:0"><b>Tu n\'es pas obligé d\'afficher ton adresse personnelle.</b> Un particulier qui édite '
+    +'un site à titre non professionnel peut rester anonyme vis-à-vis du public : ce sont alors les coordonnées '
+    +'de l\'hébergeur qui sont publiées, à condition qu\'il détienne ton identité — c\'est le cas dès que tu as '
+    +'un compte Netlify. Coche la case ci-dessous et remplis seulement le contact.</p>'
+    +'<p style="margin:0"><b>Ce régime tombe le jour où le site encaisse.</b> Si tu ouvres la boutique en euros, '
+    +'tu deviens un professionnel : nom, adresse et directeur de publication redeviennent obligatoires, et la '
+    +'boutique refusera de vendre tant qu\'ils sont vides.</p></div>'
     +'<div class="compte">'
+    +'<label class="lbl"><input type="checkbox" id="mpart" style="width:auto;margin-right:8px"'
+      +(e.particulier?' checked':'')+'>J\'édite ce site à titre personnel et non professionnel</label>'
+    +champ("mcontact","Adresse de contact (toujours obligatoire)",e.contact,"contact@…")
+    +champ("mheberge","Hébergeur",e.hebergeur,"Netlify, Inc. — 512 2nd Street…")
+    +'<div id="mpro">'
     +champ("mnom","Nom ou raison sociale",e.nom,"adr")
     +champ("mstatut","Statut",e.statut,"entrepreneur individuel")
     +champ("madresse","Adresse du siège ou du domicile déclaré",e.adresse,"12 rue …, 75000 Paris")
-    +champ("mcontact","Adresse de contact",e.contact,"contact@…")
     +champ("mdirecteur","Directeur de la publication",e.directeur,"souvent la même personne")
-    +champ("mheberge","Hébergeur",e.hebergeur,"Netlify, Inc. — 512 2nd Street…")
+    +'</div>'
     +'<div class="onb-bar" style="position:static;background:none;padding:14px 0 0;margin:0">'
     +'<button class="btn sm" type="button" id="menreg">Enregistrer</button></div>'
     +'<p class="notice" id="mdiag"></p></div>';
+  const part=document.getElementById("mpart"), pro=document.getElementById("mpro");
+  const syncPart=()=>{
+    pro.style.opacity=part.checked?".5":"1";
+    pro.querySelectorAll("input").forEach(x=>x.disabled=part.checked);
+    const d=document.getElementById("mdiag");
+    d.innerHTML=part.checked
+      ? 'Seuls le contact et l\'hébergeur seront publiés. À n\'utiliser que tant que le site ne vend rien.' : '';
+  };
+  part.onchange=syncPart; syncPart();
+
   document.getElementById("menreg").onclick=async()=>{
     const v=id=>document.getElementById(id).value.trim();
     const d=document.getElementById("mdiag");
     d.textContent="Enregistrement…";
     const r2=await apiAppel("/api/moderation",{action:"mentions",editeur:{
       nom:v("mnom"), statut:v("mstatut"), adresse:v("madresse"),
-      contact:v("mcontact"), directeur:v("mdirecteur"), hebergeur:v("mheberge")}});
+      contact:v("mcontact"), directeur:v("mdirecteur"), hebergeur:v("mheberge"),
+      particulier:part.checked}});
     if(r2&&r2.ok){
       Object.assign(EDITEUR,r2.editeur);
       const b=document.getElementById("bandeau"); if(b) b.hidden=mentionsCompletes();
@@ -3211,8 +3293,15 @@ function blocConnexion(){
     +'<p class="notice" id="cdiag"></p></div>';
 }
 
-const PALETTE={ambre:"#E5A34B",vert:"#6FCF97",violet:"#A78BFA",rouge:"#F0705B",bleu:"#6BA8F5",rose:"#F48FB1",or:"#E7C86A"};
-const BANN={nuit:"Nuit",cassette:"Cassette",vinyle:"Vinyle",neon:"Néon",papier:"Papier",sable:"Sable"};
+const PALETTE={ambre:"#E5A34B",vert:"#6FCF97",violet:"#A78BFA",rouge:"#F0705B",bleu:"#6BA8F5",rose:"#F48FB1",or:"#E7C86A",
+  nuit:"#2B3A67",cuivre:"#B87333",menthe:"#9FE0C4"};
+const BANN={nuit:"Nuit",cassette:"Cassette",vinyle:"Vinyle",neon:"Néon",papier:"Papier",sable:"Sable",
+  or:"Or",chrome:"Chrome",beton:"Béton",velours:"Velours"};
+/* Ce qui se paie, et sous quel nom d'article. Le serveur a la même table : elle
+   ne sert ici qu'à griser ce qu'on ne possède pas encore. */
+const PAYANT={ban:{or:"ban-or",chrome:"ban-chrome",beton:"ban-beton",velours:"ban-velours"},
+  coul:{nuit:"coul-nuit",cuivre:"coul-cuivre",menthe:"coul-menthe"}};
+const aMoi=id=>!id||((COMPTE&&COMPTE.cosmetiques)||[]).includes(id);
 
 function blocProfilServeur(){
   const p=COMPTE.profil||{};
@@ -3232,10 +3321,14 @@ function blocProfilServeur(){
     +'<label class="lbl">Pseudo</label><input id="ppseudo" maxlength="18" value="'+esc(COMPTE.pseudo)+'">'
     +'<label class="lbl">Phrase de profil</label><input id="pbio" maxlength="140" value="'+esc(p.bio||"")+'" placeholder="Ce que tu cherches dans les bacs.">'
     +'<label class="lbl">Couleur</label><div class="pal">'
-      +Object.keys(PALETTE).map(k=>'<button type="button" class="pastille'+(p.couleur===k?" on":"")+'" data-col="'+k+'" '
-        +'style="background:'+PALETTE[k]+'" aria-label="'+k+'"></button>').join("")+'</div>'
+      +Object.keys(PALETTE).map(k=>{ const bloque=!aMoi(PAYANT.coul[k]);
+        return '<button type="button" class="pastille'+(p.couleur===k?" on":"")+(bloque?" verrou":"")+'" '
+        +(bloque?'disabled title="En boutique" ':'data-col="'+k+'" ')
+        +'style="background:'+PALETTE[k]+'" aria-label="'+k+'"></button>'; }).join("")+'</div>'
     +'<label class="lbl">Bannière</label><div class="pal">'
-      +Object.keys(BANN).map(k=>'<button type="button" class="bant b-'+k+(p.banniere===k?" on":"")+'" data-ban="'+k+'">'+BANN[k]+'</button>').join("")+'</div>'
+      +Object.keys(BANN).map(k=>{ const bloque=!aMoi(PAYANT.ban[k]);
+        return '<button type="button" class="bant b-'+k+(p.banniere===k?" on":"")+(bloque?" verrou":"")+'" '
+        +(bloque?'disabled title="En boutique"':'data-ban="'+k+'"')+'>'+BANN[k]+'</button>'; }).join("")+'</div>'
     +'<label class="lbl">Titre porté</label><div class="pal">'
       +TITRES.map(t=>'<button type="button" class="bant'+(p.titre===t.id?" on":"")+(t.acquis?"":" bloque")+'" data-tit="'+t.id+'"'
         +(t.acquis?"":' disabled title="Pas encore débloqué"')+'>'+esc(t.n)+'</button>').join("")+'</div>'
@@ -3288,9 +3381,9 @@ function habillerProfil(){
 
   document.getElementById("cout").onclick=async()=>{
     const q=await modale("Se déconnecter ?",
-      '<p>Ta partie reste sur cet appareil et sur le compte. Tu pourras revenir avec ton pseudo.</p>',
+      '<p>Ta collection reste sur ton compte, au serveur. Tu la retrouveras avec ton pseudo, ici ou ailleurs.</p>',
       [{v:1,n:"Se déconnecter"},{v:0,n:"Rester",g:true}]);
-    if(q){ await pousser(true); deconnecter(); renderProfil(); }
+    if(q){ deconnecter(); JEU=null; S.shelf=[]; S.credits=0; S.eclats=0; sync(); renderProfil(); }
   };
   document.getElementById("ceffacer").onclick=effacerCompte;
   const pp=document.getElementById("ppseudo");
@@ -3344,7 +3437,7 @@ async function effacerCompte(){
 async function renderCrewServeur(){
   const box=document.getElementById("crewbox");
   box.innerHTML='<p class="notice">Chargement…</p>';
-  await pousser(true);          /* pour que ta propre ligne soit à jour */
+  await apiJeu("etat");         /* pour que ta propre ligne soit à jour */
   const r=await apiAppel("/api/crews",{action:"mien"});
   if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Indisponible.")+'</div>'; return; }
   CREW=r.crew; CREWCHEF=!!r.chef;
@@ -3413,7 +3506,7 @@ async function palmaresCrews(){
 async function renderLadderServeur(){
   const box=document.getElementById("ladderbox");
   box.innerHTML='<p class="notice">Chargement du classement…</p>';
-  await pousser(true);          /* pour que ta propre ligne soit à jour */
+  await apiJeu("etat");         /* pour que ta propre ligne soit à jour */
   const r=await apiAppel("/api/classement",null,"GET");
   if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Classement indisponible.")+'</div>'; return; }
   const t=tauxSec();
@@ -3455,34 +3548,84 @@ function placeDe(l){
   return i<0?"—":(i+1)+"ᵉ";
 }
 
-/* ============ RÉGLAGES : SERVEUR ============ */
+/* ============ BOUTIQUE ============
+   Une seule règle a guidé cet écran : rien de ce qui s'achète ici ne doit
+   changer une partie. Que du décor, et on le dit clairement — un joueur qui
+   n'achète jamais rien ne rate rien. */
+let VITRINE=null;
+
+async function renderBoutique(){
+  const box=document.getElementById("boutiquebox");
+  if(!COMPTE){
+    box.innerHTML='<div class="empty">La boutique demande un compte — c\'est lui qui porte ton décor.<br>'
+      +'<span style="font-size:13px">Onglet Profil pour en créer un.</span></div>';
+    return;
+  }
+  box.innerHTML='<p class="notice">Ouverture de la vitrine…</p>';
+  const r=await apiAppel("/api/boutique",{action:"vitrine"});
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Boutique indisponible.")+'</div>'; return; }
+  VITRINE=r;
+
+  const possede=new Set(r.possede||[]);
+  box.innerHTML=
+    '<div class="bar"><span class="hint">Tes jetons : <b style="color:var(--accent)">'+r.jetons+'</b></span>'
+    +(r.ouverte?'':'<span class="hint" style="color:var(--t6)">'+esc(r.raison)+'</span>')+'</div>'
+
+    +'<h3 class="sect" style="margin-top:0">Le décor</h3>'
+    +'<div class="scale"><div class="sc head"><span>Article</span><span>Ce que c\'est</span><span class="odds">Prix</span><span class="val"></span></div>'
+    +r.cosmetiques.map(c=>'<div class="sc"><span class="nm">'+esc(c.n)+'</span><span class="dsc">'+esc(c.d)+'</span>'
+      +'<span class="odds">'+c.prix+' jetons</span><span class="val">'
+      +(possede.has(c.id)
+        ? '<b style="color:var(--ok)">à toi</b>'
+        : '<button class="btn ghost sm" type="button" data-cos="'+esc(c.id)+'"'+(r.jetons<c.prix?' disabled':'')+'>Prendre</button>')
+      +'</span></div>').join("")+'</div>'
+    +'<p class="notice">Une fois pris, l\'article se porte depuis <b>Profil → Personnaliser</b>.</p>'
+
+    +'<h3 class="sect">Des jetons</h3>'
+    +(r.ouverte
+      ? '<div class="shop" style="margin-top:0">'+r.packs.map(p=>
+          '<button class="pack" type="button" data-pack="'+esc(p.id)+'" style="--pc:var(--accent)">'
+          +'<h3>'+esc(p.n)+'</h3><p>'+p.jetons+' jetons'+(p.bonus?' · <b>'+esc(p.bonus)+'</b>':'')+'</p>'
+          +'<span class="price">'+(p.cents/100).toFixed(2).replace(".",",")+' €</span></button>').join("")+'</div>'
+        +'<p class="notice">Le paiement se fait chez <b>Stripe</b> : aucun numéro de carte ne passe par Diggers. '
+        +'Les jetons sont crédités dès que Stripe confirme, en général en quelques secondes. '
+        +'Contenu numérique livré immédiatement : en payant, tu renonces à ton droit de rétractation de 14 jours. '
+        +'Tu dois avoir 18 ans, ou l\'accord de tes parents.</p>'
+      : '<div class="empty">La vente n\'est pas ouverte sur ce site.<br><span style="font-size:13px">'
+        +esc(r.raison)+'</span></div>');
+
+  box.querySelectorAll("[data-cos]").forEach(b=>b.onclick=async()=>{
+    const r2=await apiAppel("/api/boutique",{action:"acheter",id:b.dataset.cos});
+    if(r2&&r2.ok){ flash("C\'est à toi"); const m=await apiAppel("/api/compte",{action:"moi"}); if(m&&m.ok) adopterCompte(m); renderBoutique(); }
+    else flash((r2&&r2.erreur)||"Impossible");
+  });
+  box.querySelectorAll("[data-pack]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    const r2=await apiAppel("/api/boutique",{action:"payer",pack:b.dataset.pack});
+    if(r2&&r2.ok&&r2.url) location.href=r2.url;
+    else { b.disabled=false; flash((r2&&r2.erreur)||"La caisse n\'a pas répondu"); }
+  });
+}
+
+/* ============ RÉGLAGES : LA MODÉRATION ============ */
 function blocServeur(){
-  const etat = !apiPossible() ? ['var(--t6)',"aucun serveur joignable (fichier local)"]
-    : ENLIGNE===false ? ['var(--t6)',"serveur injoignable"]
-    : ENLIGNE===true ? ['var(--ok)',"serveur en ligne"] : ['var(--ink-3)',"pas encore contacté"];
-  return '<h3 class="sect">Serveur</h3>'
-    +'<p class="notice">État : <b style="color:'+etat[0]+'">'+etat[1]+'</b>'
-    +(COMMU?' · '+COMMU+' son(s) communautaires chargés':'')+'.</p>'
-    +'<p class="notice">Si tu ouvres ce fichier en local mais veux quand même les comptes, colle ici l\'adresse de ton site en ligne.</p>'
-    +'<div class="keyrow"><input id="apiurl" placeholder="https://mon-site.netlify.app" value="'+esc(S.api||"")+'">'
-    +'<button class="btn ghost sm" type="button" id="apisave">Enregistrer</button></div>'
-    +(COMPTE?'<h3 class="sect">Modération</h3>'
-      +'<p class="notice">Rôle actuel : <b style="color:var(--ink-2)">'+esc(COMPTE.role)+'</b>.'
-      +(COMPTE.role==="admin"
-        ? ' Tu gères le site : l\'onglet <b>Modération</b> est ouvert.</p>'
-        : ' Le tout premier compte d\'un site neuf devient administrateur tout seul. '
-          +'Sinon, la clé se règle dans Netlify, variable <code>DIGGERS_ADMIN</code>.</p>'
-          +'<div class="keyrow"><input id="adminkey" type="password" placeholder="Clé d\'administration">'
-          +'<button class="btn ghost sm" type="button" id="adminsave">Devenir administrateur</button></div>'
-          +'<p class="notice" id="admindiag"></p>'):'');
+  if(!COMPTE) return "";
+  return '<h3 class="sect">Modération</h3>'
+    +'<p class="notice">Rôle actuel : <b style="color:var(--ink-2)">'+esc(COMPTE.role)+'</b>.'
+    +(COMPTE.role==="admin"
+      ? ' Tu gères le site : l\'onglet <b>Modération</b> est ouvert.</p>'
+      : COMPTE.role==="moderateur"
+      ? ' Tu peux trancher les propositions des joueurs.</p>'
+      : ' Le tout premier compte d\'un site neuf devient administrateur tout seul. '
+        +'Sinon, la clé se règle dans Netlify, variable <code>DIGGERS_ADMIN</code>.</p>'
+        +'<div class="keyrow"><input id="adminkey" type="password" placeholder="Clé d\'administration">'
+        +'<button class="btn ghost sm" type="button" id="adminsave">Devenir administrateur</button></div>'
+        +'<p class="notice" id="admindiag"></p>');
 }
 function habillerReglages(){
   const box=document.getElementById("reglagesbox");
   if(!box) return;
   box.insertAdjacentHTML("beforeend",blocServeur());
-  const b=document.getElementById("apisave");
-  if(b) b.onclick=()=>{ S.api=document.getElementById("apiurl").value.trim().replace(/\/+$/,""); save();
-    flash("Adresse enregistrée"); ENLIGNE=null; initServeur(); renderReglages(); };
   const a=document.getElementById("adminsave");
   if(a) a.onclick=async()=>{
     const r=await apiAppel("/api/compte",{action:"promouvoir",cle:document.getElementById("adminkey").value});
@@ -3510,9 +3653,6 @@ const REGLES_COMMU=
    On n'écrase rien : on enveloppe. Sans serveur, tout retombe
    exactement sur le comportement d'avant. */
 
-const _save=save;
-save=function(){ _save(); planifierPousse(); };
-
 const _go=go;
 go=function(v){
   _go(v);
@@ -3531,39 +3671,19 @@ renderProfil=function(){
   }
 };
 
-const _renderCrew=renderCrew;
-renderCrew=function(){ if(COMPTE) renderCrewServeur(); else _renderCrew(); };
-
-const _renderLadder=renderLadder;
-renderLadder=function(){ if(COMPTE) renderLadderServeur(); else _renderLadder(); };
-
 const _renderRegles=renderRegles;
 renderRegles=function(){ _renderRegles();
   const b=document.getElementById("reglesbox"); if(b) b.insertAdjacentHTML("beforeend",REGLES_COMMU); };
 
 const _syncFoot=syncFoot;
 syncFoot=function(){
-  if(CATSOURCE!=="serveur") return _syncFoot();
   const f=document.getElementById("foot"); if(!f) return;
   f.innerHTML='<b style="color:var(--ink-2)">'+CAT.length+' morceaux · '
     +new Set(CAT.map(c=>c.artist)).size+' artistes.</b> Source : '
     +'<b style="color:var(--ok)">la bibliothèque du serveur</b>'
     +(COMMU?' — dont '+COMMU+' apporté(s) par des joueurs':'')+'.'
     +'<br><br>Catalogue, pochettes et extraits de 30 s : API iTunes Search d\'Apple, boutique France. '
-    +'Chaque carte reconnue renvoie vers la fiche du morceau, comme l\'exigent les conditions d\'usage. '
-    +'Compteurs d\'écoutes : Last.fm, si une clé est renseignée dans les réglages.';
-};
-
-const _boot1=boot1;
-boot1=async function(){
-  if(apiPossible()){
-    const st=document.getElementById("lstat"), pr=document.getElementById("prog");
-    if(st) st.textContent="Lecture de la bibliothèque…";
-    if(pr) pr.style.width="25%";
-    const n=await chargerServeur(true);
-    if(n>=50){ if(pr) pr.style.width="100%"; return true; }
-  }
-  return await _boot1();
+    +'Chaque carte reconnue renvoie vers la fiche du morceau, comme l\'exigent les conditions d\'usage.';
 };
 
 const _renderReglages=renderReglages;
@@ -3584,18 +3704,161 @@ function syncMute(){
   if(S.silent){ hush(); setDiag("","Son coupé — le jeu reste entièrement jouable."); }
   else setDiag("","Si tu n'entends rien, touche « Tester le son » : il dira exactement ce qui bloque.");
 }
-function syncFoot(){
-  const src = CATSOURCE==="fichier"
-    ? '<b style="color:var(--ok)">catalogue.json</b> — construit une fois, nettoyé, servi par ton site'
-    : '<b style="color:var(--t6)">appel direct à iTunes</b> — pratique pour tester, insuffisant pour ouvrir au public';
-  document.getElementById("foot").innerHTML=
-    '<b style="color:var(--ink-2)">'+CAT.length+' morceaux · '
-    +new Set(CAT.map(c=>c.artist)).size+' artistes.</b> Source : '+src+'.'
-    +(CATMETA&&CATMETA.genere?' Généré le '+CATMETA.genere+'.':'')
-    +'<br><br>Catalogue, pochettes et extraits de 30 s : API iTunes Search d\'Apple, boutique France. '
-    +'Chaque carte reconnue renvoie vers la fiche du morceau, comme l\'exigent les conditions d\'usage. '
-    +'Compteurs d\'écoutes : Last.fm, si une clé est renseignée dans les réglages.';
+function syncFoot(){}
+
+/* ================= LE DÉFI DU JOUR =================
+   Un thème commun, une carte chacun, un vote en duel et à l'aveugle.
+   Tout est décidé par le serveur : le navigateur n'envoie que le numéro
+   d'une carte de son étagère, jamais une pochette ou un extrait. */
+let DEFI=null, DEFI_VUE="jeu";
+
+function defiEntete(theme,extra){
+  return '<div class="bar"><span class="hint">'+esc(jourLisible())+'</span>'
+    +'<span class="hint">Crédits : <b style="color:var(--accent)">'+(S.credits|0)+'</b></span>'
+    +(extra||'')
+    +'<button class="btn ghost sm" type="button" id="defipalm">Le palmarès d\'hier</button></div>'
+    +'<p class="defi-theme">'+esc(theme||"…")+'</p>';
 }
+function jourLisible(){
+  const d=new Date();
+  return d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+}
+function defiBrancher(box){
+  const p=box.querySelector("#defipalm");
+  if(p) p.onclick=()=>renderPalmares();
+}
+
+async function renderDefi(){
+  const box=document.getElementById("defibox");
+  if(!COMPTE){
+    const pub=await apiAppel("/api/defi");
+    box.innerHTML=defiEntete(pub&&pub.theme)
+      +'<div class="empty">Le défi demande un compte : il faut une étagère pour y répondre, '
+      +'et un pseudo pour figurer au palmarès.<br><span style="font-size:13px">Onglet Profil pour en créer un.</span></div>';
+    defiBrancher(box);
+    return;
+  }
+  box.innerHTML='<p class="notice">Chargement du défi…</p>';
+  const r=await apiAppel("/api/defi",{action:"etat"});
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Défi indisponible.")+'</div>'; return; }
+  DEFI=r;
+  if(!r.posee) return renderDefiChoix();
+  return renderDefiDuel();
+}
+
+/* ---- 1. poser sa carte ---- */
+async function renderDefiChoix(){
+  const box=document.getElementById("defibox");
+  const r=await apiAppel("/api/defi",{action:"cartes"});
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Impossible de lire ton étagère.")+'</div>'; return; }
+  if(!r.cartes.length){
+    box.innerHTML=defiEntete(r.theme)
+      +'<div class="empty">Aucune carte trouvée sur ton étagère.<br>'
+      +'<span style="font-size:13px">Ouvre un carton et reconnais un morceau : une carte face cachée ne répond à rien.</span></div>';
+    defiBrancher(box); return;
+  }
+  box.innerHTML=defiEntete(r.theme)
+    +'<p class="hint">Choisis ta réponse. Une seule carte, une seule fois aujourd\'hui — '
+    +'personne ne saura qu\'elle vient de toi avant le palmarès.</p>'
+    +'<div class="defi-choix">'+r.cartes.map(c=>
+      '<button class="defi-mini" type="button" data-uid="'+esc(c.uid)+'">'
+      +'<img src="'+esc(c.art)+'" alt="" loading="lazy">'
+      +'<div class="t">'+esc(c.title)+'</div><div class="a">'+esc(c.artist)+'</div></button>').join("")
+    +'</div>';
+  defiBrancher(box);
+  box.querySelectorAll("[data-uid]").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    const r2=await apiAppel("/api/defi",{action:"poser",uid:b.dataset.uid});
+    if(r2&&r2.ok){ flash("Ta carte est posée"); track("defi-pose",{}); renderDefi(); }
+    else { b.disabled=false; flash((r2&&r2.erreur)||"Impossible"); }
+  });
+}
+
+/* ---- 2. voter, à l'aveugle ---- */
+async function renderDefiDuel(){
+  const box=document.getElementById("defibox");
+  const r=await apiAppel("/api/defi",{action:"duel"});
+  const restants=(r&&r.votesRestants!=null)?r.votesRestants:(DEFI.votesRestants||0);
+  const tete=defiEntete(DEFI.theme,'<span class="hint">Duels restants : <b>'+restants+'</b></span>');
+
+  if(r&&r.code===429){
+    box.innerHTML=tete
+      +'<div class="empty">Tu as fait tous tes duels du jour.<br>'
+      +'<span style="font-size:13px">Le palmarès tombe demain, et le podium est payé.</span></div>'
+      +defiMaCarte();
+    defiBrancher(box); return;
+  }
+  if(!r||!r.ok){ box.innerHTML=tete+'<div class="empty">'+esc((r&&r.erreur)||"Duel indisponible.")+'</div>'; defiBrancher(box); return; }
+  if(!r.duel){
+    box.innerHTML=tete
+      +'<div class="empty">'+esc(r.raison||"Pas encore assez de cartes posées.")+'<br>'
+      +'<span style="font-size:13px">Repasse dans la journée : les duels s\'ouvrent dès qu\'il y a deux autres cartes.</span></div>'
+      +defiMaCarte();
+    defiBrancher(box); return;
+  }
+
+  box.innerHTML=tete
+    +'<p class="hint">Laquelle répond le mieux ? Tu ne vois pas qui a posé quoi, c\'est voulu.</p>'
+    +'<div class="defi-duo">'+r.duel.map(e=>
+      '<button class="defi-c" type="button" data-id="'+esc(e.id)+'">'
+      +(e.carte.perdue?'<div class="empty" style="padding:20px">Morceau retiré</div>'
+        :'<img src="'+esc(e.carte.art)+'" alt="" loading="lazy">'
+         +'<div class="t">'+esc(e.carte.title)+'</div>'
+         +'<div class="a">'+esc(e.carte.artist)+(e.carte.year?' · '+e.carte.year:'')+'</div>'
+         +(e.carte.preview?'<audio controls preload="none" src="'+esc(e.carte.preview)+'"></audio>':''))
+      +'</button>').join("")
+    +'</div>'
+    +'<p class="notice">Chaque duel tranché rapporte 2 crédits, quel que soit ton camp. '
+    +'Le vote aveugle est là pour que ce soit le morceau qui gagne, pas le pseudo.</p>'
+    +defiMaCarte();
+  defiBrancher(box);
+
+  const ids=r.duel.map(e=>e.id);
+  box.querySelectorAll(".defi-c").forEach((b,i)=>b.onclick=async(ev)=>{
+    if(ev.target.tagName==="AUDIO") return;       // on écoute sans voter
+    box.querySelectorAll(".defi-c").forEach(x=>x.disabled=true);
+    const r2=await apiAppel("/api/defi",{action:"voter",gagnant:ids[i],perdant:ids[1-i]});
+    if(r2&&r2.ok){ await apiJeu("etat"); renderDefiDuel(); }
+    else { flash((r2&&r2.erreur)||"Vote refusé"); renderDefi(); }
+  });
+}
+
+function defiMaCarte(){
+  if(!DEFI||!DEFI.posee) return "";
+  const c=DEFI.posee;
+  return '<h3 class="sect">Ta réponse</h3>'
+    +'<div class="defi-rang"><div class="n">—</div>'
+    +(c.art?'<img src="'+esc(c.art)+'" alt="">':'')
+    +'<div style="flex:1"><div style="font-weight:700">'+esc(c.title||"?")+'</div>'
+    +'<div class="hint">'+esc(c.artist||"")+'</div></div></div>';
+}
+
+/* ---- 3. le palmarès ---- */
+async function renderPalmares(){
+  const box=document.getElementById("defibox");
+  box.innerHTML='<p class="notice">Chargement du palmarès…</p>';
+  const r=await apiAppel("/api/defi",{action:"palmares"});
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Palmarès indisponible.")+'</div>'; return; }
+  box.innerHTML='<div class="bar"><span class="hint">'+esc(r.date)+'</span>'
+    +'<span class="hint">'+r.participants+' participant(s)</span>'
+    +'<button class="btn ghost sm" type="button" id="defiretour">Revenir au défi du jour</button></div>'
+    +'<p class="defi-theme">'+esc(r.theme)+'</p>'
+    +(r.podium.length
+      ? r.podium.map(p=>'<div class="defi-rang"><div class="n">'+p.rang+'</div>'
+        +(p.carte.art?'<img src="'+esc(p.carte.art)+'" alt="">':'')
+        +'<div style="flex:1"><div style="font-weight:700">'+esc(p.carte.title||"?")+'</div>'
+        +'<div class="hint">'+esc(p.carte.artist||"")+' — posée par <b>'+esc(p.pseudo)+'</b></div></div>'
+        +'<div style="text-align:right"><div style="font-weight:700">'+p.taux+' %</div>'
+        +'<div class="hint">'+(p.gain?'+'+p.gain:'')+'</div></div></div>').join("")
+      : '<div class="empty">Personne n\'a été jugé ce jour-là.<br>'
+        +'<span style="font-size:13px">Il faut au moins trois duels pour être classé.</span></div>')
+    +'<p class="notice">Le classement se fait sur le <b>taux de victoire</b> en duel, pas sur le nombre de votes reçus : '
+    +'une carte vue dix fois et gagnante neuf fois passe devant une carte vue trente fois.</p>';
+  const b=box.querySelector("#defiretour");
+  if(b) b.onclick=()=>renderDefi();
+  await apiJeu("etat");
+}
+
 function go(v){
   hush();
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));
@@ -3603,25 +3866,27 @@ function go(v){
   if(v==="etagere") renderShelf();
   if(v==="marche") renderMarche();
   if(v==="set") startSet();
+  if(v==="defi") renderDefi();
   if(v==="regles") renderRegles();
   if(v==="profil") renderProfil();
   if(v==="crew") renderCrew();
   if(v==="classement") renderLadder();
+  if(v==="boutique") renderBoutique();
   if(v==="reglages") renderReglages();
   track("onglet",{v});
 }
 
 (async function(){
   load();
-  let ok=false;
-  try{ ok=await boot1(); }catch(e){}
-  if(!ok){
-    document.getElementById("lerr").innerHTML='<div class="err"><b>Le catalogue n\'a pas pu se charger.</b><br><br>'
-      +'Le prototype interroge l\'API iTunes en direct : il lui faut une connexion, et il doit être servi depuis un vrai '
-      +'fichier local ou une adresse web — pas depuis un aperçu qui bloque les requêtes externes.</div>';
+  let pret=false;
+  try{ pret=await boot1(); }catch(e){}
+  if(!pret){
+    document.getElementById("lerr").innerHTML='<div class="err"><b>La bibliothèque du serveur est vide ou injoignable.</b><br><br>'
+      +'Diggers ne tourne plus en local : les cartes, les crédits et le marché sont tenus par le serveur. '
+      +'Si tu viens d\'installer le site, un administrateur doit d\'abord construire la bibliothèque '
+      +'depuis <b>Modération → Bibliothèque</b>.</div>';
     return;
   }
-  if(CATSOURCE!=="serveur") await chargerServeur(false);
   document.getElementById("loader").remove();
   document.getElementById("app").hidden=false;
   /* On ne quitte pas un carton en cours : la promesse d'enquête resterait
@@ -3631,28 +3896,20 @@ function go(v){
     go(t.dataset.v);
   });
   document.querySelectorAll(".mktab").forEach(t=>t.onclick=()=>{mkMode=t.dataset.m;renderMarche();});
-  document.getElementById("mute").onclick=()=>{S.silent=!S.silent;syncMute();save();track("son",{off:S.silent});};
+  document.getElementById("mute").onclick=()=>{S.silent=!S.silent;syncMute();save();};
   if(!mentionsCompletes()){
     const b=document.getElementById("bandeau");
     b.hidden=false;
     b.textContent="Mentions légales incomplètes — à remplir avant d'ouvrir au public (voir Réglages)";
   }
-  majJournee();
   syncMute(); syncFoot(); sync();
   await initServeur();
-  track("session",{source:CATSOURCE,titres:CAT.length,serie:S.streak});
   /* Un lien de set partagé s'ouvre directement dessus, sans compte. */
   const partage=renderSetPartage();
-  boot2();
-  /* En mode direct, on laisse le catalogue s'étoffer avant de demander au joueur
-     ce qu'il reconnaît : lui proposer six artistes n'aurait aucun sens. */
+  /* Sans compte, il n'y a pas de partie : l'écran d'accueil n'est plus une
+     invitation, c'est la porte d'entrée. */
   if(!partage && bienvenueDue()) await ouvrirBienvenue();
-  if(!partage && S.gouts===undefined){
-    const assezDArtistes=()=>new Set(CAT.map(c=>c.artist)).size>=20;
-    let tours=0;
-    while(!assezDArtistes() && tours++<24) await new Promise(r=>setTimeout(r,250));
-    await ouvrirOnboarding(); renderShop(); syncFoot();
-  }
+  if(!partage && COMPTE && !onboardingFait()){ await ouvrirOnboarding(); renderShop(); }
 })();
 </script>
 </body>

@@ -16,6 +16,28 @@ const moder = (await import("./netlify/functions/moderation.mjs")).default;
 const catal = (await import("./netlify/functions/catalogue.mjs")).default;
 const class_ = (await import("./netlify/functions/classement.mjs")).default;
 const crews = (await import("./netlify/functions/crews.mjs")).default;
+const jeu = (await import("./netlify/functions/jeu.mjs")).default;
+const { store } = await import("./netlify/functions/_store.mjs");
+
+/* Le classement se nourrit de l'état que le serveur tient lui-même. Pour le
+   vérifier, on installe une partie directement dans le rangement — ce que le
+   navigateur, lui, ne peut plus faire. */
+async function installerPartie(pseudoNorm, { cartes, taux, meilleurSet = 0, serie = 0 }) {
+  const U = await store("utilisateurs");
+  const idx = await (await store("pseudos")).get(pseudoNorm);
+  const u = await U.get(idx.uid);
+  u.jeu = {
+    credits: 400, eclats: 0, coffre: [], enq: {},
+    idLog: "1".repeat(taux) + "0".repeat(100 - taux),
+    gouts: [], premier: false, jourDate: "", setsDate: "", setsToday: 0,
+    bestSet: meilleurSet, sets: 1, setsWon: 1, streak: serie, lastPlayed: "",
+    fondus: 0, achetes: 0, presses: 0, vendus: 0
+  };
+  for (let i = 0; i < cartes; i++)
+    u.jeu.coffre.push({ uid: pseudoNorm + "-" + i, id: "x" + i, rarity: 1, press: "Standard",
+      known: true, reveals: 0, aSec: true, achete: false, tries: 0, heard: false, indices: [], choices: [] });
+  await U.set(u.uid, u);
+}
 
 let ko = 0, n = 0;
 const R = (nom, v) => { n++; if (!v) ko++; console.log((v ? "  ok    " : "  ÉCHEC ") + nom); };
@@ -59,7 +81,7 @@ R("un mot de passe trop court est refusé", r.code === 400);
 r = await post(compte, { action: "inscription", pseudo: "Mila", mdp: "motdepasse1" });
 R("inscription acceptée", r.code === 200 && !!r.jeton && r.moi.pseudo === "Mila");
 R("le deuxième compte est un joueur ordinaire", r.moi.role === "joueur" && !r.fondateur);
-const jMila = r.jeton;
+let jMila = r.jeton;
 R("le profil neuf a une couleur et un titre", r.moi.profil.couleur === "ambre" && r.moi.profil.titre === "curieux");
 R("les titres non gagnés sont marqués comme tels",
   r.titres.find(t => t.id === "defricheur").acquis === false);
@@ -79,29 +101,31 @@ R("un jeton bidon est rejeté", r.code === 401);
 r = await post(compte, { action: "moi" }, jMila);
 R("le jeton donne accès au compte", r.code === 200 && r.moi.pseudo === "Mila");
 
-console.log("\n=== SAUVEGARDE SERVEUR ===");
-const code = "eyJ2IjoxfQ==".repeat(20);
-r = await post(compte, { action: "sauver", code, resume: { cartes: 24, taux: 71, meilleurSet: 83, serie: 4 } }, jMila);
-R("la partie est enregistrée", r.code === 200 && !!r.maj);
+console.log("\n=== LA PARTIE NE S'ENVOIE PLUS ===");
+// Le navigateur déposait sa propre sauvegarde et son propre score. C'était la
+// porte ouverte : on se déclarait le classement qu'on voulait.
+r = await post(compte, { action: "sauver", code: "peu importe", resume: { cartes: 9999, taux: 100 } }, jMila);
+R("déposer une sauvegarde est refusé", r.code === 410);
 r = await post(compte, { action: "charger" }, jMila);
-R("la partie revient à l'identique", r.partie.code === code);
-r = await post(compte, { action: "sauver", code: "x".repeat(200001) }, jMila);
-R("une sauvegarde démesurée est refusée", r.code === 400);
+R("en réclamer une aussi", r.code === 410);
 
 console.log("\n=== PROFIL PERSONNALISABLE ===");
 r = await post(compte, { action: "profil", profil: { couleur: "fluo" } }, jMila);
-R("une couleur inconnue est refusée", r.code === 400);
+R("une couleur inconnue est refusée", r.code === 403);
+r = await post(compte, { action: "profil", profil: { banniere: "or" } }, jMila);
+R("une bannière payante non achetée est refusée", r.code === 403);
 r = await post(compte, { action: "profil", profil: { titre: "archiviste" } }, jMila);
 R("un titre non débloqué est refusé", r.code === 403);
 r = await post(compte, { action: "profil", profil: {
   couleur: "violet", banniere: "vinyle", bio: "x".repeat(300),
   avatar: { id: "1", art: "https://is1-ssl.mzstatic.com/i.jpg" },
-  vitrine: [{ id: "1", title: "T", artist: "A", art: "https://is1-ssl.mzstatic.com/i.jpg", rarity: 6, press: "Or ✦" },
-            { id: "2", title: "T2", artist: "A2", art: "http://ailleurs.example/i.jpg", rarity: 2, press: "Standard" }]
+  vitrine: [{ uid: "inventee-1", id: "1", title: "T", artist: "A", art: "https://is1-ssl.mzstatic.com/i.jpg", rarity: 6, press: "Or ✦" }]
 } }, jMila);
 R("la personnalisation est acceptée", r.code === 200 && r.moi.profil.couleur === "violet");
 R("la bio est coupée à 140 signes", r.moi.profil.bio.length === 140);
-R("une pochette qui ne vient pas d'Apple est écartée de la vitrine", r.moi.profil.vitrine.length === 1);
+// La vitrine se vérifie contre l'étagère réelle : on n'expose pas une carte
+// qu'on n'a pas, même en la décrivant parfaitement.
+R("une carte qu'on ne possède pas n'entre pas en vitrine", r.moi.profil.vitrine.length === 0);
 r = await post(compte, { action: "profil", profil: { avatar: { art: "https://mechant.example/i.jpg" } } }, jMila);
 R("un avatar hors Apple est refusé", r.code === 400);
 
@@ -215,7 +239,11 @@ r = await get(props);
 R("le fil public montre les entrées validées", r.code === 200 && r.recentes.length === 1);
 R("le fil public ne donne pas les refusées", !r.recentes.some(x => x.statut === "refusee"));
 
-await post(compte, { action: "sauver", code: "abc", resume: { cartes: 40, taux: 62, meilleurSet: 91, serie: 2 } }, jTheo);
+await installerPartie("mila", { cartes: 24, taux: 71, meilleurSet: 83, serie: 4 });
+await installerPartie("theob", { cartes: 40, taux: 62, meilleurSet: 91, serie: 2 });
+// un appel au jeu suffit à republier le résumé au classement
+await post(jeu, { action: "etat" }, jMila);
+await post(jeu, { action: "etat" }, jTheo);
 r = await get(class_);
 R("le classement liste les joueurs", r.code === 200 && r.joueurs === 2);
 R("les petites collections ne sont pas classées à l'oreille",
@@ -366,7 +394,9 @@ console.log("\n=== MENTIONS LÉGALES ===");
 r = await post(moder, { action: "mentions" }, jMila);
 R("au départ il n'y a pas de mentions", r.code === 200 && r.editeur === null);
 r = await post(moder, { action: "mentions", editeur: { nom: "adr" } }, jMila);
-R("des mentions incomplètes sont refusées", r.code === 400 && /obligatoires/.test(r.erreur));
+R("des mentions sans contact sont refusées", r.code === 400 && /contact/i.test(r.erreur));
+r = await post(moder, { action: "mentions", editeur: { contact: "x@exemple.fr" } }, jMila);
+R("un éditeur professionnel sans nom ni adresse est refusé", r.code === 400 && /obligatoires/.test(r.erreur));
 r = await post(moder, { action: "mentions", editeur: {
   nom: "adr", statut: "entrepreneur individuel", adresse: "12 rue de la Paix, 75002 Paris",
   contact: "adr@exemple.fr", directeur: "adr" } }, jTheo);
@@ -379,6 +409,80 @@ R("l'hébergeur est rempli par défaut", /Netlify/.test(r.editeur.hebergeur));
 c = await get(catal);
 R("elles voyagent avec le catalogue public", c.meta.editeur && c.meta.editeur.contact === "adr@exemple.fr");
 R("le secret de signature ne fuite pas par là", !JSON.stringify(c).includes("secret"));
+
+console.log("\n=== MOT DE PASSE OUBLIÉ ===");
+// Sans service d'envoi configuré, la porte reste fermée et le dit.
+r = await post(compte, { action: "oubli", identifiant: "Mila" });
+R("sans service d'envoi, la récupération est fermée", r.code === 503);
+r = await post(compte, { action: "email", adresse: "mila@example.com" }, jMila);
+R("et on ne peut pas non plus poser son adresse", r.code === 503);
+
+// On branche un faux service d'envoi : on garde les lettres au lieu de les poster.
+process.env.RESEND_KEY = "test";
+process.env.MAIL_FROM = "Diggers <bonjour@example.com>";
+const boite = [];
+const vraiFetch = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  if (String(url).includes("api.resend.com")) {
+    boite.push(JSON.parse(opts.body));
+    return new Response(JSON.stringify({ id: "x" }), { status: 200 });
+  }
+  return vraiFetch(url, opts);
+};
+const dernierLien = () => {
+  const t = boite[boite.length - 1].text;
+  const m = t.match(/https?:\/\/\S+/);
+  return m ? m[0] : "";
+};
+
+r = await post(compte, { action: "email", adresse: "pas-une-adresse" }, jMila);
+R("une adresse mal formée est refusée", r.code === 400);
+r = await post(compte, { action: "email", adresse: "Mila@Example.com " }, jMila);
+R("l'adresse est acceptée et une lettre part", r.code === 200 && boite.length === 1);
+R("elle n'est pas encore vérifiée", r.moi.email.verifie === false);
+R("la lettre va bien à cette adresse", boite[0].to[0] === "mila@example.com");
+
+r = await post(compte, { action: "oubli", identifiant: "Mila" });
+R("une adresse non vérifiée ne déclenche rien", r.code === 200 && boite.length === 1);
+
+const lienVerif = dernierLien();
+r = await post(compte, { action: "verifier-email", cle: lienVerif.split("?email=")[1] });
+R("le lien de vérification marche", r.code === 200 && r.verifie === true);
+r = await post(compte, { action: "verifier-email", cle: lienVerif.split("?email=")[1] });
+R("et ne marche qu'une fois", r.code === 403);
+
+r = await post(compte, { action: "email", adresse: "mila@example.com" }, jTheo);
+R("deux comptes ne partagent pas une adresse", r.code === 409);
+
+r = await post(compte, { action: "oubli", identifiant: "PersonneIci" });
+R("un identifiant inconnu répond pareil, sans rien envoyer", r.code === 200 && boite.length === 1);
+r = await post(compte, { action: "oubli", identifiant: "mila@example.com" });
+R("on peut demander par adresse", r.code === 200 && boite.length === 2);
+
+const lienReinit = dernierLien();
+const cleReinit = lienReinit.split("?reinit=")[1];
+r = await post(compte, { action: "reinit", cle: cleReinit, mdp: "court" });
+R("un mot de passe trop court est refusé", r.code === 400);
+r = await post(compte, { action: "reinit", cle: "nimportequoi.x", mdp: "nouveaumdp1" });
+R("un lien bidon est refusé", r.code === 403);
+r = await post(compte, { action: "reinit", cle: cleReinit, mdp: "nouveaumdp1" });
+R("le lien remet un mot de passe", r.code === 200 && !!r.jeton);
+const jMilaNeuf = r.jeton;
+r = await post(compte, { action: "reinit", cle: cleReinit, mdp: "encoreunautre1" });
+R("le lien ne resservira pas", r.code === 403);
+
+r = await post(compte, { action: "moi" }, jMila);
+R("l'ancienne session est tombée", r.code === 401);
+r = await post(compte, { action: "moi" }, jMilaNeuf);
+R("la nouvelle marche", r.code === 200 && r.moi.pseudo === "Mila");
+r = await post(compte, { action: "connexion", pseudo: "Mila", mdp: "motdepasse1" });
+R("l'ancien mot de passe ne marche plus", r.code === 401);
+r = await post(compte, { action: "connexion", pseudo: "Mila", mdp: "nouveaumdp1" });
+R("le nouveau ouvre bien le compte", r.code === 200);
+jMila = r.jeton;
+
+globalThis.fetch = vraiFetch;
+delete process.env.RESEND_KEY; delete process.env.MAIL_FROM;
 
 console.log("\n=== EFFACER SON COMPTE ===");
 r = await post(compte, { action: "inscription", pseudo: "Partant", mdp: "motdepasse1" }, null, "10.0.0.7");

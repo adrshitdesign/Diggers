@@ -1,0 +1,10 @@
+.data/
+.data-test/
+.data-jeu/
+.data-defi/
+.data-boutique/
+.data-simultane/
+.data-mentions/
+.data-nav/
+node_modules/
+.netlify/

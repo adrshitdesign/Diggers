@@ -1,4 +1,4 @@
-DIGGERS — v1.5
+DIGGERS — v2.2
 ==============
 
 Ce dossier contient le jeu complet et son serveur.
@@ -12,10 +12,18 @@ CE QU'IL Y A DEDANS
   build-catalogue.mjs     le script qui le fabrique
   netlify.toml            la configuration du site
   package.json            les dépendances du serveur
-  netlify/functions/      le serveur : comptes, propositions, modération, crews
+  netlify/functions/      le serveur : comptes, LE JEU, le marché, la boutique,
+                          propositions, modération, classement, crews
   dev-serveur.mjs         pour tout faire tourner en local, sans rien installer
-  test-api.mjs            130 vérifications sur le serveur
+  test-api.mjs            154 vérifications sur les comptes et la modération
+  test-jeu.mjs            59 vérifications sur le jeu et le marché
+  test-boutique.mjs       25 vérifications sur la boutique et les paiements
   test-blobs.mjs          8 vérifications sur le rangement des données
+  test-defi.mjs           38 vérifications sur le défi du jour
+  test-simultane.mjs      18 vérifications sur les actions simultanées
+  test-mentions.mjs       15 vérifications sur les mentions légales
+  test-navigateur.mjs     55 vérifications dans un vrai navigateur (Playwright)
+  CHANGEMENTS-v2.2.md     ce qui change depuis la v2.1, et pourquoi
 
 
 METTRE EN LIGNE SANS TERMINAL
@@ -53,6 +61,8 @@ SI TU AS UN TERMINAL, LES RACCOURCIS
     node build-catalogue.mjs     fabrique catalogue.json (au lieu du bouton)
     node dev-serveur.mjs         tout faire tourner en local sur :8888
     node test-api.mjs            rejouer les vérifications du serveur
+    node test-jeu.mjs            le jeu et le marché
+    node test-boutique.mjs       la boutique et les paiements
 
 Aucun n'est nécessaire. Le bouton « Construire depuis Apple » fait la même
 chose que le script, depuis le navigateur.
@@ -70,6 +80,39 @@ Corriger une popularité change le palier de rareté du son pour tout le monde,
 au prochain chargement.
 
 
+LE SERVEUR TIENT LE JEU (v2.0)
+-------------------------------
+Avant, le navigateur tirait les cartes, décidait des raretés, s'accordait les
+crédits, et envoyait au serveur une sauvegarde que personne ne relisait : la
+console suffisait à se donner une collection entière et la première place du
+classement.
+
+Depuis la v2.0, le navigateur n'envoie plus que des intentions — « ouvre un
+carton », « je réponds Untel », « joue ce set », « achète cette annonce » — et
+le serveur tire, valide, compte et range. Une carte face cachée arrive sans
+titre, sans artiste, sans pochette et sans extrait : ces choses s'achètent une
+par une avec des révélateurs, et le prix est retiré du gain. Le jeu ne tourne
+donc plus du tout hors ligne, et c'est le prix à payer pour que le marché entre
+joueurs et le classement veuillent dire quelque chose.
+
+Ce qui a disparu au passage : le mode fichier local, le bouton « Jouer sans
+compte », l'export/import de partie, le code de transfert entre appareils,
+l'adresse de serveur à coller à la main, la clé Last.fm et le journal
+d'événements. Tout ça servait à survivre sans serveur.
+
+
+LE MARCHÉ EST AUX JOUEURS
+--------------------------
+Le site ne vend plus rien. Un joueur pose un doublon au prix qu'il veut ; un
+autre l'achète en crédits, ou lui propose une de ses cartes en échange. La
+carte quitte l'étagère au moment où elle est posée et revient si l'annonce est
+retirée ou l'offre refusée. Douze annonces en cours par joueur au maximum, et
+un Test press ne se vend ni ne s'échange.
+
+Restent deux façons de faire disparaître de la matière plutôt que d'en créer :
+fondre un doublon en éclats, et presser un titre choisi contre des éclats.
+
+
 CE QUI PROTÈGE LES COMPTES
 ---------------------------
 Les mots de passe sont hachés en scrypt, avec un sel par compte. La session
@@ -82,9 +125,60 @@ Chaque joueur peut effacer son compte lui-même : Profil → Effacer mon compte.
 Tout part du serveur ; les sons qu'il a fait entrer restent dans la
 bibliothèque mais ne portent plus son nom.
 
-Il n'y a toujours pas de « mot de passe oublié » : il faudrait un envoi
-d'e-mail, donc un service tiers. Le code de sauvegarde portable, dans Réglages,
-sert de filet en attendant.
+MOT DE PASSE OUBLIÉ (v2.1)
+---------------------------
+Le compte n'a toujours pas besoin d'adresse e-mail : on peut jouer sans en
+donner, et c'est le comportement par défaut. Mais chaque joueur peut en poser
+une dans Réglages, uniquement pour se dépanner. Elle n'est utilisable qu'après
+avoir cliqué le lien de confirmation, et elle part avec le compte.
+
+Le lien de réinitialisation vaut une heure, ne marche qu'une fois, et ferme
+toutes les sessions ouvertes du compte.
+
+Pour que ça fonctionne il faut un service d'envoi. Deux variables :
+
+    RESEND_KEY   la clé API d'un compte Resend (3 000 envois/mois offerts,
+                 100 par jour)
+    MAIL_FROM    Diggers <bonjour@ton-domaine.fr>
+
+Il te faut un VRAI nom de domaine (une dizaine d'euros par an) : Resend
+demande de vérifier le domaine par des enregistrements DNS, et un sous-domaine
+netlify.app ne le permet pas. Tant que ces variables sont vides, le formulaire
+existe mais dit franchement que la récupération n'est pas ouverte, et le jeu
+marche exactement pareil.
+
+
+LA BOUTIQUE (v2.1)
+-------------------
+Elle ne vend que du décor : bannières et couleurs de profil, payées en jetons.
+Les jetons ne se convertissent pas en crédits, n'ouvrent aucun carton, n'entrent
+pas au marché et ne pèsent rien au classement. Rien d'aléatoire n'est vendu —
+donc pas de loot box, et pas de régime JONUM à porter.
+
+    STRIPE_SECRET          la clé secrète Stripe
+    STRIPE_WEBHOOK_SECRET  le secret de l'endpoint, à créer dans Stripe en
+                           pointant sur https://ton-site/api/stripe pour
+                           l'événement checkout.session.completed
+
+Aucun numéro de carte ne passe par Diggers : le joueur paie sur une page
+Stripe, et c'est Stripe qui prévient le serveur. Les jetons sont crédités par
+/api/stripe, jamais par le navigateur, et un même message n'est jamais compté
+deux fois.
+
+AVANT D'ENCAISSER LE PREMIER EURO, il te faut :
+  · un statut (auto-entrepreneur suffit) et les mentions légales remplies —
+    le serveur refuse de vendre tant qu'elles sont vides ;
+  · des CGV, avec le prix TTC et la renonciation au droit de rétractation
+    (le contenu est livré immédiatement — c'est déjà demandé sur la page de
+    paiement, mais ça doit aussi figurer dans tes CGV) ;
+  · la TVA : ventes de services numériques à des particuliers de l'UE. En
+    dessous des seuils tu factures la TVA française ; au-delà de 10 000 € de
+    ventes transfrontalières par an, il faut passer au guichet unique (OSS).
+    Stripe Tax peut calculer tout ça, contre environ 0,5 % par transaction ;
+  · une ligne sur les mineurs : accord des parents.
+
+Je ne suis pas juriste et ce paragraphe n'est pas un avis juridique — fais-le
+relire par quelqu'un dont c'est le métier avant d'ouvrir la caisse.
 
 
 COMMENT ÇA MARCHE, EN BREF
@@ -121,7 +215,9 @@ SI QUELQUE CHOSE NE VA PAS
 ---------------------------
 Le son ne se lance pas          → Accueil, bouton « Tester le son » : il dit
                                   exactement ce qui bloque.
-« Serveur injoignable »         → Réglages → Serveur : l'état est affiché.
+« Serveur injoignable »         → le jeu ne tourne plus sans serveur : vérifie
+                                  que les fonctions sont bien déployées en
+                                  ouvrant /api/catalogue dans un onglet.
 Tout le monde déconnecté        → DIGGERS_SECRET a changé.
 Le jeu marche, pas les comptes  → le site a été déposé en glisser-déposer :
                                   les fonctions n'ont pas été publiées.
