@@ -190,6 +190,20 @@ export default async function (req) {
     return ok(r);
   }
 
+  /* ---------------- un seul artiste par carte ---------------- */
+  // Les cartes entrées avant la v2.2 portent la ligne de crédits complète
+  // d'Apple : « GIMS & Dadju ». Le jeu propose quatre noms et aucun n'est bon.
+  // Ce bouton ramène chaque carte à un seul artiste et fusionne les doublons.
+  if (b.action === "artistes") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur répare la bibliothèque.");
+    if (b.apercu) {
+      const lib = await biblio.lire();
+      return ok({ apercu: true, ...biblio.apercuArtistes(lib.tracks) });
+    }
+    const r = await biblio.reparerArtistes();
+    return ok(r);
+  }
+
   if (b.action === "vider") {
     if (u.role !== "admin") return ko(403, "Seul l'administrateur vide la bibliothèque.");
     const r = await biblio.vider(b.source === "communaute" ? "communaute" : b.source === "tout" ? null : "noyau");
