@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.2</title>
+<title>Diggers — v2.3</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -496,7 +496,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.2 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.3 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -519,6 +519,7 @@ a.src:hover{color:var(--accent)}
     <button class="tab" role="tab" data-v="marche" aria-selected="false">Marché</button>
     <button class="tab" role="tab" data-v="set" aria-selected="false">Le Set</button>
     <button class="tab" role="tab" data-v="defi" aria-selected="false">Le Défi</button>
+    <button class="tab" role="tab" data-v="bibliotheque" aria-selected="false">Bibliothèque</button>
     <button class="tab" role="tab" data-v="regles" aria-selected="false">Règles</button>
     <button class="tab" role="tab" data-v="communaute" aria-selected="false">Communauté</button>
     <button class="tab" role="tab" data-v="profil" aria-selected="false">Profil</button>
@@ -620,6 +621,16 @@ a.src:hover{color:var(--accent)}
     <p style="margin:0"><b>Le vote est aveugle.</b> Deux cartes côte à côte, sans savoir qui les a posées : ce qui gagne, c'est le morceau, pas le pseudo. Le lendemain le palmarès tombe et le podium est payé.</p>
   </div>
   <div id="defibox"></div>
+</section>
+
+<section class="view" id="v-bibliotheque">
+  <p class="kick">Tout ce qui existe dans le jeu</p>
+  <h2 class="h">Bibliothèque</h2>
+  <div class="rule">
+    <p style="margin:0"><b>Le catalogue entier, ouvert à tout le monde</b>, même sans compte. Chaque son du jeu, son palier de rareté, et surtout <b>combien d'exemplaires existent réellement</b> chez les joueurs.</p>
+    <p style="margin:0">Le palier dit la <b>probabilité</b> qu'une carte sorte d'un carton. Le nombre d'exemplaires dit ce qui est <b>arrivé</b>. Au marché, c'est le second qui compte : il n'y a qu'ici pour savoir si le Vinyle qu'on te propose est le seul du jeu ou le quarantième.</p>
+  </div>
+  <div id="bibbox"></div>
 </section>
 
 <section class="view" id="v-boutique">
@@ -828,15 +839,40 @@ function popDe(rang,total,poids){
 
 let CAT=[], CATMETA=null, CATSOURCE="", VUS_GLOBAL=new Set();
 
+/* ============ UN SEUL ARTISTE PAR CARTE ============
+   Le jeu demande « c'est qui ? » et propose quatre noms. Si la carte est
+   signée « GIMS & Dadju », aucune des quatre réponses n'est juste : la bonne
+   réponse n'existe pas. Une carte porte donc UN artiste, et la ligne complète
+   part dans les crédits, affichée une fois la carte retournée.
+
+   L'ancien test laissait passer deux choses :
+   · « GIMS & Dadju » — il commençait par « gims » ;
+   · « Hamza Namira » — il contenait « hamza » et n'était pas beaucoup plus long.
+   Le second est pire que le premier : ce n'est pas un featuring, c'est
+   quelqu'un d'autre. */
+const SEP_ARTISTES=/\s*(?:,|&|\/|\bfeat\.?|\bft\.?|\bfeaturing\b|\bavec\b|\bwith\b|\bvs\.?|\bx\b|\+)\s*/i;
+const SEP_ARTISTES_G=new RegExp(SEP_ARTISTES.source,"gi");
+
+function unSeulArtiste(cherche,rendu){
+  const cible=norm(cherche), plein=norm(rendu);
+  if(plein===cible) return {ok:true,credits:""};
+  /* Un nom qui contient déjà un séparateur (« Earth, Wind & Fire ») ne se
+     découpe pas : pour lui, c'est exact ou rien. */
+  if(SEP_ARTISTES.test(cherche)) return {ok:false};
+  const parts=String(rendu).split(SEP_ARTISTES_G).map(x=>x.trim()).filter(Boolean);
+  if(parts.length<2) return {ok:false};
+  if(parts.some(p=>norm(p)===cible)) return {ok:true,credits:rendu};
+  return {ok:false};
+}
+
 function nettoyer(artiste,poids,rows){
-  const cible=norm(artiste), vus=new Set(), out=[];
+  const vus=new Set(), out=[];
   for(const r of rows){
     if(!r.previewUrl||!r.artworkUrl100||!r.trackName||!r.artistName) continue;
-    const a=norm(r.artistName);
-    /* L'artiste renvoyé doit être celui qu'on cherchait — sinon la bonne réponse
-       peut être absente des quatre propositions. */
-    if(a!==cible && !a.startsWith(cible+" ") && !a.includes(" "+cible+" ")
-       && !(a.includes(cible)&&a.length<=cible.length+14)) continue;
+    /* L'artiste renvoyé doit être celui qu'on cherchait, seul ou nommé dans un
+       featuring — sinon la bonne réponse est absente des quatre propositions. */
+    const v=unSeulArtiste(artiste,r.artistName);
+    if(!v.ok) continue;
     if(REJET.test(r.artistName)||REJET.test(r.trackName)||REJET.test(r.collectionName||"")) continue;
     if(REJET_TITRE.test(r.trackName)) continue;
     const titre=titrePropre(r.trackName);
@@ -844,12 +880,7 @@ function nettoyer(artiste,poids,rows){
     const cle=norm(titre);
     if(vus.has(cle)) continue;
     vus.add(cle);
-    /* Le nom de l'artiste est celui qu'on a interrogé, pas la ligne de crédits
-       renvoyée par Apple. Sans ça, « Ninho & Niska » devenait un artiste à part
-       entière, avec un ou deux titres, et venait polluer l'écran des goûts et
-       les propositions de l'enquête. Le featuring reste affiché à côté. */
-    const credits = norm(r.artistName)===cible ? "" : r.artistName;
-    out.push({ id:r.trackId, title:titre, artist:artiste, credits:credits,
+    out.push({ id:r.trackId, title:titre, artist:artiste, credits:v.credits,
       album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
       year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
       art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
@@ -2950,11 +2981,17 @@ function dessinerBiblio(){
       +'<input type="file" id="bfile" accept=".json,application/json" hidden>'
       +'<button class="btn ghost sm" type="button" id="becoutes">Relever les compteurs d\'écoutes</button>'
       +'<button class="btn ghost sm" type="button" id="bexport">Exporter en JSON</button>'
+      +'<button class="btn ghost sm" type="button" id="bartistes">Un seul artiste par carte</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
       +ARTISTES_APPLE.length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
       +'aucun fichier, aucun terminal. Compte trois à cinq minutes, et ne ferme pas l\'onglet. '
       +'Dans tous les cas, un son déjà présent est ignoré, jamais dupliqué.<br><br>'
+      +'<b style="color:var(--ink-2)">Un seul artiste par carte</b> répare les sons entrés avant la v2.2. '
+      +'Le jeu demande &laquo; c\'est qui ? &raquo; et propose quatre noms : une carte sign&eacute;e '
+      +'&laquo; GIMS &amp; Dadju &raquo; n\'a aucune bonne r&eacute;ponse dans la liste. Le bouton ram&egrave;ne '
+      +'chaque carte au plus connu des artistes cit&eacute;s, garde la ligne compl&egrave;te en cr&eacute;dits, '
+      +'et fusionne les doublons que &ccedil;a cr&eacute;e. Il montre d\'abord ce qu\'il ferait.<br><br>'
       +'<b style="color:var(--ink-2)">Relever les compteurs d\'écoutes</b> demande à Deezer, qui publie '
       +'librement le nombre de fans d\'un artiste. Le chiffre est rangé avec sa date et s\'affiche sur les '
       +'cartes à la place de l\'indice de popularité. Il bouge tout le temps : on le rafraîchit quand on veut, '
@@ -2977,6 +3014,7 @@ function dessinerBiblio(){
       fr.readAsText(f);
     };
     document.getElementById("bexport").onclick=exporterBiblio;
+    document.getElementById("bartistes").onclick=reparerArtistes;
     document.getElementById("bvider").onclick=viderNoyau;
   }
   listeBiblio();
@@ -3263,6 +3301,46 @@ function exporterBiblio(){
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },800);
   bdiag('<b style="color:var(--ok)">Export lancé.</b> '+BIB.meta.titres+' sons, fiche complète, prêt à ranger ailleurs.');
+}
+
+/* Réparer les cartes à plusieurs artistes. On regarde avant d'agir : la
+   modération voit combien de cartes bougent, lesquelles, et ce qu'elles
+   deviennent, avant de valider. */
+async function reparerArtistes(){
+  bdiag("Examen de la bibliothèque…");
+  const a=await apiAppel("/api/moderation",{action:"artistes",apercu:true});
+  if(!a||!a.ok){ bdiag('<b style="color:var(--t6)">'+esc((a&&a.erreur)||"Échec")+'</b>'); return; }
+  if(!a.aCorriger){
+    bdiag('<b style="color:var(--ok)">Rien à réparer.</b> Chaque carte porte déjà un seul artiste.');
+    return;
+  }
+  const q=await modale("Ramener "+a.aCorriger+" carte(s) à un seul artiste ?",
+    '<p>Le jeu propose quatre noms et demande lequel est le bon. Une carte signée '
+    +'&laquo; GIMS &amp; Dadju &raquo; n\'a aucune bonne réponse dans la liste : c\'est injouable.</p>'
+    +'<p><b>'+a.aCorriger+'</b> carte(s) seront ramenées au plus connu des artistes cités, '
+    +'la ligne complète restant affichée en crédits une fois la carte retournée.'
+    +(a.aFusionner?' <b>'+a.aFusionner+'</b> carte(s) deviendront des doublons et disparaîtront.':'')+'</p>'
+    +(a.laissees?'<p><b>'+a.laissees+'</b> carte(s) ne bougeront pas : aucun des noms cit&eacute;s n\'est un '
+      +'artiste que le jeu conna&icirc;t d&eacute;j&agrave;, ou c\'est un nom de groupe qui revient sur plusieurs '
+      +'titres. &laquo; Earth, Wind &amp; Fire &raquo; n\'est pas un featuring, et le renommer &laquo; Earth &raquo; '
+      +'serait pire que de le laisser.</p>':'')
+    +'<div class="scale"><div class="sc head"><span>Avant</span><span>Après</span>'
+    +'<span class="odds"></span><span class="val"></span></div>'
+    +a.exemples.slice(0,12).map(x=>'<div class="sc"><span class="nm">'+esc(x.avant)+'</span>'
+      +'<span class="dsc">'+esc(x.apres)+' — <i>'+esc(x.titre)+'</i></span>'
+      +'<span class="odds"></span><span class="val"></span></div>').join("")+'</div>'
+    +'<p class="notice">Les exemplaires déjà tirés par les joueurs ne bougent pas : '
+    +'ils pointent vers le son, pas vers son nom d\'artiste.</p>',
+    [{v:1,n:"Réparer"},{v:0,n:"Annuler",g:true}]);
+  if(!q) return;
+  bdiag("Réparation…");
+  const r=await apiAppel("/api/moderation",{action:"artistes"});
+  if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>'); return; }
+  bdiag('<b style="color:var(--ok)">Fait.</b> '+r.corriges+' carte(s) ramenée(s) à un seul artiste'
+    +(r.fusionnes?', '+r.fusionnes+' doublon(s) fusionné(s)':'')
+    +'. La bibliothèque compte '+r.total+' sons.');
+  await chargerServeur(true); sync();
+  vueBiblio();
 }
 
 async function viderNoyau(){
@@ -3859,6 +3937,126 @@ async function renderPalmares(){
   await apiJeu("etat");
 }
 
+/* ================= LA BIBLIOTHÈQUE DU JEU =================
+   Ouverte à tout le monde, sans compte. Deux questions auxquelles un
+   collectionneur veut pouvoir répondre sans demander à personne : qu'est-ce
+   qui existe, et c'est rare à quel point pour de vrai.
+
+   La rareté affichée sur une carte est une probabilité. Ici on donne le fait :
+   combien d'exemplaires se promènent réellement dans les étagères, et sous
+   quel pressage. C'est aussi ce qui rend le marché honnête — sans ce
+   compteur, personne ne peut savoir si le Vinyle qu'on lui propose est le
+   seul du jeu ou le quarantième. */
+
+let BIBQ = "", BIBTRI = "rare", BIBRAR = 0, BIBPAGE = 1, BIBDATA = null, BIBTIMER = null;
+
+const BIB_TRIS = [
+  ["rare",      "Les plus confidentiels"],
+  ["commun",    "Les plus connus"],
+  ["rarissime", "Les moins nombreux en jeu"],
+  ["repandu",   "Les plus répandus"],
+  ["az",        "Par artiste"]
+];
+
+async function renderBibliotheque(){
+  const box=document.getElementById("bibbox");
+  if(!BIBDATA) box.innerHTML='<p class="notice">Ouverture de la bibliothèque…</p>';
+  const p=new URLSearchParams({tri:BIBTRI,page:String(BIBPAGE)});
+  if(BIBQ) p.set("q",BIBQ);
+  if(BIBRAR) p.set("rarete",String(BIBRAR));
+  const r=await apiAppel("/api/bibliotheque?"+p.toString());
+  if(!r||!r.ok){
+    box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"La bibliothèque du serveur est injoignable.")+'</div>';
+    return;
+  }
+  BIBDATA=r;
+  dessinerBibliotheque();
+}
+
+function dessinerBibliotheque(){
+  const box=document.getElementById("bibbox"), r=BIBDATA, m=r.meta;
+
+  box.innerHTML=
+    '<div class="kpis" style="margin-top:0">'
+      +'<div class="kpi"><span>Sons dans le jeu</span><b>'+nb(m.titres)+'</b>'
+        +'<p>Tout ce qui peut sortir d\'un carton.</p></div>'
+      +'<div class="kpi"><span>Cartes en circulation</span><b>'+nb(m.exemplaires)+'</b>'
+        +'<p>Exemplaires réellement posés sur une étagère.</p></div>'
+      +'<div class="kpi"><span>Collections</span><b>'+nb(m.joueurs)+'</b>'
+        +'<p>Joueurs qui ont au moins ouvert un carton.</p></div></div>'
+
+    +'<div class="scale" style="margin-top:18px"><div class="sc head">'
+      +'<span>Palier</span><span>Ce que c\'est</span><span class="odds">Titres</span><span class="val">En jeu</span></div>'
+    +m.parRarete.map(x=>'<div class="sc"><span class="nm">'+esc(x.nom)+'</span>'
+      +'<span class="dsc">'+esc(BIB_EXPLIC[x.rang]||"")+'</span>'
+      +'<span class="odds">'+nb(x.titres)+'</span><span class="val">'+nb(x.exemplaires)+'</span></div>').join("")
+    +'</div>'
+
+    +'<div class="bar" style="margin:22px 0 0">'
+      +'<input id="bibq" placeholder="Chercher un titre, un artiste, un album" value="'+esc(BIBQ)+'" style="flex:1;min-width:220px">'
+      +'<select id="bibtri">'+BIB_TRIS.map(t=>'<option value="'+t[0]+'"'+(BIBTRI===t[0]?' selected':'')+'>'+esc(t[1])+'</option>').join("")+'</select>'
+      +'<select id="bibrar"><option value="0">Tous les paliers</option>'
+        +m.parRarete.map(x=>'<option value="'+x.rang+'"'+(BIBRAR===x.rang?' selected':'')+'>'+esc(x.nom)+'</option>').join("")+'</select>'
+    +'</div>'
+    +'<p class="hint">'+nb(r.total)+' carte(s)'+(BIBQ?' pour « '+esc(BIBQ)+' »':'')
+      +' · page '+r.page+' sur '+r.pages+'</p>'
+
+    +(r.cartes.length
+      ? '<div class="scale"><div class="sc head"><span>Carte</span><span>Détail</span>'
+        +'<span class="odds">Palier</span><span class="val">Exemplaires</span></div>'
+        +r.cartes.map(bibLigne).join("")+'</div>'
+      : '<div class="empty">Rien ne correspond.<br><span style="font-size:13px">Essaie un autre mot, ou enlève le filtre de palier.</span></div>')
+
+    +(r.pages>1
+      ? '<div class="bar" style="margin-top:18px">'
+        +'<button class="btn ghost sm" type="button" id="bibprec"'+(r.page<=1?' disabled':'')+'>&#8592; Précédent</button>'
+        +'<span class="hint">page '+r.page+' / '+r.pages+'</span>'
+        +'<button class="btn ghost sm" type="button" id="bibsuiv"'+(r.page>=r.pages?' disabled':'')+'>Suivant &#8594;</button></div>'
+      : '')
+
+    +'<p class="notice"><b>« Exemplaires »</b>, c\'est le nombre de cartes réellement posées sur les étagères '
+    +'des joueurs, tous pressages confondus — pas une estimation. Le compte est refait toutes les cinq minutes. '
+    +'Une carte à 0 existe dans le jeu mais n\'est encore tombée pour personne.<br>'
+    +'Le palier dit la <b>probabilité</b> qu\'une carte sorte ; le nombre d\'exemplaires dit ce qui est '
+    +'<b>arrivé</b>. Les deux ne disent pas la même chose, et c\'est le second qui compte au marché.</p>';
+
+  const q=document.getElementById("bibq");
+  q.oninput=()=>{
+    BIBQ=q.value; BIBPAGE=1;
+    clearTimeout(BIBTIMER);
+    BIBTIMER=setTimeout(()=>renderBibliotheque(),280);   // on ne harcèle pas le serveur à chaque lettre
+  };
+  document.getElementById("bibtri").onchange=e=>{ BIBTRI=e.target.value; BIBPAGE=1; renderBibliotheque(); };
+  document.getElementById("bibrar").onchange=e=>{ BIBRAR=Number(e.target.value); BIBPAGE=1; renderBibliotheque(); };
+  const prec=document.getElementById("bibprec"), suiv=document.getElementById("bibsuiv");
+  if(prec) prec.onclick=()=>{ BIBPAGE=Math.max(1,BIBPAGE-1); renderBibliotheque(); window.scrollTo(0,0); };
+  if(suiv) suiv.onclick=()=>{ BIBPAGE=Math.min(BIBDATA.pages,BIBPAGE+1); renderBibliotheque(); window.scrollTo(0,0); };
+}
+
+const BIB_EXPLIC=[null,
+  "Tout le monde le connaît.",
+  "Un titre installé, reconnu de loin.",
+  "Il faut avoir écouté l'album.",
+  "La face cachée d'un disque connu.",
+  "Peu de monde l'a en tête.",
+  "Le genre de titre qu'on se refile."];
+
+function bibLigne(c){
+  const press=c.pressages.length
+    ? c.pressages.map(p=>esc(p.n)+' ×'+p.nb).join(' · ')
+    : '<span style="opacity:.55">aucun exemplaire pour l\'instant</span>';
+  return '<div class="sc">'
+    +'<span class="nm">'+esc(c.title)+'<br><span style="font-weight:400;opacity:.65">'+esc(c.artist)+'</span></span>'
+    +'<span class="dsc">'+press
+      +(c.credits?'<br><span style="opacity:.6">'+esc(c.credits)+'</span>':'')
+      +(c.trouveur?'<br><span style="opacity:.6">entré dans le jeu par <b>'+esc(c.trouveur)+'</b></span>':'')
+      +'</span>'
+    +'<span class="odds">'+esc(c.rareteNom)+'</span>'
+    +'<span class="val"><b>'+c.exemplaires+'</b>'
+      +(c.proprietaires?'<br><span style="font-weight:400;opacity:.6;font-size:11px">chez '+c.proprietaires+'</span>':'')
+      +'</span></div>';
+}
+
 function go(v){
   hush();
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));
@@ -3867,6 +4065,7 @@ function go(v){
   if(v==="marche") renderMarche();
   if(v==="set") startSet();
   if(v==="defi") renderDefi();
+  if(v==="bibliotheque") renderBibliotheque();
   if(v==="regles") renderRegles();
   if(v==="profil") renderProfil();
   if(v==="crew") renderCrew();

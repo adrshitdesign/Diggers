@@ -17,7 +17,7 @@ const PORT = Number(process.env.PORT || 8888);
 const RACINE = process.cwd();
 
 const ROUTES = {};
-for (const f of ["compte", "propositions", "moderation", "catalogue", "classement", "crews", "jeu", "marche", "boutique", "stripe", "defi"]) {
+for (const f of ["compte", "propositions", "moderation", "catalogue", "classement", "crews", "jeu", "marche", "boutique", "stripe", "defi", "bibliotheque"]) {
   const m = await import("./netlify/functions/" + f + ".mjs");
   ROUTES[(m.config && m.config.path) || "/api/" + f] = m.default;
 }

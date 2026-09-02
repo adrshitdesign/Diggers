@@ -1,4 +1,4 @@
-DIGGERS — v2.2
+DIGGERS — v2.3
 ==============
 
 Ce dossier contient le jeu complet et son serveur.
@@ -22,8 +22,10 @@ CE QU'IL Y A DEDANS
   test-defi.mjs           38 vérifications sur le défi du jour
   test-simultane.mjs      18 vérifications sur les actions simultanées
   test-mentions.mjs       15 vérifications sur les mentions légales
-  test-navigateur.mjs     55 vérifications dans un vrai navigateur (Playwright)
+  test-bibliotheque.mjs   58 vérifications sur la bibliothèque publique
+  test-navigateur.mjs     65 vérifications dans un vrai navigateur (Playwright)
   CHANGEMENTS-v2.2.md     ce qui change depuis la v2.1, et pourquoi
+  CHANGEMENTS-v2.3.md     la bibliothèque publique et les artistes multiples
 
 
 METTRE EN LIGNE SANS TERMINAL

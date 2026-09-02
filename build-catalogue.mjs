@@ -152,20 +152,44 @@ async function chercher(artiste){
   return d.results || [];
 }
 
+/* ============ UN SEUL ARTISTE PAR CARTE ============
+   Le jeu demande « c'est qui ? » et propose quatre noms. Si la carte est
+   signée « GIMS & Dadju », aucune des quatre réponses n'est juste : la bonne
+   réponse n'existe pas. Une carte porte donc UN artiste, et la ligne complète
+   part dans les crédits, affichée une fois la carte retournée.
+
+   L'ancien test laissait passer deux choses :
+   · « GIMS & Dadju » — il commençait par « gims » ;
+   · « Hamza Namira » — il contenait « hamza » et n'était pas beaucoup plus long.
+   Le second est pire que le premier : ce n'est pas un featuring, c'est
+   quelqu'un d'autre. */
+export const SEP_ARTISTES=/\s*(?:,|&|\/|\bfeat\.?|\bft\.?|\bfeaturing\b|\bavec\b|\bwith\b|\bvs\.?|\bx\b|\+)\s*/i;
+export const SEP_ARTISTES_G=new RegExp(SEP_ARTISTES.source,"gi");
+
+export function unSeulArtiste(cherche,rendu){
+  const cible=norm(cherche), plein=norm(rendu);
+  if(plein===cible) return {ok:true,credits:""};
+  /* Un nom qui contient déjà un séparateur (« Earth, Wind & Fire ») ne se
+     découpe pas : pour lui, c'est exact ou rien. */
+  if(SEP_ARTISTES.test(cherche)) return {ok:false};
+  const parts=String(rendu).split(SEP_ARTISTES_G).map(x=>x.trim()).filter(Boolean);
+  if(parts.length<2) return {ok:false};
+  if(parts.some(p=>norm(p)===cible)) return {ok:true,credits:rendu};
+  return {ok:false};
+}
+
 function nettoyer(artiste, poids, rows){
-  const cible = norm(artiste);
   const vus = new Set();
   const gardes = [];
 
   for(const r of rows){
     if(!r.previewUrl || !r.artworkUrl100 || !r.trackName || !r.artistName) continue;
 
-    /* 1. l'artiste renvoyé doit bien être celui qu'on cherchait.
-          Sans ce test, des karaokés et des reprises entrent dans le jeu
-          avec la bonne réponse absente des propositions. */
-    const a = norm(r.artistName);
-    if(a !== cible && !a.startsWith(cible + " ") && !a.includes(" " + cible + " ")
-       && !(a.includes(cible) && a.length <= cible.length + 14)) continue;
+    /* 1. l'artiste renvoyé doit bien être celui qu'on cherchait, seul ou nommé
+          dans un featuring. Sans ce test, des karaokés, des homonymes et des
+          duos entrent dans le jeu avec la bonne réponse absente. */
+    const v = unSeulArtiste(artiste, r.artistName);
+    if(!v.ok) continue;
 
     /* 2. ni karaoké, ni tribute, ni sound-alike */
     if(REJET.test(r.artistName) || REJET.test(r.trackName)
@@ -187,7 +211,7 @@ function nettoyer(artiste, poids, rows){
       title: titre,
       // l'artiste est celui qu'on a interrogé ; le crédit complet part à côté
       artist: artiste,
-      credits: norm(r.artistName) === cible ? "" : r.artistName,
+      credits: v.credits,
       album: r.collectionName || "Sortie hors album",
       genre: r.primaryGenreName || "Non classé",
       year: r.releaseDate ? +r.releaseDate.slice(0,4) : null,

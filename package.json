@@ -2,11 +2,11 @@
   "name": "diggers",
   "private": true,
   "type": "module",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "scripts": {
     "dev": "node dev-serveur.mjs",
     "catalogue": "node build-catalogue.mjs",
-    "test": "node test-api.mjs && node test-jeu.mjs && node test-boutique.mjs && node test-blobs.mjs && node test-defi.mjs && node test-simultane.mjs && node test-mentions.mjs",
+    "test": "node test-api.mjs && node test-jeu.mjs && node test-boutique.mjs && node test-blobs.mjs && node test-defi.mjs && node test-simultane.mjs && node test-mentions.mjs && node test-bibliotheque.mjs",
     "test:navigateur": "node test-navigateur.mjs"
   },
   "dependencies": {

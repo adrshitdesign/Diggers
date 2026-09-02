@@ -107,6 +107,21 @@ await attendre(600);
 R("l'étagère contient les cinq cartes", (await page.locator("#shelf .card").count()) === 5);
 
 console.log("\n=== MARCHÉ ===");
+/* L'enquête se joue au hasard : selon les tirages, le joueur peut n'avoir
+   reconnu aucune carte, et il n'y aurait alors rien à vendre. On lui en fait
+   trouver une pour de bon, sinon ce test échoue une fois sur trois sans que
+   rien ne soit cassé. */
+await page.evaluate(async () => {
+  if ((JEU.coffre || []).some(c => c.known)) return;
+  if (!(JEU.coffre || []).length) await apiJeu("carton", { type: "std" });
+  for (const c of (JEU.coffre || [])) {
+    if (c.known) return;
+    for (const ch of (c.choices || [])) {
+      const r = await apiJeu("repondre", { uid: c.uid, choix: ch });
+      if (r && r.bon) return;
+    }
+  }
+});
 await page.click('[data-v="marche"]');
 await attendre(900);
 R("le marché s'ouvre sur les annonces", await page.locator(".mktab[data-m='annonces']").isVisible());
@@ -164,7 +179,7 @@ console.log("\n=== LES AUTRES ONGLETS ===");
 for (const [v, marque] of [["set", "#setbox"], ["regles", "#reglesbox"], ["profil", "#profilbox"],
   ["crew", "#crewbox"], ["classement", "#ladderbox"], ["reglages", "#reglagesbox"],
   ["communaute", "#communautebox"], ["moderation", "#modbox"], ["boutique", "#boutiquebox"],
-  ["defi", "#defibox"]]) {
+  ["defi", "#defibox"], ["bibliotheque", "#bibbox"]]) {
   await page.click('[data-v="' + v + '"]');
   await attendre(700);
   const t = (await page.locator(marque).innerText().catch(() => "")).trim();
@@ -258,6 +273,49 @@ await attendre(900);
   await page.click("#defiretour");
   await attendre(800);
   R("et on revient au défi du jour", (await page.locator("#defibox .defi-theme").count()) > 0);
+}
+
+/* ============================================================
+   LA BIBLIOTHÈQUE PUBLIQUE
+   ============================================================ */
+console.log("\n=== LA BIBLIOTHÈQUE PUBLIQUE ===");
+await page.click('[data-v="bibliotheque"]');
+await attendre(1400);
+{
+  const t = await page.locator("#bibbox").innerText();
+  // le style met ces intitulés en capitales : on compare sans tenir compte de la casse
+  R("elle annonce ce que pèse le jeu", /sons dans le jeu/i.test(t) && /cartes en circulation/i.test(t));
+  R("elle détaille les six paliers", (await page.locator("#bibbox .scale").first().locator(".sc").count()) === 7);
+  const lignes = await page.locator("#bibbox .scale").nth(1).locator(".sc").count();
+  R("elle liste des cartes", lignes > 1);
+  R("le compteur d'exemplaires n'est pas vide", /Exemplaires/.test(t));
+
+  // le joueur du test a ouvert des cartons : ses cartes doivent être comptées
+  const compte = Number((await page.evaluate(() => {
+    const m = document.querySelector("#bibbox .kpi:nth-child(2) b");
+    return m ? m.textContent.replace(/\s/g, "") : "0";
+  })) || 0);
+  R("des exemplaires sont recensés", compte > 0);
+
+  // la recherche
+  await page.fill("#bibq", "Titre 0-0");
+  await attendre(1200);
+  const t2 = await page.locator("#bibbox").innerText();
+  R("la recherche filtre la liste", /Titre 0-0/.test(t2));
+  await page.fill("#bibq", "zzzzzzzz");
+  await attendre(1200);
+  R("une recherche sans réponse le dit", /Rien ne correspond/.test(await page.locator("#bibbox").innerText()));
+  await page.fill("#bibq", "");
+  await attendre(1200);
+
+  // le tri
+  await page.selectOption("#bibtri", "repandu");
+  await attendre(1200);
+  R("on peut trier par nombre d'exemplaires",
+    (await page.locator("#bibbox .scale").nth(1).locator(".sc").count()) > 1);
+  await page.selectOption("#bibrar", "1");
+  await attendre(1200);
+  R("et ne regarder qu'un palier", /Tube/.test(await page.locator("#bibbox").innerText()));
 }
 
 console.log("\n=== MOT DE PASSE OUBLIÉ ===");
