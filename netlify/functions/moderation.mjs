@@ -194,6 +194,51 @@ export default async function (req) {
   // Les cartes entrées avant la v2.2 portent la ligne de crédits complète
   // d'Apple : « GIMS & Dadju ». Le jeu propose quatre noms et aucun n'est bon.
   // Ce bouton ramène chaque carte à un seul artiste et fusionne les doublons.
+  /* ---------------- la liste des artistes à interroger ----------------
+     Elle vivait en dur dans index.html : ajouter un nom voulait dire modifier
+     le code, republier le site, et recommencer. Elle vit maintenant dans la
+     base, comme les mentions légales : la modération l'écrit depuis l'écran,
+     le constructeur la relit au moment de bâtir le catalogue. Tant qu'elle
+     est vide, c'est la liste d'origine du jeu qui sert. */
+  if (b.action === "liste-artistes") {
+    const C = await store("config");
+    if (!b.artistes) {
+      const v = await C.get("artistes");
+      return ok({ liste: (v && v.liste) || null, maj: (v && v.maj) || 0, par: (v && v.par) || "" });
+    }
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur change la liste des artistes.");
+
+    if (!Array.isArray(b.artistes)) return ko(400, "La liste doit être un tableau.");
+    if (b.artistes.length > 3000) return ko(413, "3 000 artistes au maximum.");
+
+    /* On accepte « Nom » ou [« Nom », poids]. Le poids dit à quel point
+       l'artiste est grand public : il pèse sur la popularité des titres, donc
+       sur la rareté des cartes. 3 = tout le monde le connaît, 1 = confidentiel. */
+    const vus = new Set(), propre = [];
+    for (const brut of b.artistes) {
+      const nom = String(Array.isArray(brut) ? brut[0] : brut).trim().slice(0, 120);
+      if (!nom) continue;
+      const cle = norm(nom);
+      if (!cle || vus.has(cle)) continue;          // doublon, ou nom qui ne veut rien dire
+      vus.add(cle);
+      let poids = Number(Array.isArray(brut) ? brut[1] : 2);
+      if (!Number.isFinite(poids)) poids = 2;
+      propre.push([nom, Math.max(1, Math.min(3, Math.round(poids)))]);
+    }
+    if (!propre.length) return ko(400, "Aucun nom exploitable dans cette liste.");
+
+    await C.set("artistes", { liste: propre, maj: Date.now(), par: u.pseudo });
+    return ok({ liste: propre, enregistres: propre.length,
+      ignores: b.artistes.length - propre.length });
+  }
+
+  /* Revenir à la liste d'origine du jeu : on efface, le jeu reprend la sienne. */
+  if (b.action === "liste-artistes-defaut") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur change la liste des artistes.");
+    await (await store("config")).del("artistes");
+    return ok({ liste: null });
+  }
+
   if (b.action === "artistes") {
     if (u.role !== "admin") return ko(403, "Seul l'administrateur répare la bibliothèque.");
     if (b.apercu) {
