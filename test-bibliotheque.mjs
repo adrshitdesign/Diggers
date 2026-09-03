@@ -16,7 +16,7 @@ const moderation = (await import("./netlify/functions/moderation.mjs")).default;
 const bibliotheque = (await import("./netlify/functions/bibliotheque.mjs")).default;
 const biblio = await import("./netlify/functions/_biblio.mjs");
 const { store } = await import("./netlify/functions/_store.mjs");
-const { majJoueur } = await import("./netlify/functions/_lib.mjs");
+const { majJoueur, norm } = await import("./netlify/functions/_lib.mjs");
 
 let ko = 0, n = 0;
 const R = (nom, v) => { n++; if (!v) ko++; console.log((v ? "  ok    " : "  ÉCHEC ") + nom); };
@@ -118,10 +118,61 @@ console.log("\n=== LE BOUTON DE MODÉRATION ===");
   R("un joueur ordinaire n'y touche pas", r.code === 403);
   r = await post(moderation, { action: "artistes" }, jq);
   R("et il ne peut pas non plus la lancer", r.code === 403);
-  await post(compte, { action: "admin", cle: process.env.DIGGERS_ADMIN }, j);
+  await post(compte, { action: "promouvoir", cle: process.env.DIGGERS_ADMIN }, j);
   r = await post(moderation, { action: "artistes", apercu: true }, j);
   R("l'administratrice peut regarder avant d'agir", r.code === 200 && r.apercu === true);
   R("et il ne reste rien à corriger", r.aCorriger === 0);
+}
+
+/* ============================================================
+   LA LISTE D'ARTISTES SE RÈGLE DEPUIS L'ÉCRAN
+   Avant, ajouter un artiste voulait dire modifier index.html, republier le
+   site et recommencer. C'était le principal frein à faire grossir le jeu.
+   ============================================================ */
+console.log("\n=== LA LISTE D'ARTISTES ===");
+{
+  const j = (await post(compte, { action: "inscription", pseudo: "Cheffe", mdp: "motdepasse1" })).jeton;
+  const jq = (await post(compte, { action: "inscription", pseudo: "Badaud", mdp: "motdepasse1" })).jeton;
+  await post(compte, { action: "promouvoir", cle: process.env.DIGGERS_ADMIN }, j);
+
+  let r = await post(moderation, { action: "liste-artistes" }, j);
+  R("au départ il n'y a pas de liste enregistrée", r.code === 200 && r.liste === null);
+
+  r = await post(moderation, { action: "liste-artistes", artistes: ["Jul", "Ninho"] }, jq);
+  R("un joueur ordinaire n'écrit pas la liste", r.code === 403);
+
+  r = await post(moderation, { action: "liste-artistes", artistes: [
+    "Jul", ["Ninho", 3], ["Fishbach", 1], "  ", "jul", ["Gazo", 9], ["Sofiane Pamart"]
+  ] }, j);
+  R("l'administratrice enregistre la liste", r.code === 200);
+  R("le poids par défaut est 2", r.liste.find(x => x[0] === "Jul")[1] === 2);
+  R("un poids donné est gardé", r.liste.find(x => x[0] === "Ninho")[1] === 3);
+  R("un poids hors bornes est ramené dans les clous", r.liste.find(x => x[0] === "Gazo")[1] === 3);
+  R("les lignes vides sautent", !r.liste.some(x => !x[0].trim()));
+  R("les doublons aussi, même écrits autrement", r.liste.filter(x => norm(x[0]) === "jul").length === 1);
+  R("elle compte ce qui est entré et ce qui est tombé", r.enregistres === 5 && r.ignores === 2);
+
+  r = await post(moderation, { action: "liste-artistes" }, jq);
+  R("un joueur ordinaire ne la lit pas non plus", r.code === 403);
+  r = await post(moderation, { action: "liste-artistes" }, j);
+  R("la modération la relit telle quelle", r.code === 200 && r.liste.length === 5);
+  R("on sait qui l'a écrite et quand", r.par === "Cheffe" && r.maj > 0);
+
+  r = await post(moderation, { action: "liste-artistes", artistes: [] }, j);
+  R("une liste vide est refusée plutôt qu'enregistrée", r.code === 400);
+  r = await post(moderation, { action: "liste-artistes" }, j);
+  R("et l'ancienne est toujours là", r.liste.length === 5);
+
+  r = await post(moderation, { action: "liste-artistes",
+    artistes: Array.from({ length: 3100 }, (_, i) => "Artiste " + i) }, j);
+  R("une liste démesurée est refusée", r.code === 413);
+
+  r = await post(moderation, { action: "liste-artistes-defaut" }, jq);
+  R("un joueur ordinaire ne remet pas la liste d'origine", r.code === 403);
+  r = await post(moderation, { action: "liste-artistes-defaut" }, j);
+  R("l'administratrice, si", r.code === 200);
+  r = await post(moderation, { action: "liste-artistes" }, j);
+  R("et le jeu reprend sa liste d'origine", r.liste === null);
 }
 
 /* ============================================================

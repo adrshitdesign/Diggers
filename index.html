@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.3</title>
+<title>Diggers — v2.4</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -496,7 +496,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.3 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.4 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -2831,6 +2831,11 @@ function ficheModeration(p){
 /* La même liste que le script Node, rejouée depuis le navigateur : c'est le
    seul moyen de construire le catalogue quand on n'a pas accès à un terminal.
    Les appels partent du poste de l'administrateur, pas du serveur. */
+/* La liste qu'on interroge chez Apple. Celle-ci est celle d'origine, gravée
+   dans le fichier ; dès que la modération en enregistre une autre, c'est
+   celle de la base qui sert. Voir listeArtistes() plus bas. */
+let ARTISTES_BASE=null;          /* la liste enregistrée sur le serveur, si elle existe */
+function listeArtistes(){ return (ARTISTES_BASE && ARTISTES_BASE.length) ? ARTISTES_BASE : ARTISTES_APPLE; }
 const ARTISTES_APPLE=[
  ["Gims", 3],["Ninho", 3],["Jul", 3],["SDM", 3],["Keblack", 3],["Hamza", 2],["Damso", 3],
  ["Aya Nakamura", 3],["Tiakola", 3],["Gazo", 3],["Werenoi", 2],["PLK", 2],["Dadju", 2],
@@ -2956,6 +2961,9 @@ async function vueBiblio(){
   box.innerHTML='<p class="notice">Chargement de la bibliothèque…</p>';
   const r=await apiAppel("/api/moderation",{action:"bibliotheque"});
   if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Indisponible.")+'</div>'; return; }
+  /* La liste sur mesure, s'il y en a une : le constructeur en a besoin. */
+  const l=await apiAppel("/api/moderation",{action:"liste-artistes"});
+  if(l&&l.ok&&l.liste&&l.liste.length) ARTISTES_BASE=l.liste;
   BIB=r; dessinerBiblio();
 }
 
@@ -2981,12 +2989,17 @@ function dessinerBiblio(){
       +'<input type="file" id="bfile" accept=".json,application/json" hidden>'
       +'<button class="btn ghost sm" type="button" id="becoutes">Relever les compteurs d\'écoutes</button>'
       +'<button class="btn ghost sm" type="button" id="bexport">Exporter en JSON</button>'
+      +'<button class="btn ghost sm" type="button" id="bliste">La liste d\'artistes</button>'
       +'<button class="btn ghost sm" type="button" id="bartistes">Un seul artiste par carte</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
-      +ARTISTES_APPLE.length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
+      +listeArtistes().length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
       +'aucun fichier, aucun terminal. Compte trois à cinq minutes, et ne ferme pas l\'onglet. '
       +'Dans tous les cas, un son déjà présent est ignoré, jamais dupliqué.<br><br>'
+      +'<b style="color:var(--ink-2)">La liste d\'artistes</b> est ce que le constructeur va chercher chez '
+      +'Apple. Elle est modifiable ici : un nom par ligne, et c\'est tout. Ajoute les tiens, enl&egrave;ve '
+      +'ceux qui ne te parlent pas, puis relance la construction — les sons d&eacute;j&agrave; en '
+      +'biblioth&egrave;que ne bougent pas, on ne fait qu\'en ajouter.<br><br>'
       +'<b style="color:var(--ink-2)">Un seul artiste par carte</b> répare les sons entrés avant la v2.2. '
       +'Le jeu demande &laquo; c\'est qui ? &raquo; et propose quatre noms : une carte sign&eacute;e '
       +'&laquo; GIMS &amp; Dadju &raquo; n\'a aucune bonne r&eacute;ponse dans la liste. Le bouton ram&egrave;ne '
@@ -3014,6 +3027,7 @@ function dessinerBiblio(){
       fr.readAsText(f);
     };
     document.getElementById("bexport").onclick=exporterBiblio;
+    document.getElementById("bliste").onclick=reglerListeArtistes;
     document.getElementById("bartistes").onclick=reparerArtistes;
     document.getElementById("bvider").onclick=viderNoyau;
   }
@@ -3112,7 +3126,7 @@ let STOP_CONSTRUCTION=false;
 
 async function construireDepuisApple(){
   const q=await modale("Construire le catalogue depuis Apple ?",
-    '<p>Ton navigateur va interroger Apple pour <b>'+ARTISTES_APPLE.length+' artistes</b>, garder les '
+    '<p>Ton navigateur va interroger Apple pour <b>'+listeArtistes().length+' artistes</b>, garder les '
     +'meilleurs titres de chacun, calculer leur popularité et les envoyer dans la bibliothèque.</p>'
     +'<p class="notice">Trois à cinq minutes. Laisse cet onglet ouvert et au premier plan — '
     +'certains navigateurs ralentissent les onglets en arrière-plan. '
@@ -3139,7 +3153,11 @@ async function construireDepuisApple(){
   try{ repere=JSON.parse(localStorage.getItem(REPRISE)||"null"); }catch(e){}
   if(q.remp) repere=null;
   let attente=[], premier=true, total=0, ajoutes=0, ignores=0, refuses=0, muets=0, i=0;
-  if(repere&&repere.i>0&&repere.i<ARTISTES_APPLE.length){
+  const LISTE=listeArtistes();
+  /* Si la liste a changé depuis la dernière fois, la reprise n'a plus de sens :
+     l'artiste numéro 200 n'est plus le même. On repart du début. */
+  if(repere && repere.taille!==LISTE.length) repere=null;
+  if(repere&&repere.i>0&&repere.i<LISTE.length){
     i=repere.i; ajoutes=repere.ajoutes||0; ignores=repere.ignores||0;
     refuses=repere.refuses||0; muets=repere.muets||0; total=repere.total||0; premier=false;
   }
@@ -3155,11 +3173,11 @@ async function construireDepuisApple(){
   };
 
   const depart=i;
-  while(i<ARTISTES_APPLE.length){
+  while(i<LISTE.length){
     if(STOP_CONSTRUCTION) break;
-    const paire=ARTISTES_APPLE[i];
-    const reste=Math.round((ARTISTES_APPLE.length-i)*APPLE_PAUSE/60000);
-    prog((i+1)+" / "+ARTISTES_APPLE.length+" — "+esc(paire[0])
+    const paire=LISTE[i];
+    const reste=Math.round((LISTE.length-i)*APPLE_PAUSE/60000);
+    prog((i+1)+" / "+LISTE.length+" — "+esc(paire[0])
       +" · <b>"+ajoutes+"</b> titres entrés · encore ~"+reste+" min"
       +(muets?" · "+muets+" artiste(s) sans réponse":""));
     try{
@@ -3172,14 +3190,14 @@ async function construireDepuisApple(){
     }catch(e){ muets++; }
     i++;
     if(attente.length>=PAQUET && !(await envoyer())) return;
-    try{ localStorage.setItem(REPRISE,JSON.stringify({i,ajoutes,ignores,refuses,muets,total})); }catch(e){}
-    if(i<ARTISTES_APPLE.length) await new Promise(r=>setTimeout(r,APPLE_PAUSE));
+    try{ localStorage.setItem(REPRISE,JSON.stringify({i,ajoutes,ignores,refuses,muets,total,taille:LISTE.length})); }catch(e){}
+    if(i<LISTE.length) await new Promise(r=>setTimeout(r,APPLE_PAUSE));
   }
   if(!(await envoyer())) return;
-  if(i>=ARTISTES_APPLE.length){ try{ localStorage.removeItem(REPRISE); }catch(e){} }
-  else { try{ localStorage.setItem(REPRISE,JSON.stringify({i,ajoutes,ignores,refuses,muets,total})); }catch(e){} }
+  if(i>=LISTE.length){ try{ localStorage.removeItem(REPRISE); }catch(e){} }
+  else { try{ localStorage.setItem(REPRISE,JSON.stringify({i,ajoutes,ignores,refuses,muets,total,taille:LISTE.length})); }catch(e){} }
 
-  bdiag('<b style="color:var(--ok)">'+(i<ARTISTES_APPLE.length
+  bdiag('<b style="color:var(--ok)">'+(i<LISTE.length
       ?"Arrêté à l'artiste "+i+" — relance « Construire depuis Apple » pour reprendre ici même."
       :"Catalogue construit.")+'</b> '
     +ajoutes+' titre(s) entré(s), '+ignores+' déjà présent(s)'
@@ -3301,6 +3319,69 @@ function exporterBiblio(){
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },800);
   bdiag('<b style="color:var(--ok)">Export lancé.</b> '+BIB.meta.titres+' sons, fiche complète, prêt à ranger ailleurs.');
+}
+
+/* ============ LA LISTE D'ARTISTES ============
+   Avant, ajouter un artiste voulait dire modifier index.html, republier le
+   site et recommencer. La liste vit maintenant dans la base : on l'écrit ici,
+   le constructeur la relit. Un nom par ligne, avec un poids facultatif après
+   une barre verticale. */
+function listeEnTexte(l){
+  return l.map(a=>Array.isArray(a) ? (a[1]===2 ? a[0] : a[0]+" | "+a[1]) : a).join("\n");
+}
+function texteEnListe(t){
+  return String(t||"").split(/\r?\n/).map(l=>{
+    const m=l.split("|");
+    const nom=(m[0]||"").trim();
+    if(!nom) return null;
+    const p=Number((m[1]||"").trim());
+    return [nom, Number.isFinite(p) ? Math.max(1,Math.min(3,Math.round(p))) : 2];
+  }).filter(Boolean);
+}
+
+async function reglerListeArtistes(){
+  bdiag("Lecture de la liste…");
+  const r=await apiAppel("/api/moderation",{action:"liste-artistes"});
+  if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>'); return; }
+  const surMesure=!!(r.liste&&r.liste.length);
+  const depart=surMesure?r.liste:ARTISTES_APPLE;
+
+  const q=await modale("La liste d'artistes",
+    '<p><b>Un nom par ligne.</b> C\'est cette liste que le bouton « Construire depuis Apple » '
+    +'va interroger, dans cet ordre. Le nom doit être écrit comme Apple l\'écrit — si tu as un doute, '
+    +'cherche l\'artiste dans Apple Music et recopie.</p>'
+    +'<p>Tu peux ajouter un poids après une barre : <code>Ninho | 3</code>. '
+    +'Il dit à quel point l\'artiste est grand public, et pèse sur la rareté de ses cartes — '
+    +'<b>3</b> tout le monde le connaît, <b>2</b> par défaut, <b>1</b> confidentiel. '
+    +'Un artiste en 1 sortira des cartes plus rares.</p>'
+    +'<p class="notice">'+(surMesure
+      ? 'Liste enregistrée le '+new Date(r.maj).toLocaleDateString("fr-FR")+' par '+esc(r.par||"?")+'.'
+      : 'Aucune liste enregistrée : c\'est celle d\'origine du jeu qui sert, '+ARTISTES_APPLE.length+' artistes.')
+    +' Les doublons et les lignes vides sont retirés à l\'enregistrement.</p>'
+    +'<textarea id="lartistes" rows="14" style="width:100%;font-family:\'JetBrains Mono\',monospace;'
+    +'font-size:12.5px;line-height:1.5">'+esc(listeEnTexte(depart))+'</textarea>'
+    +'<p class="notice" id="lcompte"></p>',
+    [{v:"go",n:"Enregistrer",avant:ov=>({go:true,texte:ov.querySelector("#lartistes").value})},
+     surMesure?{v:"defaut",n:"Revenir à la liste d'origine",g:true}:null,
+     {v:0,n:"Annuler",g:true}].filter(Boolean));
+
+  if(!q) return;
+  if(q==="defaut"){
+    const d=await apiAppel("/api/moderation",{action:"liste-artistes-defaut"});
+    if(d&&d.ok){ ARTISTES_BASE=null; bdiag('<b style="color:var(--ok)">Liste d\'origine rétablie.</b> '
+      +ARTISTES_APPLE.length+' artistes.'); }
+    else bdiag('<b style="color:var(--t6)">'+esc((d&&d.erreur)||"Échec")+'</b>');
+    return;
+  }
+  const liste=texteEnListe(q.texte);
+  if(!liste.length){ bdiag('<b style="color:var(--t6)">Liste vide : rien enregistré.</b>'); return; }
+  bdiag("Enregistrement…");
+  const e=await apiAppel("/api/moderation",{action:"liste-artistes",artistes:liste});
+  if(!e||!e.ok){ bdiag('<b style="color:var(--t6)">'+esc((e&&e.erreur)||"Échec")+'</b>'); return; }
+  ARTISTES_BASE=e.liste;
+  bdiag('<b style="color:var(--ok)">Liste enregistrée.</b> '+e.enregistres+' artiste(s)'
+    +(e.ignores?', '+e.ignores+' ligne(s) ignorée(s) (vides ou en double)':'')
+    +'. Relance « Construire depuis Apple » pour aller chercher les nouveaux.');
 }
 
 /* Réparer les cartes à plusieurs artistes. On regarde avant d'agir : la
