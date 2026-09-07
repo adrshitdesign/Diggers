@@ -49,10 +49,14 @@ async function post(fn, corps, jeton, ip) {
   const r = await fn(new Request("http://x/api", { method: "POST", headers: h, body: JSON.stringify(corps) }));
   return { code: r.status, ...(await r.json().catch(() => ({}))) };
 }
-async function get(fn) {
-  const r = await fn(new Request("http://x/api", { method: "GET" }));
+async function get(fn, q) {
+  const r = await fn(new Request("http://x/api" + (q || ""), { method: "GET" }));
   return { code: r.status, ...(await r.json().catch(() => ({}))) };
 }
+/* Depuis la v2.6, /api/catalogue ne renvoie plus les cartes : elles pesaient
+   huit mégaoctets à chaque chargement de page. La forme complète existe
+   toujours, sur demande explicite, pour les outils et pour ces tests. */
+const tout = () => get(catal, "?complet=1");
 
 const TRACK = {
   id: "1712345678", title: "Nuit blanche", artist: "Sœur K", album: "Sous-sol",
@@ -202,7 +206,7 @@ R("le son est marqué comme venant de la communauté",
 r = await post(moder, { action: "trancher", id: idProp, verdict: "valider", pop: 9 }, jMila);
 R("on ne tranche pas deux fois la même", r.code === 409);
 
-let c = await get(catal);
+let c = await tout();
 R("le catalogue public contient le son validé",
   c.code === 200 && c.tracks.length === 1 && c.tracks[0].title === "Nuit blanche");
 
@@ -260,7 +264,7 @@ R("un modérateur ne nomme pas d'autres modérateurs", r.code === 403);
 
 r = await post(moder, { action: "retirer", track: "c1712345678" }, jMila);
 R("un son publié peut être retiré", r.code === 200);
-c = await get(catal);
+c = await tout();
 R("le catalogue public est à jour après retrait", c.tracks.length === 0);
 
 console.log("\n=== CREWS ===");
@@ -313,7 +317,7 @@ R("un son dont l'extrait n'est pas chez Apple est écarté à l'import", r.refus
 r = await post(moder, { action: "importer", tracks: new Array(401).fill(NOYAU[0]) }, jMila);
 R("un paquet trop gros est refusé", r.code === 413);
 
-c = await get(catal);
+c = await tout();
 R("le catalogue public sert la bibliothèque entière", c.tracks.length === 3);
 R("les identifiants d'origine sont conservés", c.tracks.some(t => t.id === 90001));
 R("la source est marquée", c.tracks.every(t => t.source === "noyau"));
@@ -337,7 +341,7 @@ const idAjout = r.id;
 R("une nouvelle proposition passe", r.code === 200 && !!idAjout);
 r = await post(moder, { action: "trancher", id: idAjout, verdict: "valider", pop: 3 }, jMila);
 R("elle est validée", r.code === 200);
-c = await get(catal);
+c = await tout();
 R("elle rejoint la même bibliothèque", c.tracks.length === 4);
 R("noyau et communauté cohabitent",
   c.meta.noyau === 3 && c.meta.communaute === 1);
@@ -348,12 +352,12 @@ R("réimporter le noyau ne détruit pas les apports de la communauté",
 
 r = await post(moder, { action: "retirer", track: "90003" }, jMila);
 R("un son se retire", r.code === 200);
-c = await get(catal);
+c = await tout();
 R("il a bien disparu", c.tracks.length === 3 && !c.tracks.some(t => String(t.id) === "90003"));
 
 r = await post(moder, { action: "vider", source: "noyau" }, jMila);
 R("on peut vider le noyau seul", r.code === 200 && r.total === 1);
-c = await get(catal);
+c = await tout();
 R("il ne reste que la communauté", c.tracks.length === 1 && c.tracks[0].source === "communaute");
 
 console.log("\n=== VERROU CONTRE L'ESSAI EN MASSE ===");
@@ -406,7 +410,7 @@ r = await post(moder, { action: "mentions", editeur: {
   contact: "adr@exemple.fr", directeur: "adr" } }, jMila);
 R("l'administrateur les enregistre", r.code === 200 && r.editeur.nom === "adr");
 R("l'hébergeur est rempli par défaut", /Netlify/.test(r.editeur.hebergeur));
-c = await get(catal);
+c = await tout();
 R("elles voyagent avec le catalogue public", c.meta.editeur && c.meta.editeur.contact === "adr@exemple.fr");
 R("le secret de signature ne fuite pas par là", !JSON.stringify(c).includes("secret"));
 
@@ -506,7 +510,7 @@ r = await post(compte, { action: "inscription", pseudo: "Partant", mdp: "motdepa
 R("le pseudo est libéré", r.code === 200);
 const cl = await get(class_);
 R("il sort du classement", !cl.collection.some(x => x.pseudo === "Partant"));
-c = await get(catal);
+c = await tout();
 const laisse = c.tracks.find(t => String(t.id) === "c55555");
 R("le son qu'il a fait entrer reste dans la bibliothèque", !!laisse);
 R("mais il n'est plus signé de son nom", laisse.proposePar === "un digger");

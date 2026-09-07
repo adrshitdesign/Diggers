@@ -338,7 +338,7 @@ export default async function (req) {
 async function traiter(req, u, b) {
   const g = jeuDe(u);
   majJournee(g);
-  const lib = await biblio.lire();
+  const lib = await biblio.lireCache();
   const fini = async (extra) => {
     // Le résumé qui alimente le classement est calculé ici, à partir de l'état
     // que le serveur tient lui-même. Le navigateur n'a plus son mot à dire.

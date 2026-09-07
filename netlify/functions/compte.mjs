@@ -238,7 +238,7 @@ export default async function (req) {
       // On ne met en vitrine que des cartes qu'on possède vraiment, et le
       // pressage affiché est celui de l'exemplaire, pas celui qu'on annonce.
       const coffre = (u.jeu && Array.isArray(u.jeu.coffre)) ? u.jeu.coffre : [];
-      const lib = await biblio.lire();
+      const lib = await biblio.lireCache();
       const choisies = [];
       for (const v of patch.vitrine.slice(0, 3)) {
         if (!v) continue;
@@ -289,40 +289,7 @@ export default async function (req) {
   if (action === "supprimer") {
     if (!verifierMdp(String(b.mdp || ""), u.sel, u.hash))
       return ko(401, "Mot de passe incorrect.");
-
-    // on le sort de son crew
-    if (u.crew) {
-      const C = await store("crews"), IDX = await store("codes");
-      const c = await C.get(u.crew);
-      if (c) {
-        c.membres = (c.membres || []).filter(x => x !== u.uid);
-        if (!c.membres.length) { await C.del(c.id); await IDX.del(c.code); }
-        else { if (c.chef === u.uid) c.chef = c.membres[0]; await C.set(c.id, c); }
-      }
-    }
-
-    // ses propositions restent, mais ne portent plus son nom
-    const P = await store("propositions");
-    for (const id of (u.mesProps || [])) {
-      const p = await P.get(id);
-      if (!p) continue;
-      p.par = { uid: "", pseudo: "compte supprimé" };
-      await P.set(id, p);
-    }
-
-    // les sons qu'il a fait entrer restent dans la bibliothèque : c'est du
-    // contenu public, mais il perd la signature.
-    const lib = await biblio.lire();
-    let touche = false;
-    lib.tracks.forEach(t => {
-      if (t.proposePar && t.proposePar === u.pseudo) { t.proposePar = "un digger"; touche = true; }
-    });
-    if (touche) await biblio.ecrire(lib);
-
-    if (u.email && u.email.adresse) await (await store("emails")).del(normEmail(u.email.adresse));
-    await (await store("classement")).del(u.uid);
-    await (await store("pseudos")).del(u.pseudoNorm);
-    await (await store("utilisateurs")).del(u.uid);
+    await effacerCompte(u);
     return ok({ supprime: true });
   }
 
@@ -401,4 +368,49 @@ export async function majClassement(u) {
     validees: (u.stats || {}).validees || 0,
     maj: Date.now()
   });
+}
+
+/* ============================================================
+   EFFACER UN COMPTE — pour de bon
+   Le joueur peut le faire lui-même (RGPD), la modération peut le faire pour
+   lui. Dans les deux cas c'est le même travail, donc le même code : il sort
+   de son crew, ses propositions perdent son nom, les sons qu'il a fait
+   entrer restent dans la bibliothèque mais ne sont plus signés — c'est du
+   contenu public, il n'y a pas de raison de l'effacer avec lui.
+   ============================================================ */
+export async function effacerCompte(u) {
+    // on le sort de son crew
+    if (u.crew) {
+      const C = await store("crews"), IDX = await store("codes");
+      const c = await C.get(u.crew);
+      if (c) {
+        c.membres = (c.membres || []).filter(x => x !== u.uid);
+        if (!c.membres.length) { await C.del(c.id); await IDX.del(c.code); }
+        else { if (c.chef === u.uid) c.chef = c.membres[0]; await C.set(c.id, c); }
+      }
+    }
+
+    // ses propositions restent, mais ne portent plus son nom
+    const P = await store("propositions");
+    for (const id of (u.mesProps || [])) {
+      const p = await P.get(id);
+      if (!p) continue;
+      p.par = { uid: "", pseudo: "compte supprimé" };
+      await P.set(id, p);
+    }
+
+    // les sons qu'il a fait entrer restent dans la bibliothèque : c'est du
+    // contenu public, mais il perd la signature.
+    const lib = await biblio.lireCache();
+    let touche = false;
+    lib.tracks.forEach(t => {
+      if (t.proposePar && t.proposePar === u.pseudo) { t.proposePar = "un digger"; touche = true; }
+    });
+    if (touche) await biblio.ecrire(lib);
+
+    if (u.email && u.email.adresse) await (await store("emails")).del(normEmail(u.email.adresse));
+    await (await store("classement")).del(u.uid);
+    await (await store("pseudos")).del(u.pseudoNorm);
+    await (await store("utilisateurs")).del(u.uid);
+    return { supprime: true, pseudo: u.pseudo };
 }

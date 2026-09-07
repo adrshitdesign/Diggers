@@ -14,9 +14,9 @@
 // pour le refaire à chaque affichage, donc on le garde au frais quelques
 // minutes. Personne n'a besoin d'une seconde près.
 
-import { ok, ko, preflight, corps } from "./_lib.mjs";
+import { ok, ko, preflight, corps, signature } from "./_lib.mjs";
 import { store } from "./_store.mjs";
-import { lire } from "./_biblio.mjs";
+import { lireCache as lire } from "./_biblio.mjs";
 import { TIERS, PRESS, tierOf } from "./jeu.mjs";
 
 export const config = { path: "/api/bibliotheque" };
@@ -77,7 +77,7 @@ function carteVue(t, compte) {
   return {
     id: t.id, title: t.title, artist: t.artist, credits: t.credits || "",
     album: t.album || "", genre: t.genre || "", year: t.year || null,
-    art: t.art, url: t.url || "",
+    ms: t.ms || 0, art: t.art, url: t.url || "",
     pop: t.pop, rarete: r, rareteNom: TIERS[r].n,
     source: t.source || "noyau",
     // le joueur qui a fait entrer le son dans le jeu, s'il y en a un
@@ -96,6 +96,18 @@ export default async function (req) {
     : await corps(req);
 
   const b = await lire();
+
+  /* ---------------- « est-ce que ce son est déjà dans le jeu ? » ----------------
+     L'écran de proposition pose la question sur les douze résultats qu'Apple
+     vient de lui rendre. Avant, le navigateur y répondait tout seul parce
+     qu'il avait la bibliothèque entière en mémoire — c'est précisément ce
+     qu'on a arrêté de lui envoyer. Il la pose donc au serveur, qui est le
+     seul à devoir la connaître. */
+  if (Array.isArray(p.connus)) {
+    const vues = new Set(b.tracks.map(signature));
+    return ok({ connus: p.connus.slice(0, 40).map(x => vues.has(signature(x))) });
+  }
+
   const rec = await recensement();
   const compte = id => rec.cartes[String(id)];
 
@@ -106,6 +118,20 @@ export default async function (req) {
     if (!r) continue;
     r.titres++;
     r.exemplaires += (compte(t.id) || vide).n;
+  }
+
+  /* ---------------- quelques cartes précises, par identifiant ----------------
+     Un set partagé arrive sous la forme d'une poignée d'identifiants dans le
+     lien. Il faut pouvoir les retrouver — avec l'extrait, puisque la page
+     invite à les écouter — sans télécharger le reste du jeu. */
+  if (p.ids) {
+    const veut = String(p.ids).split(",").map(x => x.trim()).filter(Boolean).slice(0, 10);
+    const par = new Map(b.tracks.map(t => [String(t.id), t]));
+    const trouvees = veut.map(id => par.get(id)).filter(Boolean);
+    return ok({
+      demandes: veut.length,
+      cartes: trouvees.map(t => ({ ...carteVue(t, compte(t.id)), preview: t.preview || "" }))
+    }, { "cache-control": "public, max-age=60" });
   }
 
   let l = b.tracks;
@@ -127,9 +153,12 @@ export default async function (req) {
   else                        l = [...l].sort((a, c) => a.pop - c.pop);   // « rare » : les plus confidentiels d'abord
 
   const total = l.length;
-  const pages = Math.max(1, Math.ceil(total / PAGE));
+  /* La recherche du pressage n'affiche que deux douzaines de résultats : lui
+     en envoyer soixante, c'est du poids pour rien. */
+  const parPage = Math.min(PAGE, Math.max(1, Number(p.parPage) || PAGE));
+  const pages = Math.max(1, Math.ceil(total / parPage));
   const page = Math.min(pages, Math.max(1, Number(p.page) || 1));
-  const tranche = l.slice((page - 1) * PAGE, page * PAGE);
+  const tranche = l.slice((page - 1) * parPage, page * parPage);
 
   return ok({
     meta: {
@@ -139,7 +168,7 @@ export default async function (req) {
       recense: rec.date,
       parRarete: parRarete.filter(Boolean)
     },
-    total, page, pages, parPage: PAGE,
+    total, page, pages, parPage,
     cartes: tranche.map(t => carteVue(t, compte(t.id)))
   }, { "cache-control": "public, max-age=60" });
 }

@@ -137,7 +137,7 @@ export default async function (req) {
 }
 
 async function traiter(u, b, aujourdhui) {
-  const lib = await biblio.lire();
+  const lib = await biblio.lireCache();
   const d = await lireDefi(aujourdhui);
   const mien = d.entrees.find(e => e.uid === u.uid);
   const g = jeuDe(u);

@@ -288,6 +288,115 @@ export default async function (req) {
     return ok({ editeur: e });
   }
 
+  /* ---------------- retirer des sons par liste ----------------
+     L'inverse de l'import : on colle une liste « Artiste - Titre », le
+     serveur dit lesquels il trouve, et ne retire que sur confirmation. */
+  if (b.action === "retirer-liste") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur retire des sons en nombre.");
+    const lignes = Array.isArray(b.lignes) ? b.lignes.slice(0, 2000) : [];
+    if (!lignes.length) return ko(400, "Aucune ligne.");
+
+    const lib = await biblio.lire();
+    const parSig = new Map();
+    lib.tracks.forEach(t => {
+      const k = norm(t.artist) + "|" + norm(t.title);
+      if (!parSig.has(k)) parSig.set(k, []);
+      parSig.get(k).push(t);
+    });
+
+    const trouves = [], absents = [];
+    const vus = new Set();
+    for (const brut of lignes) {
+      const l = String(brut || "").trim();
+      if (!l) continue;
+      const p = decouperLigne(l);
+      if (!p) { absents.push(l); continue; }
+      // on essaie « Artiste - Titre », puis « Titre - Artiste » : personne ne
+      // se souvient de l'ordre au moment de coller une liste.
+      const a1 = norm(p[0]) + "|" + norm(p[1]);
+      const a2 = norm(p[1]) + "|" + norm(p[0]);
+      const t = parSig.get(a1) || parSig.get(a2);
+      if (!t) { absents.push(l); continue; }
+      t.forEach(x => { if (!vus.has(x.id)) { vus.add(x.id); trouves.push(x); } });
+    }
+
+    if (b.apercu) {
+      return ok({ apercu: true, trouves: trouves.length, absents: absents.length,
+        exemples: trouves.slice(0, 40).map(t => ({ artist: t.artist, title: t.title, id: t.id })),
+        introuvables: absents.slice(0, 40) });
+    }
+
+    const SIG = await store("signatures");
+    let retires = 0;
+    for (const t of trouves) {
+      const r = await biblio.retirer(String(t.id));
+      if (r) { retires++; await SIG.del(signature(r)); }
+    }
+    return ok({ retires, absents: absents.length, total: (await biblio.lire()).tracks.length });
+  }
+
+  /* ---------------- les comptes ----------------
+     Qui joue, depuis quand, avec quel rôle. « Qui est connecté » n'existe
+     pas : le jeu ne tient pas de sessions ouvertes, il signe des jetons
+     valables six mois. Ce qu'on peut dire honnêtement, c'est la dernière
+     fois que chaque compte a écrit quelque chose — c'est cette colonne-là
+     qu'on affiche, et pas une pastille verte qui mentirait. */
+  if (b.action === "joueurs") {
+    const U = await store("utilisateurs");
+    const cles = (await U.list("")).slice(0, 2000);
+    const l = [];
+    for (const cle of cles) {
+      const j = await U.get(cle);
+      if (!j) continue;
+      const g = j.jeu || {};
+      l.push({
+        uid: j.uid, pseudo: j.pseudo, role: j.role || "joueur",
+        cree: j.cree || 0, vu: j.maj || 0,
+        cartes: Array.isArray(g.coffre) ? g.coffre.length : 0,
+        credits: g.credits || 0,
+        sets: g.sets || 0,
+        propositions: (j.stats && j.stats.propositions) || 0,
+        validees: (j.stats && j.stats.validees) || 0,
+        email: !!(j.email && j.email.adresse),
+        jetons: Math.max(0, Number(j.jetons) || 0),
+        crew: j.crew || null
+      });
+    }
+    l.sort((x, y) => y.vu - x.vu);
+    const fond = await (await store("config")).get("fondateur");
+    return ok({ joueurs: l, total: l.length, fondateur: (fond && fond.uid) || null });
+  }
+
+  if (b.action === "joueur-role") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur change les rôles.");
+    const U = await store("utilisateurs");
+    const cible = await U.get(String(b.uid || ""));
+    if (!cible) return ko(404, "Compte introuvable.");
+    if (cible.uid === u.uid) return ko(409, "On ne change pas son propre rôle.");
+    const role = String(b.role || "joueur");
+    if (!["joueur", "moderateur", "admin"].includes(role)) return ko(400, "Rôle inconnu.");
+    cible.role = role;
+    await ecrireUtilisateur(cible);
+    return ok({ pseudo: cible.pseudo, role: cible.role });
+  }
+
+  if (b.action === "joueur-supprimer") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur supprime un compte.");
+    const U = await store("utilisateurs");
+    const cible = await U.get(String(b.uid || ""));
+    if (!cible) return ko(404, "Compte introuvable.");
+    if (cible.uid === u.uid) return ko(409, "Supprime ton propre compte depuis ton profil.");
+    const fond = await (await store("config")).get("fondateur");
+    if (fond && fond.uid === cible.uid) return ko(409, "Le compte fondateur ne se supprime pas d'ici.");
+    /* Le pseudo doit être retapé : supprimer un compte efface une collection
+       entière, et un clic de trop ne doit pas suffire. */
+    if (String(b.confirmation || "").trim() !== cible.pseudo)
+      return ko(400, "Retape le pseudo exactement pour confirmer.");
+    const { effacerCompte } = await import("./compte.mjs");
+    const r = await effacerCompte(cible);
+    return ok(r);
+  }
+
   /* ---------------- nommer un modérateur ---------------- */
   if (b.action === "nommer") {
     if (u.role !== "admin") return ko(403, "Seul l'administrateur nomme les modérateurs.");
@@ -309,4 +418,13 @@ async function cleFile(F, p) {
   return toutes.find(k => k.endsWith("-" + p.id)) || c;
 }
 
-
+/* Une ligne collée par un humain : « Artiste - Titre », « Artiste — Titre »,
+   « Artiste | Titre », ou séparé par une tabulation. On ne coupe que sur le
+   PREMIER séparateur : « Jul - Tchikita - remix » doit donner un titre entier,
+   et les noms à tiret comme « Jean-Jacques Goldman » ne doivent pas exploser. */
+export function decouperLigne(l) {
+  const m = String(l).match(/^(.+?)\s*(?:\t|\s\u2014\s|\s\u2013\s|\s-\s|\s*\|\s*)(.+)$/);
+  if (!m) return null;
+  const a = m[1].trim(), t = m[2].trim();
+  return (a && t) ? [a, t] : null;
+}

@@ -6,7 +6,17 @@
 import { store } from "./_store.mjs";
 import { signature, validerTrack, norm } from "./_lib.mjs";
 
-export const PLAFOND = 20000;
+/* Combien de sons le jeu peut porter.
+   Ce n'est pas un chiffre rond posé au hasard : la bibliothèque est un seul
+   enregistrement, lu en entier à chaque requête. Jusqu'à la v2.5 elle était
+   en plus renvoyée telle quelle à chaque joueur qui ouvrait le jeu — c'était
+   ça, la vraie limite, et le plafond de 20 000 était le point où le site
+   cassait. Le navigateur ne la reçoit plus (voir catalogue.mjs) et le serveur
+   la garde quelques secondes en mémoire (voir lireCache ci-dessous), donc le
+   plafond peut monter. À 50 000 sons l'enregistrement pèse ~28 Mo et se lit en
+   130 ms : c'est encore raisonnable. Au-delà, il faudra le découper — et ce
+   jour-là ce commentaire sera à réécrire, pas le chiffre à augmenter. */
+export const PLAFOND = 50000;
 
 const vide = () => ({ meta: { version: 2, maj: 0, titres: 0 }, tracks: [] });
 
@@ -24,11 +34,39 @@ export async function lire() {
   return b;
 }
 
+/* ---------------- la copie chaude ----------------
+   Ouvrir un carton, jouer un set, afficher le marché : chacune de ces actions
+   relisait la bibliothèque entière depuis le rangement. À 8 Mo c'était déjà
+   du temps perdu à chaque clic ; à 28 Mo ce serait un jeu lent.
+
+   On la garde donc quelques secondes en mémoire. Le compromis est explicite :
+   un son ajouté peut mettre jusqu'à dix secondes à apparaître dans les tirages
+   d'un autre serveur. Personne ne s'en aperçoit, et personne ne peut y perdre
+   quoi que ce soit — les cartes déjà tirées ne dépendent pas de cette copie.
+
+   La modération, elle, ne lit jamais la copie : quand on vient de retirer un
+   son, on veut le voir disparaître tout de suite. Elle appelle lire(). */
+const FRAICHEUR = 10000;
+let memo = null, memoT = 0;
+
+export async function lireCache() {
+  if (memo && Date.now() - memoT < FRAICHEUR) return memo;
+  const b = await lire();
+  memo = b; memoT = Date.now();
+  return b;
+}
+
 export async function ecrire(b) {
-  b.meta = { ...(b.meta || {}), version: 2, maj: Date.now(), titres: b.tracks.length,
+  /* Un numéro de version qui ne recule jamais. La date ne suffit pas : deux
+     écritures dans la même milliseconde portent la même, et tout ce qui se
+     cache sur cette clé sert alors une réponse périmée. */
+  b.meta = { ...(b.meta || {}), version: 2, maj: Date.now(),
+    rev: ((b.meta && b.meta.rev) || 0) + 1, titres: b.tracks.length,
     noyau: b.tracks.filter(t => t.source !== "communaute").length,
     communaute: b.tracks.filter(t => t.source === "communaute").length };
   await (await store("bibliotheque")).set("tout", b);
+  // Celui qui vient d'écrire n'a aucune raison de lire une version périmée.
+  memo = b; memoT = Date.now();
   return b;
 }
 
@@ -113,7 +151,9 @@ function normaliserImport(t) {
     url: String(t.url || ""),
     poids: Number(t.poids) || 2,
     rank: Number(t.rank) || 0,
-    pop: Math.max(0, Math.min(99, Math.round(Number(t.pop)))),
+    // Une popularité absente n'est pas une raison d'écarter un son : une liste
+    // collée à la main n'en porte jamais. On prend le milieu de l'échelle.
+    pop: Math.max(0, Math.min(99, Math.round(Number.isFinite(Number(t.pop)) ? Number(t.pop) : 50))),
     source: "noyau"
   };
   if (!Number.isFinite(c.pop)) return null;

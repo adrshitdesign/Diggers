@@ -43,6 +43,20 @@ const R = (nom, v) => { n++; if (!v) ko++; console.log((v ? "  ok    " : "  ÉCH
 
 const nav = await chromium.launch({ executablePath: process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
 const page = await nav.newPage();
+
+/* Le menu a deux étages depuis la v2.5 : une famille, puis ses vues. Un test
+   qui clique directement sur « Étagère » ne la trouve plus si « Ma collection »
+   n'est pas ouverte — et une famille d'une seule vue n'a même pas de second
+   étage. On passe donc par la famille, comme un joueur. */
+async function aller(v) {
+  const fam = await page.evaluate(x => (FAMILLES.find(f => f.vues.some(y => y[0] === x)) || {}).id, v);
+  await page.click('[data-fam="' + fam + '"]');
+  await attendre(250);
+  const sst = page.locator('[data-v="' + v + '"]');
+  if (await sst.count()) await sst.click();
+  await attendre(250);
+}
+
 const erreurs = [];
 page.on("console", m => { if (m.type() === "error") erreurs.push(m.text()); });
 page.on("pageerror", e => erreurs.push("EXCEPTION " + e.message));
@@ -64,7 +78,7 @@ await page.click("#bgo");
 await attendre(1200);
 R("le compte est créé et le pseudo s'affiche",
   (await page.locator("#moncompte").innerText()).includes("Testeuse"));
-R("le premier compte ouvre la modération", await page.locator('[data-v="moderation"]').isVisible());
+R("le premier compte ouvre la modération", await page.locator('[data-fam="mod"]').isVisible());
 
 console.log("\n=== GOÛTS ===");
 R("l'écran des artistes s'ouvre", await page.locator("#onbg").isVisible());
@@ -102,7 +116,7 @@ R("les cinq cartes sont sur le tapis", (await page.locator("#pull .card").count(
 R("le partage en carrés est proposé", await page.locator("#shcart").isVisible());
 
 console.log("\n=== ÉTAGÈRE ===");
-await page.click('[data-v="etagere"]');
+await aller("etagere");
 await attendre(600);
 R("l'étagère contient les cinq cartes", (await page.locator("#shelf .card").count()) === 5);
 
@@ -122,7 +136,7 @@ await page.evaluate(async () => {
     }
   }
 });
-await page.click('[data-v="marche"]');
+await aller("marche");
 await attendre(900);
 R("le marché s'ouvre sur les annonces", await page.locator(".mktab[data-m='annonces']").isVisible());
 R("il n'y a pas encore d'annonce",
@@ -149,6 +163,19 @@ await attendre(500);
 R("l'onglet Presser demande une recherche",
   (await page.locator("#marchebox").innerText()).includes("Cherche un morceau"));
 
+/* La recherche du pressage se fait maintenant côté serveur : le navigateur
+   n'a plus la bibliothèque en mémoire pour la filtrer lui-même. */
+await page.fill("#pq", "Titre 3-2");
+await attendre(1400);
+R("chercher un morceau à presser rend des résultats",
+  (await page.locator("#prs .offer").count()) >= 1);
+R("et chaque résultat propose de le presser",
+  /presser/i.test(await page.locator("#prs").innerText()));
+await page.fill("#pq", "zzzzzzzz");
+await attendre(1400);
+R("une recherche sans réponse le dit clairement",
+  (await page.locator("#prs").innerText()).includes("Rien de ce nom"));
+
 console.log("\n=== LA SESSION SURVIT AU RECHARGEMENT ===");
 // C'est tout l'intérêt du compte : fermer l'onglet ne doit rien perdre.
 const cartesAvant = await page.evaluate(() => S.shelf.length);
@@ -162,7 +189,7 @@ R("la collection est retrouvée telle quelle",
   (await page.evaluate(() => S.shelf.length)) === cartesAvant);
 
 console.log("\n=== LA BOUTIQUE ===");
-await page.click('[data-v="boutique"]');
+await aller("boutique");
 await attendre(1200);
 const bt = (await page.locator("#boutiquebox").innerText()).toLowerCase();
 R("la boutique liste le décor", bt.includes("bannière or"));
@@ -170,7 +197,7 @@ R("elle dit que la vente n'est pas ouverte", bt.includes("pas ouverte"));
 R("on n'a aucun jeton", bt.includes("tes jetons"));
 R("aucun article ne vend de carte ni de crédit",
   !/crédit|carte|carton|éclat/i.test(bt.replace(/pas de cartes[^.]*\./gi, "")));
-await page.click('[data-v="profil"]');
+await aller("profil");
 await attendre(900);
 R("le décor payant est verrouillé dans le profil",
   (await page.locator("#profilbox .bant.verrou").count()) > 0);
@@ -180,7 +207,7 @@ for (const [v, marque] of [["set", "#setbox"], ["regles", "#reglesbox"], ["profi
   ["crew", "#crewbox"], ["classement", "#ladderbox"], ["reglages", "#reglagesbox"],
   ["communaute", "#communautebox"], ["moderation", "#modbox"], ["boutique", "#boutiquebox"],
   ["defi", "#defibox"], ["bibliotheque", "#bibbox"]]) {
-  await page.click('[data-v="' + v + '"]');
+  await aller(v);
   await attendre(700);
   const t = (await page.locator(marque).innerText().catch(() => "")).trim();
   R("l'onglet " + v + " affiche quelque chose", t.length > 10);
@@ -203,7 +230,7 @@ await page.evaluate(async () => {
     }
   }
 });
-await page.click('[data-v="defi"]');
+await aller("defi");
 await attendre(900);
 {
   const theme = (await page.locator("#defibox .defi-theme").innerText().catch(() => "")).trim();
@@ -251,8 +278,8 @@ await attendre(900);
   const a3 = await posePour("Concurrent2");
   R("deux autres joueurs ont posé leur carte", a2 && a3);
 
-  await page.click('[data-v="accueil"]');
-  await page.click('[data-v="defi"]');
+  await aller("accueil");
+  await aller("defi");
   await attendre(1100);
   const duo = await page.locator("#defibox .defi-c").count();
   R("le duel s'affiche avec deux cartes", duo === 2);
@@ -279,7 +306,7 @@ await attendre(900);
    LA BIBLIOTHÈQUE PUBLIQUE
    ============================================================ */
 console.log("\n=== LA BIBLIOTHÈQUE PUBLIQUE ===");
-await page.click('[data-v="bibliotheque"]');
+await aller("bibliotheque");
 await attendre(1400);
 {
   const t = await page.locator("#bibbox").innerText();
@@ -318,8 +345,128 @@ await attendre(1400);
   R("et ne regarder qu'un palier", /Tube/.test(await page.locator("#bibbox").innerText()));
 }
 
+
+/* ============================================================
+   LE MENU À DEUX ÉTAGES ET LES OUTILS D'ADMINISTRATION (v2.5)
+   ============================================================ */
+console.log("\n=== CE QUE LA PAGE TÉLÉCHARGE (v2.6) ===");
+{
+  /* Jusqu'à la v2.5, ouvrir le jeu téléchargeait la bibliothèque entière.
+     On mesure les deux formes sur la même bibliothèque de test. */
+  const m = await page.evaluate(async () => {
+    const p = async (u) => (await (await fetch(u, { cache: "no-store" })).text()).length;
+    return { leger: await p("/api/catalogue"), complet: await p("/api/catalogue?complet=1") };
+  });
+  console.log("      léger " + Math.round(m.leger / 1024) + " Ko · complet "
+    + Math.round(m.complet / 1024) + " Ko");
+  R("le chargement du jeu ne tire plus la bibliothèque entière", m.leger * 4 < m.complet);
+  R("aucune carte ne voyage au chargement",
+    await page.evaluate(async () => !(await (await fetch("/api/catalogue")).json()).tracks));
+  R("le jeu n'en garde pas moins ses compteurs", await page.evaluate(() => CATN > 0 && CATNA > 0));
+  R("le pied de page annonce le poids du jeu",
+    /morceaux/.test(await page.locator("#foot").innerText()));
+  R("l'écran des goûts a de quoi se remplir",
+    await page.evaluate(() => artistesDuCatalogue().length >= 10));
+  R("chaque artiste proposé a une pochette",
+    await page.evaluate(() => artistesDuCatalogue().slice(0, 40).every(a => a.artist && a.art)));
+  R("le bouton « tester le son » a un extrait sous la main",
+    await page.evaluate(() => !!(CATTEST && CATTEST.preview)));
+}
+
+console.log("\n=== LE MENU ===");
+await aller("accueil");
+R("le menu du haut tient en six familles au plus",
+  (await page.locator("#nav .tab").count()) <= 6);
+R("aucune famille ne dépasse trois vues",
+  await page.evaluate(() => FAMILLES.every(f => f.vues.length <= 3)));
+R("toutes les vues du jeu sont rangées quelque part", await page.evaluate(() => {
+  const rangees = new Set(FAMILLES.flatMap(f => f.vues.map(v => v[0])));
+  return [...document.querySelectorAll(".view")].every(s => rangees.has(s.id.slice(2)));
+}));
+R("ouvrir une vue allume sa famille", await page.evaluate(async () => {
+  go("marche");
+  const t = document.querySelector('[data-fam="echanger"]');
+  return t && t.getAttribute("aria-selected") === "true";
+}));
+await attendre(400);
+R("et son second étage montre la vue ouverte",
+  (await page.locator('#ssnav [data-v="marche"]').getAttribute("aria-selected")) === "true");
+R("la famille d'une seule vue n'affiche pas de second étage",
+  await page.evaluate(async () => { go("moderation"); return document.getElementById("ssnav").children.length === 0; }));
+
+console.log("\n=== AJOUTER ET RETIRER PAR LISTE ===");
+await aller("moderation");
+await page.evaluate(() => vueBiblio());
+await attendre(900);
+R("la bibliothèque propose l'ajout par liste", await page.locator("#bajouter").isVisible());
+R("et le retrait par liste", await page.locator("#benlever").isVisible());
+
+/* On ne fait pas parler Apple depuis un test : l'ajout est vérifié côté
+   serveur. Ici on vérifie le retrait, qui ne sort pas du site. */
+const libAvant = await page.evaluate(async () =>
+  (await apiAppel("/api/moderation", { action: "bibliotheque" })).tracks.length);
+await page.click("#benlever");
+await attendre(400);
+R("le retrait par liste ouvre une zone de collage", await page.locator("#lret").isVisible());
+await page.fill("#lret", "Sœur K - Titre 0-0\nBloc 4 — Titre 1-1\nPersonne | Rien du tout");
+await page.locator("#modbar button", { hasText: "Chercher" }).click();
+await attendre(900);
+const resume = await page.locator(".onb .onb-in").innerText();
+R("il annonce ce qu'il a trouvé", /Retirer 2 son/.test(resume));
+R("et compte les lignes sans correspondance", /1 ligne\(s\) sans correspondance/.test(resume));
+R("il prévient que les exemplaires tirés restent sur les étagères",
+  /restent sur leurs étagères/.test(resume));
+await page.locator("#modbar button", { hasText: "Retirer" }).first().click();
+await attendre(1200);
+const diagRet = await page.locator("#bdiag").innerText();
+R("le retrait est fait", /2 son\(s\) retiré/.test(diagRet));
+R("et le compte-rendu survit au redessin du panneau", /La bibliothèque compte/.test(diagRet));
+const libApres = await page.evaluate(async () =>
+  (await apiAppel("/api/moderation", { action: "bibliotheque" })).tracks.length);
+R("et la bibliothèque a bien perdu deux sons", libApres === libAvant - 2);
+
+console.log("\n=== LES COMPTES ===");
+await page.evaluate(() => vueJoueurs());
+await attendre(1200);
+/* Les pseudos sont mis en capitales par la feuille de style : on compare
+   sans tenir compte de la casse, sinon le test échoue sur une décoration. */
+const jtxt = (await page.locator("#modbox").innerText()).toLowerCase();
+R("l'écran des comptes liste les joueurs", jtxt.includes("testeuse"));
+R("il compte les comptes et les actifs de la semaine",
+  jtxt.includes("actifs cette semaine") && jtxt.includes("modération"));
+R("il dit depuis quand chacun est inscrit", jtxt.includes("inscrit le"));
+R("il dit franchement qu'il n'y a pas de « qui est connecté »",
+  /pas de .{0,3}qui est connecté/.test(jtxt));
+R("il montre la dernière activité plutôt qu'une pastille verte", jtxt.includes("vu"));
+R("il ne montre aucun mot de passe", !jtxt.includes("motdepasse"));
+R("le compte administrateur est repérable", jtxt.includes("fondateur"));
+R("le fondateur n'a pas de bouton Supprimer en face de lui",
+  await page.evaluate(() => {
+    const l = [...document.querySelectorAll("#modbox .sc")]
+      .find(x => /testeuse/i.test(x.innerText));
+    return !!l && !/supprimer/i.test(l.innerText);
+  }));
+await page.fill("#jq", "Concurrent1");
+await attendre(500);
+R("la recherche filtre les comptes",
+  !(await page.locator("#modbox").innerText()).toLowerCase().includes("testeuse"));
+await page.fill("#jq", "");
+await attendre(400);
+
+const uidC = await page.evaluate(() => (JOUEURS.joueurs.find(j => j.pseudo === "Concurrent2") || {}).uid);
+R("un compte de test est repérable dans la liste", !!uidC);
+const supp = await page.evaluate(async (uid) =>
+  await apiAppel("/api/moderation", { action: "joueur-supprimer", uid, confirmation: "n'importe quoi" }), uidC);
+R("le mauvais pseudo de confirmation ne supprime rien", supp.ok !== true);
+const supp2 = await page.evaluate(async (uid) =>
+  await apiAppel("/api/moderation", { action: "joueur-supprimer", uid, confirmation: "Concurrent2" }), uidC);
+R("le pseudo recopié supprime le compte", supp2.ok === true);
+await page.evaluate(() => vueJoueurs());
+await attendre(900);
+R("et il disparaît de la liste", !(await page.locator("#modbox").innerText()).includes("Concurrent2"));
+
 console.log("\n=== MOT DE PASSE OUBLIÉ ===");
-await page.click('[data-v="reglages"]');
+await aller("reglages");
 await attendre(900);
 const rt = await page.locator("#reglagesbox").innerText();
 R("les réglages proposent de poser une adresse", rt.includes("Retrouver ton mot de passe"));

@@ -67,7 +67,7 @@ export default async function (req) {
   if (req.method === "OPTIONS") return preflight();
   if (req.method !== "POST" && req.method !== "GET") return ko(405, "méthode non autorisée");
 
-  const lib = await biblio.lire();
+  const lib = await biblio.lireCache();
   const S = await annoncesStore();
 
   /* Le fil des annonces est public : on peut regarder le marché sans compte,
