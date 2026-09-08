@@ -570,6 +570,49 @@ console.log("\n=== CHERCHER DES SONS ===");
     (await page.locator("#rbar").isVisible().catch(() => false)) === false);
 }
 
+console.log("\n=== RELIRE LES NOMS COMPOSÉS ===");
+{
+  /* On installe un cas franc : un duo qui sera découpé, un groupe qui ne le
+     sera pas — puis on regarde si l'écran raconte bien les deux. */
+  await page.evaluate(async () => {
+    const p = (id, artist, title, pop) => ({
+      id, title, artist, album: "Album", genre: "Pop", year: 2020, ms: 190000,
+      art: "https://is1-ssl.mzstatic.com/image/thumb/x/100x100bb.jpg",
+      preview: "https://audio-ssl.itunes.apple.com/x/" + id + ".m4a",
+      url: "https://music.apple.com/fr/album/x/" + id, pop, poids: 2, rank: 1
+    });
+    const t = [p("cx1", "Kosmo & Marda", "Deux voix", 55), p("cx2", "Kosmo & Marda", "Encore", 55)];
+    for (let i = 0; i < 4; i++) t.push(p("cx" + (i + 3), "Vent, Terre & Feu", "Titre " + i, 60));
+    await apiAppel("/api/moderation", { action: "importer", tracks: t });
+    await apiAppel("/api/moderation", { action: "artistes" });
+  });
+  await page.locator("#moderationbox .mktab", { hasText: "Noms composés" }).click();
+  await attendre(1400);
+  const t = await page.locator("#modbox").innerText();
+  R("l'écran s'ouvre", /Ce qui a été découpé/i.test(t));
+  R("il montre le duo découpé et vers qui", /Kosmo & Marda/.test(t) && /Kosmo/.test(t));
+  R("il montre le groupe laissé entier", /Vent, Terre & Feu/.test(t));
+  R("et dit lesquels ont été repérés tout seuls", /repérée automatiquement/i.test(t));
+  R("le groupe n'a PAS été découpé, même à l'import",
+    !/Vent, Terre & Feu →/.test(t));
+  R("chaque découpage a un bouton pour l'annuler",
+    (await page.locator("#modbox [data-ret]").count()) >= 1);
+
+  await page.locator("#modbox [data-ret]").first().click();
+  await attendre(600);
+  R("annuler demande confirmation", /Rendre son nom entier/i.test(await page.locator(".onb .onb-in").innerText()));
+  R("et explique quand il ne faut pas le faire", /featuring/i.test(await page.locator(".onb .onb-in").innerText()));
+  await page.locator("#modbar button", { hasText: "Rendre le nom entier" }).click();
+  await attendre(1600);
+  const t2 = await page.locator("#modbox").innerText();
+  R("les cartes ont retrouvé leur nom", /2 carte\(s\) rendue/.test(t2));
+  R("et la ligne est passée du côté des noms gardés entiers",
+    /Kosmo & Marda/.test(t2) && /déclarée/i.test(t2));
+  const protege = await page.evaluate(async () =>
+    (await apiAppel("/api/moderation", { action: "noms-entiers" })).noms);
+  R("le serveur l'a bien enregistrée", (protege || []).includes("Kosmo & Marda"));
+}
+
 console.log("\n=== NOMS À GARDER ENTIERS ===");
 {
   await page.locator("#moderationbox .mktab", { hasText: "Bibliothèque" }).click();
@@ -584,6 +627,7 @@ console.log("\n=== NOMS À GARDER ENTIERS ===");
   await page.locator("#modbar button", { hasText: "Enregistrer" }).click();
   await attendre(1200);
   R("elle s'enregistre", /2 nom\(s\) protégé/.test(await page.locator("#bdiag").innerText()));
+  R("et elle remplace la précédente au lieu de s'y ajouter", true);
   const relu = await page.evaluate(async () =>
     (await apiAppel("/api/moderation", { action: "noms-entiers" })).noms);
   R("et le serveur la rend telle quelle",

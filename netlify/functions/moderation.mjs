@@ -273,6 +273,86 @@ export default async function (req) {
     return ok({ noms });
   }
 
+  /* ---------------- les noms composés, à la loupe ----------------
+     « Un seul artiste par carte » fait son travail et rend un compteur. Un
+     compteur ne dit pas si le travail est BIEN fait. Cet écran montre les deux
+     côtés de la décision, carte par carte :
+       · ce qui a été découpé — la ligne d'origine est gardée en crédits, donc
+         on peut toujours la relire et revenir en arrière ;
+       · ce qui a été laissé entier — les groupes, repérés automatiquement ou
+         déclarés à la main.
+     C'est la réponse à « je ne suis pas sûr que tout ait été bien renommé ». */
+  if (b.action === "composes") {
+    const lib = await biblio.lire();
+    const entiers = await biblio.nomsEntiers();
+
+    const decoupes = new Map();   // ligne d'origine -> { avant, apres, titres }
+    const gardes = new Map();     // ligne restée entière -> { nom, titres }
+    for (const t of lib.tracks) {
+      if (biblio.plusieursArtistes(t.artist)) {
+        const k = norm(t.artist);
+        const e = gardes.get(k) || { nom: t.artist, titres: 0,
+          declare: entiers.has(k), exemples: [] };
+        e.titres++;
+        if (e.exemples.length < 3) e.exemples.push(t.title);
+        gardes.set(k, e);
+        continue;
+      }
+      // découpée : la ligne complète survit dans les crédits
+      if (t.credits && biblio.plusieursArtistes(t.credits)) {
+        const k = norm(t.credits) + "→" + norm(t.artist);
+        const e = decoupes.get(k) || { avant: t.credits, apres: t.artist, titres: 0, exemples: [] };
+        e.titres++;
+        if (e.exemples.length < 3) e.exemples.push(t.title);
+        decoupes.set(k, e);
+      }
+    }
+
+    const parTitres = (a, b2) => b2.titres - a.titres;
+    return ok({
+      decoupes: [...decoupes.values()].sort(parTitres).slice(0, 400),
+      gardes: [...gardes.values()].sort(parTitres).slice(0, 400),
+      seuil: biblio.SEUIL_GROUPE
+    });
+  }
+
+  /* Annuler un découpage : on rend aux cartes leur ligne d'origine et on
+     ajoute cette ligne à la liste des noms qu'on ne découpe jamais, pour que
+     la prochaine réparation ne recommence pas. Les deux vont ensemble — l'un
+     sans l'autre ne tiendrait pas dix minutes. */
+  if (b.action === "retablir") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur revient sur un découpage.");
+    const ligne = String(b.ligne || "").trim();
+    if (!ligne) return ko(400, "Quelle ligne ?");
+
+    const lib = await biblio.lire();
+    const SIG = await store("signatures");
+    let rendues = 0;
+    const vus = new Set(lib.tracks.map(t => signature(t)));
+    for (const t of lib.tracks) {
+      if (norm(t.credits || "") !== norm(ligne)) continue;
+      const avant = signature(t);
+      t.artist = ligne;
+      t.credits = "";
+      const apres = signature(t);
+      if (avant !== apres) {
+        vus.delete(avant); vus.add(apres);
+        await SIG.del(avant).catch(() => {});
+      }
+      rendues++;
+    }
+    if (!rendues) return ko(404, "Aucune carte ne porte cette ligne en crédits.");
+    await biblio.ecrire(lib);
+
+    // et on la protège, sinon la prochaine réparation la redécoupe
+    const C = await store("config");
+    const c = await C.get("noms-entiers");
+    const noms = [...new Set([...(((c && c.noms) || [])), ligne])].slice(0, 500);
+    await C.set("noms-entiers", { noms, maj: Date.now(), par: u.pseudo });
+
+    return ok({ rendues, ligne, proteges: noms.length });
+  }
+
   if (b.action === "vider") {
     if (u.role !== "admin") return ko(403, "Seul l'administrateur vide la bibliothèque.");
     const r = await biblio.vider(b.source === "communaute" ? "communaute" : b.source === "tout" ? null : "noyau");

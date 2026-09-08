@@ -1,6 +1,6 @@
 # Diggers v2.7 — la passe sur les retours de joueurs
 
-662 vérifications automatiques, toutes vertes (526 côté serveur, 136 dans un
+696 vérifications automatiques, toutes vertes (548 côté serveur, 148 dans un
 vrai Chromium).
 
 ---
@@ -43,6 +43,35 @@ garder entiers**. Un nom par ligne, et ils ne sont plus jamais découpés, ni à
 l'import ni à la réparation. L'aperçu de la réparation **nomme** maintenant les
 groupes qu'il garde entiers, au lieu d'en donner le nombre.
 
+### Relire le travail de la réparation
+
+Un compteur qui dit « 1 504 cartes corrigées » ne dit pas si le travail est
+**bien** fait. Nouvel écran : **Modération → Noms composés**.
+
+Deux listes, les deux côtés de la décision :
+
+- **ce qui a été découpé** — ligne d'origine → nom retenu, nombre de cartes,
+  exemples de titres. La ligne d'origine n'est jamais perdue : elle vit dans
+  les crédits. Un bouton **« Annuler le découpage »** rend leur nom entier aux
+  cartes **et** protège la ligne dans la foulée — les deux vont ensemble, l'un
+  sans l'autre ne tiendrait pas jusqu'à la prochaine réparation ;
+- **ce qui a été laissé entier** — avec la raison : *repérée automatiquement*
+  (trois titres ou plus sous la même signature) ou *déclarée* (ta liste
+  manuelle).
+
+### La porte d'entrée protège les groupes, elle aussi
+
+**Un défaut trouvé par les tests, pas par la lecture.** Le garde-fou posé sur
+`normaliserImport` découpait « Vent, Terre & Feu » à l'import : il voyait bien
+un séparateur, mais il n'avait aucun moyen de savoir que quatre autres titres
+portaient la même signature. Seule la réparation, qui voit toute la
+bibliothèque, savait le faire.
+
+L'import compte maintenant les signatures sur **la bibliothèque actuelle plus
+le lot qui arrive**. Quatre titres d'un groupe importés ensemble se
+reconnaissent entre eux et restent entiers ; un titre ajouté plus tard
+reconnaît son groupe déjà présent ; un duo isolé est découpé.
+
 ### Les propositions des joueurs : elles étaient là, invisibles
 
 L'écran existait, complet, depuis la v2.0. Il s'appelait **« File d'attente »**
@@ -64,30 +93,37 @@ Ce qui marchait déjà et n'a pas bougé : pochette, extrait écoutable, correct
 du titre/artiste/genre avant publication, curseur de popularité, refus motivé,
 et le refus serveur d'une seconde décision sur la même proposition.
 
-### iPhone : « site non sécurisé »
+### iPhone : en-têtes de sécurité — et un diagnostic à refaire
 
-**Trouvé, et ce n'est pas un bug du site.** J'ai interrogé le projet Netlify :
-l'URL principale enregistrée est `http://diggers-io.netlify.app`, en clair. Le
-certificat existe et fonctionne — la page répond en `https://`. Mais **« Force
-HTTPS » est désactivé**, donc qui ouvre le lien sans `https://` reste en clair,
-et Safari le signale.
+**Correction : mon premier diagnostic était faux.** J'avais lu, dans l'API
+Netlify, un champ affichant `http://diggers-io.netlify.app` comme URL
+principale, et j'en avais conclu que « Force HTTPS » était désactivé. Ce champ
+ne voulait pas dire ça, et l'interrupteur en question **n'existe pas pour un
+sous-domaine `*.netlify.app`** : il ne concerne que les domaines personnalisés.
+Netlify sert ces sous-domaines en HTTPS d'office, avec son propre certificat.
 
-Le code est propre de ce côté : aucune ressource en `http://`, tous les appels
-API sont relatifs à l'origine.
+Ce qui reste vrai, et qui est même la recommandation de la documentation
+Netlify à la place de l'interrupteur : les **en-têtes de sécurité** ajoutés
+dans `netlify.toml`.
 
-**Ce que j'ai fait** — des en-têtes de sécurité dans `netlify.toml` :
-`Strict-Transport-Security` (deux ans, sous-domaines compris : après une
-première visite en HTTPS, le navigateur refuse de repasser en clair),
-`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
-`Permissions-Policy`.
+- `Strict-Transport-Security` — deux ans, sous-domaines compris : après une
+  première visite, le navigateur refuse de repasser en clair, même si on lui
+  donne un lien en `http://`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY` — le jeu ne s'affiche pas dans le cadre d'un autre
+  site
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy` — ni caméra, ni micro, ni position
 
-**Ce que tu dois faire, toi** — HSTS ne protège qu'à partir de la deuxième
-visite. La première passe encore en clair tant que l'interrupteur est éteint :
+Le code, lui, est propre : aucune ressource en `http://`, tous les appels API
+sont relatifs à l'origine.
 
-> Netlify → ton site → **Site configuration** → **Domain management** →
-> **HTTPS** → activer **Force HTTPS**
-
-Je n'y touche pas moi-même : c'est un réglage de ton compte.
+**Ce qui reste à établir** : le message exact vu sur l'iPhone. « Non
+sécurisé », « Connexion non privée » et « Impossible d'établir une connexion
+sécurisée » sont trois problèmes différents, et je ne veux pas en diagnostiquer
+un deuxième sans l'avoir vu. Deux pistes probables : le lien ouvert dans le
+navigateur interne d'Instagram ou Snapchat, ou un lien de prévisualisation
+Netlify plutôt que l'adresse principale.
 
 ---
 
@@ -232,8 +268,8 @@ reste** — et l'écran de recherche livré ici couvre déjà le geste courant.
 | Suite | Vérifie | |
 |---|---|---|
 | test-api.mjs | comptes, propositions, modération, crews | 154 |
-| test-navigateur.mjs | le jeu complet dans Chromium | 136 |
-| test-bibliotheque.mjs | la vue publique et **la règle du premier crédité** | 85 |
+| test-navigateur.mjs | le jeu complet dans Chromium | 148 |
+| test-bibliotheque.mjs | la vue publique, **la règle du premier crédité**, la relecture | 107 |
 | test-jeu.mjs | cartons, enquête, marché | 62 |
 | test-outils.mjs | les outils d'administration | 52 |
 | test-defi.mjs | le défi du jour | 39 |

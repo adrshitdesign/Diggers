@@ -317,6 +317,89 @@ console.log("\n=== LA MÊME RÈGLE PARTOUT ===");
     u.plusieursArtistes("Earth, Wind & Fire"));
 }
 
+/* ============================================================
+   RELIRE LE TRAVAIL DE LA RÉPARATION
+   Un compteur ne dit pas si le travail est bien fait. Cet écran montre les
+   deux côtés de la décision, et permet de revenir en arrière.
+   ============================================================ */
+/* La porte d'entrée doit protéger les groupes elle aussi, pas seulement la
+   réparation. Le premier test du navigateur a montré le contraire : importer
+   quatre titres de « Vent, Terre & Feu » les découpait un par un, parce que
+   normaliserImport ne savait pas compter les signatures. */
+console.log("\n=== LA PORTE D'ENTRÉE PROTÈGE LES GROUPES ===");
+{
+  await biblio.ecrire({ meta: {}, tracks: [] });
+  const lot = [];
+  for (let i = 0; i < 4; i++) lot.push(piste("vt" + i, "Vent, Terre & Feu", "Titre " + i, 60));
+  lot.push(piste("duo", "Kosmo & Marda", "Deux voix", 55));
+  lot.push(piste("ft", "Kosmo feat. Marda", "Invitée", 55));
+  await biblio.importer(lot);
+  const b = await biblio.lire();
+  const nom = id => (b.tracks.find(t => String(t.id) === id) || {}).artist;
+
+  R("un groupe importé d'un bloc reste entier", nom("vt0") === "Vent, Terre & Feu");
+  R("ses quatre titres aussi",
+    b.tracks.filter(t => t.artist === "Vent, Terre & Feu").length === 4);
+  R("un duo isolé est découpé dès l'import", nom("duo") === "Kosmo");
+  R("et la ligne complète part en crédits",
+    (b.tracks.find(t => String(t.id) === "duo") || {}).credits === "Kosmo & Marda");
+  R("un « feat. » est découpé même s'il se répète", nom("ft") === "Kosmo");
+
+  /* Un cinquième titre du groupe, importé plus tard : la bibliothèque le
+     connaît déjà, il reste entier. */
+  await biblio.importer([piste("vt9", "Vent, Terre & Feu", "Tardif", 60)]);
+  const b2 = await biblio.lire();
+  R("un titre ajouté plus tard reconnaît son groupe",
+    (b2.tracks.find(t => String(t.id) === "vt9") || {}).artist === "Vent, Terre & Feu");
+}
+
+console.log("\n=== LES NOMS COMPOSÉS, À LA LOUPE ===");
+{
+  const jAdmin = (await post(compte, { action: "inscription", pseudo: "Relecteur", mdp: "motdepasse1" })).jeton;
+  await post(compte, { action: "promouvoir", cle: "cle-admin-de-test" }, jAdmin);
+
+  const tracks = [];
+  for (let i = 0; i < 4; i++) tracks.push(piste("z" + i, "Ninho", "Solo " + i, 60));
+  tracks.push(piste("duoA", "Gazo & Ninho", "Ensemble", 55));
+  tracks.push(piste("duoB", "Gazo & Ninho", "Encore", 55));
+  for (let i = 0; i < 4; i++) tracks.push(piste("gr" + i, "Earth, Wind & Fire", "Titre " + i, 70));
+  await biblio.ecrire({ meta: {}, tracks });
+  await biblio.reparerArtistes();
+
+  let r = await post(moderation, { action: "composes" }, jAdmin);
+  R("l'écran s'ouvre", r.code === 200);
+  R("il montre ce qui a été découpé", r.decoupes.length === 1);
+  R("avec l'avant et l'après", r.decoupes[0].avant === "Gazo & Ninho" && r.decoupes[0].apres === "Gazo");
+  R("et combien de cartes sont concernées", r.decoupes[0].titres === 2);
+  R("il donne des exemples de titres", r.decoupes[0].exemples.length === 2);
+  R("il montre aussi ce qui a été laissé entier", r.gardes.length === 1);
+  R("le groupe est nommé", r.gardes[0].nom === "Earth, Wind & Fire" && r.gardes[0].titres === 4);
+  R("et le jeu dit à partir de combien de titres il protège", r.seuil === 3);
+
+  /* On annule le découpage : les cartes reprennent leur nom entier ET la
+     ligne est protégée, sinon la réparation suivante recommencerait. */
+  r = await post(moderation, { action: "retablir", ligne: "Gazo & Ninho" }, jAdmin);
+  R("annuler un découpage rend les cartes", r.code === 200 && r.rendues === 2);
+  const apres = await biblio.lire();
+  R("elles portent de nouveau le nom entier",
+    apres.tracks.filter(t => t.artist === "Gazo & Ninho").length === 2);
+  R("et n'ont plus de ligne de crédits en double",
+    apres.tracks.filter(t => t.artist === "Gazo & Ninho").every(t => !t.credits));
+
+  const prot = await post(moderation, { action: "noms-entiers" }, jAdmin);
+  R("la ligne est protégée dans la foulée", (prot.noms || []).includes("Gazo & Ninho"));
+
+  const r2 = await biblio.reparerArtistes();
+  R("et la réparation suivante ne la redécoupe pas", r2.corriges === 0);
+  r = await post(moderation, { action: "composes" }, jAdmin);
+  R("elle apparaît maintenant du bon côté", r.decoupes.length === 0 && r.gardes.length === 2);
+  R("marquée comme déclarée à la main",
+    r.gardes.some(x => x.nom === "Gazo & Ninho" && x.declare === true));
+
+  r = await post(moderation, { action: "retablir", ligne: "Personne & Personne" }, jAdmin);
+  R("annuler une ligne inconnue est refusé proprement", r.code === 404);
+}
+
 console.log("\n" + (ko ? ko + " ÉCHEC(S) sur " + n : n + " vérifications, aucune erreur"));
 await rm(".data-bib", { recursive: true, force: true });
 process.exit(ko ? 1 : 0);

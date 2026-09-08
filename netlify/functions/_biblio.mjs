@@ -78,6 +78,7 @@ export function signatures(b) {
 export async function ajouter(track) {
   const b = await lire();
   ENTIERS_IMPORT = await nomsEntiers();
+  LIGNES_IMPORT = contexteImport(b, [track]);
   if (b.tracks.length >= PLAFOND) throw new Error("Bibliothèque pleine.");
   /* Même porte que l'import : une proposition validée ne peut pas entrer
      signée de deux noms. On rend la fiche telle qu'elle est rangée — c'est
@@ -126,12 +127,36 @@ export async function retirer(id) {
 
 /* Import par tranches : le navigateur envoie le catalogue par paquets.
    Le premier paquet peut demander de repartir de zéro sur le noyau. */
-/* Les exceptions sont relues une fois par import, pas une fois par morceau. */
+/* Le contexte de l'import, relu une fois par lot et pas une fois par morceau.
+
+   ENTIERS : les noms déclarés à la main.
+   LIGNES  : combien de titres portent chaque signature — c'est ce qui
+             distingue un groupe d'un featuring. Sans lui, la porte d'entrée
+             découpait « Earth, Wind & Fire » : elle voyait bien un séparateur,
+             mais elle ne pouvait pas savoir que quatre autres titres portaient
+             la même signature. Le compte se fait donc sur la bibliothèque
+             ACTUELLE plus le lot qui arrive : c'est la seule vue complète du
+             moment, et elle suffit — quatre titres d'un groupe importés
+             ensemble se reconnaissent entre eux. */
 let ENTIERS_IMPORT = new Set();
+let LIGNES_IMPORT = new Map();
+
+function contexteImport(bibliotheque, lot) {
+  const m = new Map();
+  const compter = t => {
+    if (!t || !t.artist) return;
+    const k = norm(t.artist);
+    m.set(k, (m.get(k) || 0) + 1);
+  };
+  for (const t of (bibliotheque.tracks || [])) compter(t);
+  for (const t of (lot || [])) compter(t);
+  return m;
+}
 
 export async function importer(tracks, remplacerNoyau) {
   const b = await lire();
   ENTIERS_IMPORT = await nomsEntiers();
+  LIGNES_IMPORT = contexteImport(b, tracks);
   if (remplacerNoyau) b.tracks = b.tracks.filter(t => t.source === "communaute");
 
   const vus = signatures(b);
@@ -161,7 +186,7 @@ function normaliserImport(t) {
      bouton de réparation. Il est maintenant ici, sur le seul passage que tout
      le monde emprunte. */
   const signe = String(t.artist || "").trim().slice(0, 120);
-  const seul = artistePrincipal(signe, { entiers: ENTIERS_IMPORT });
+  const seul = artistePrincipal(signe, { entiers: ENTIERS_IMPORT, lignes: LIGNES_IMPORT });
   const c = {
     id: t.id,
     title: String(t.title || "").trim().slice(0, 160),

@@ -2841,6 +2841,7 @@ function renderModeration(){
     +'<button class="mktab" data-mm="traitees" aria-selected="'+(MMODE==="traitees")+'">Déjà traitées</button>'
     +'<button class="mktab" data-mm="biblio" aria-selected="'+(MMODE==="biblio")+'">Bibliothèque</button>'
     +(admin?'<button class="mktab" data-mm="chercher" aria-selected="'+(MMODE==="chercher")+'">Chercher des sons</button>':'')
+    +(admin?'<button class="mktab" data-mm="composes" aria-selected="'+(MMODE==="composes")+'">Noms composés</button>':'')
     +(admin?'<button class="mktab" data-mm="joueurs" aria-selected="'+(MMODE==="joueurs")+'">Joueurs</button>':'')
     +(admin?'<button class="mktab" data-mm="mentions" aria-selected="'+(MMODE==="mentions")+'">Mentions légales</button>':'')
     +'</div><div id="modbox"></div>';
@@ -2848,6 +2849,7 @@ function renderModeration(){
   if(MMODE==="file") vueFile();
   else if(MMODE==="traitees") vueTraitees();
   else if(MMODE==="chercher") vueChercher();
+  else if(MMODE==="composes") vueComposes();
   else if(MMODE==="chercher") vueChercher();
   else if(MMODE==="mentions") vueMentions();
   else if(MMODE==="joueurs") vueJoueurs();
@@ -3608,6 +3610,93 @@ async function chercherUnSon(artiste,titre){
   return repli;
 }
 
+
+
+/* ============ LES NOMS COMPOSÉS, À LA LOUPE ============
+   « Un seul artiste par carte » annonce un nombre. Un nombre ne dit pas si le
+   travail est bien fait. Cet écran montre les deux côtés de la décision, et
+   permet de revenir en arrière sur un découpage raté — en un clic, avec la
+   protection posée dans la foulée pour que la prochaine réparation ne
+   recommence pas. */
+
+let COMPOSES=null;
+
+async function vueComposes(garder){
+  const box=document.getElementById("modbox");
+  box.innerHTML='<p class="notice">Lecture de la bibliothèque…</p>';
+  const r=await apiAppel("/api/moderation",{action:"composes"});
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Indisponible.")+'</div>'; return; }
+  COMPOSES=r;
+  dessinerComposes();
+  /* Le compte-rendu doit survivre au redessin : sinon « 2 cartes rendues »
+     clignote et disparaît. Même écueil que dans l'écran Bibliothèque. */
+  if(garder){ const d=document.getElementById("cdiag"); if(d) d.innerHTML=garder; }
+}
+
+function dessinerComposes(){
+  const box=document.getElementById("modbox");
+  const r=COMPOSES;
+  const nbD=r.decoupes.reduce((a,x)=>a+x.titres,0);
+  const nbG=r.gardes.reduce((a,x)=>a+x.titres,0);
+
+  box.innerHTML='<div class="kpis" style="margin-top:0">'
+      +'<div class="kpi"><span>Lignes découpées</span><b>'+r.decoupes.length+'</b>'
+        +'<p>'+nbD+' carte(s). La carte appartient au <b>premier nom cité</b>.</p></div>'
+      +'<div class="kpi"><span>Laissées entières</span><b>'+r.gardes.length+'</b>'
+        +'<p>'+nbG+' carte(s). Des groupes, pas des featurings.</p></div>'
+    +'</div>'
+
+    +'<h3 class="sect">Ce qui a été découpé</h3>'
+    +'<p class="notice">La ligne d\'origine n\'est jamais perdue : elle reste affichée en crédits sous la '
+      +'carte retournée. <b>Si l\'une de ces lignes est un nom de groupe et pas un featuring</b>, clique '
+      +'« Annuler » : les cartes retrouvent leur nom entier, et la ligne est protégée pour de bon.</p>'
+    +(r.decoupes.length?'<div class="ladder">'+r.decoupes.map((x,i)=>
+      '<div class="lr"><span class="who"><b>'+esc(x.avant)+'</b> → <b style="color:var(--accent)">'+esc(x.apres)+'</b>'
+        +'<br><span style="font-weight:400;opacity:.6;font-size:11px">'+x.titres+' carte(s) · '
+        +esc(x.exemples.join(" · "))+(x.titres>x.exemples.length?" …":"")+'</span></span>'
+      +'<span class="hint"><button class="btn ghost sm" type="button" data-ret="'+i+'">Annuler le découpage</button></span></div>').join("")
+      +'</div>'
+      :'<div class="empty">Aucune carte découpée. Soit la réparation n\'a pas encore tourné, soit il n\'y avait rien à faire.</div>')
+
+    +'<h3 class="sect">Ce qui a été laissé entier</h3>'
+    +'<p class="notice">Une signature qui revient sur <b>'+r.seuil+' titres ou plus</b> est considérée comme un nom '
+      +'de groupe et n\'est jamais découpée. Celles marquées <b>déclarée</b> sont dans ta liste manuelle. '
+      +'<b>Si l\'une d\'elles est en réalité un featuring</b>, retire-la de la liste « Noms à garder entiers » '
+      +'puis relance la réparation.</p>'
+    +(r.gardes.length?'<div class="ladder">'+r.gardes.map(x=>
+      '<div class="lr"><span class="who"><b>'+esc(x.nom)+'</b>'
+        +'<br><span style="font-weight:400;opacity:.6;font-size:11px">'+x.titres+' carte(s) · '
+        +esc(x.exemples.join(" · "))+(x.titres>x.exemples.length?" …":"")+'</span></span>'
+      +'<span class="hint">'+(x.declare?'<b style="color:var(--accent)">déclarée</b>'
+        :(x.titres>=r.seuil?'repérée automatiquement':'<b style="color:var(--t6)">à vérifier</b>'))+'</span></div>').join("")
+      +'</div>'
+      :'<div class="empty">Aucun nom composé ne subsiste dans la bibliothèque.</div>')
+    +'<p class="notice" id="cdiag"></p>';
+
+  box.querySelectorAll("[data-ret]").forEach(b=>b.onclick=()=>annulerDecoupage(r.decoupes[+b.dataset.ret]));
+}
+
+async function annulerDecoupage(x){
+  const q=await modale("Rendre son nom entier à « "+esc(x.avant)+" » ?",
+    '<p><b>'+x.titres+' carte(s)</b> reprendront la signature <b>'+esc(x.avant)+'</b> '
+    +'au lieu de <b>'+esc(x.apres)+'</b>.</p>'
+    +'<p class="notice">La ligne sera ajoutée à <b>Noms à garder entiers</b> dans la foulée : '
+    +'sans ça, la prochaine réparation la redécouperait. Les deux vont ensemble.</p>'
+    +'<p class="notice">À faire si c\'est un <b>nom de groupe</b> — « Earth, Wind &amp; Fire », '
+    +'« Simon &amp; Garfunkel ». À ne pas faire pour un vrai featuring : le jeu propose quatre noms '
+    +'et une carte signée de deux artistes n\'a aucune bonne réponse.</p>',
+    [{v:1,n:"Rendre le nom entier"},{v:0,n:"Annuler",g:true}]);
+  if(!q) return;
+  const r=await apiAppel("/api/moderation",{action:"retablir",ligne:x.avant});
+  if(r&&r.ok){
+    await vueComposes('<b style="color:var(--ok)">'+r.rendues+' carte(s) rendue(s) à « '+esc(x.avant)+' ».</b> '
+      +'La ligne est protégée ('+r.proteges+' au total).');
+    await chargerServeur(true); sync();
+  } else {
+    const d=document.getElementById("cdiag");
+    if(d) d.innerHTML='<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>';
+  }
+}
 
 /* ============ CHERCHER ET AJOUTER, EN QUELQUES CLICS ============
    L'ajout par liste (v2.5) suppose qu'on sache déjà quoi ajouter. Construire
