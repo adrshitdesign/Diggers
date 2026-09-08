@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.7</title>
+<title>Diggers — v2.7.1</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -327,6 +327,15 @@ button.card:hover{transform:translateY(-5px)}
 .lr .who small{display:block;font-size:11px;color:var(--ink-3)}
 .lr .num{font-family:"JetBrains Mono",monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
 .lr .num.hi{color:var(--ok)}
+/* Une ligne de liste qui n'a PAS les quatre colonnes d'un classement.
+   Sans ça, un « who » se retrouve dans la colonne de 34 px réservée au rang,
+   et le nom s'affiche « Let… » — c'est exactement ce qui est arrivé à l'écran
+   des noms composés. Ici, le texte prend la place, l'action s'aligne à droite,
+   et tout passe à la ligne sur un écran étroit. */
+.lr.libre{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.lr.libre .who{flex:1 1 340px;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.45}
+.lr.libre .hint{flex:0 0 auto;text-align:right;max-width:100%;white-space:normal}
+.lr.libre .pos{flex:0 0 auto}
 .prog{height:7px;background:var(--surface-3);border-radius:4px;overflow:hidden;margin:8px 0 6px}
 .prog i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .7s cubic-bezier(.2,.8,.3,1)}
 .progline{display:flex;justify-content:space-between;font-family:"JetBrains Mono",monospace;font-size:10px;
@@ -510,7 +519,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.1 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -1398,7 +1407,7 @@ async function vueVendre(box){
   let html='<h3 class="sect" style="margin-top:0">Tes annonces en cours <span class="exp">'+r.posees+' / '+r.max+'</span></h3>';
   if(!r.annonces.length) html+='<div class="empty">Rien en vitrine pour le moment.</div>';
   else html+='<div class="ladder">'+r.annonces.map(a=>
-    '<div class="lr"><span class="who"><b>'+esc(a.carte.artist)+'</b> · '+esc(a.carte.title)+'</span>'
+    '<div class="lr libre"><span class="who"><b>'+esc(a.carte.artist)+'</b> · '+esc(a.carte.title)+'</span>'
     +'<span class="hint">'+esc(a.carte.press)+' · '+a.prix+' cr · '+a.offres+' offre(s)</span>'
     +'<button class="btn ghost sm" data-ret="'+esc(a.id)+'">Retirer</button></div>'
     +(a.detailOffres.length?'<div class="rule" style="margin:6px 0 14px">'+a.detailOffres.map(o=>
@@ -2788,7 +2797,7 @@ function vueMiennes(){
   }
   b.innerHTML='<div class="lad">'+MESPROPS.map(p=>{
     const e=ETIQ[p.statut]||["?","var(--ink-3)"];
-    return '<div class="lr"><span class="pos" style="color:'+e[1]+'">•</span>'
+    return '<div class="lr libre"><span class="pos" style="color:'+e[1]+'">•</span>'
       +'<span class="who">'+esc(p.track.title)+'<small>'+esc(p.track.artist)
       +' · proposé le '+dateFr(p.cree)
       +(p.statut!=="en_attente"&&p.tranche?', tranché le '+dateFr(p.tranche):'')
@@ -2922,7 +2931,7 @@ function dessinerTraitees(){
 
 function ligneTraitee(p){
   const ok2=p.statut==="validee";
-  return '<div class="lr"><span class="who">'
+  return '<div class="lr libre"><span class="who">'
       +'<b>'+esc(p.track.artist||"—")+'</b> · '+esc(p.track.title||"—")
       +'<br><span style="font-weight:400;opacity:.6;font-size:11px">proposé par '
       +esc((p.par&&p.par.pseudo)||"—")+' le '+dateFr(p.cree)
@@ -3518,9 +3527,11 @@ async function ajouterParListe(){
     '<p><b>Un morceau par ligne</b>, au format <code>Artiste - Titre</code>. '
     +'Le tiret peut être un tiret long, une barre verticale ou une tabulation — '
     +'donc un copier-coller depuis un tableur marche tel quel.</p>'
-    +'<p class="notice">Le navigateur cherche chaque ligne chez Apple, une toutes les 3,4 secondes '
-    +'(c\'est leur limite, pas la nôtre). Compte une minute pour vingt morceaux. '
-    +'Rien n\'est ajouté avant que tu aies vu la liste de ce qui a été trouvé.</p>'
+    +'<p class="notice">Les lignes sont <b>regroupées par artiste</b> : le jeu demande à Apple le '
+    +'catalogue de chaque artiste une seule fois, puis y retrouve tes titres. Vingt artistes, c\'est '
+    +'une minute — même s\'il y a cent morceaux derrière. Les titres introuvables au premier passage '
+    +'sont recherchés un par un dans un second temps.</p>'
+    +'<p class="notice">Rien n\'est ajouté avant que tu aies vu la liste de ce qui a été trouvé.</p>'
     +'<textarea id="lsons" rows="12" placeholder="Jul - Tchikita&#10;Damso - Œuvre d\'art&#10;Aya Nakamura - Djadja" '
     +'style="width:100%;font-family:\'JetBrains Mono\',monospace;font-size:12.5px;line-height:1.6"></textarea>',
     [{v:"go",n:"Chercher",avant:ov=>({go:true,texte:ov.querySelector("#lsons").value})},
@@ -3531,19 +3542,82 @@ async function ajouterParListe(){
   if(!lignes.length){ bdiag('<b style="color:var(--t6)">Aucune ligne.</b>'); return; }
   if(lignes.length>300){ bdiag('<b style="color:var(--t6)">300 lignes au maximum d\'un coup.</b>'); return; }
 
-  const bar=document.getElementById("bdiag");
-  const trouves=[], perdus=[];
-  for(let i=0;i<lignes.length;i++){
-    if(bar) bar.innerHTML='<b>Recherche…</b> '+(i+1)+' / '+lignes.length
-      +' — <b>'+trouves.length+'</b> trouvé(s)'+(perdus.length?', '+perdus.length+' sans réponse':'');
-    const p=couperLigne(lignes[i]);
-    if(!p){ perdus.push(lignes[i]+"  (format non reconnu)"); continue; }
-    try{
-      const t=await chercherUnSon(p[0],p[1]);
-      if(t) trouves.push({...t,ligne:lignes[i]}); else perdus.push(lignes[i]);
-    }catch(e){ perdus.push(lignes[i]+"  (Apple n'a pas répondu)"); }
-    if(i<lignes.length-1) await new Promise(r=>setTimeout(r,APPLE_PAUSE));
+  /* On regroupe par artiste AVANT d'appeler Apple.
+     Cinquante-trois lignes, c'étaient cinquante-trois requêtes espacées de
+     3,4 secondes — trois minutes, et Apple finissait par ne plus répondre du
+     tout : les quarante dernières lignes revenaient vides sans qu'on sache
+     pourquoi. Ces cinquante-trois lignes ne parlent en réalité que de dix-neuf
+     artistes. Une requête par artiste, deux cents titres ramenés d'un coup, et
+     on retrouve les morceaux dedans : trois fois moins d'attente, et un taux
+     de réussite qui ne dépend plus de la patience d'Apple. */
+  const demandes=[], perdus=[];
+  for(const l of lignes){
+    const p=couperLigne(l);
+    if(!p){ perdus.push(l+"  (format non reconnu)"); continue; }
+    demandes.push({ artiste:p[0], titre:p[1], ligne:l });
   }
+  if(!demandes.length){ bdiag('<b style="color:var(--t6)">Aucune ligne lisible.</b>'); return; }
+
+  const groupes=new Map();
+  for(const d of demandes){
+    const k=norm(d.artiste);
+    if(!groupes.has(k)) groupes.set(k,{ artiste:d.artiste, titres:[] });
+    groupes.get(k).titres.push(d);
+  }
+
+  const bar=document.getElementById("bdiag");
+  const trouves=[];
+  const prog=(m)=>{ if(bar) bar.innerHTML=m; };
+  let vides=0;   // réponses vides d'affilée : le signe qu'Apple nous freine
+
+  const liste=[...groupes.values()];
+  for(let i=0;i<liste.length;i++){
+    const g=liste[i];
+    prog('<b>Recherche…</b> artiste '+(i+1)+' / '+liste.length+' — <i>'+esc(g.artiste)+'</i>'
+      +' · <b>'+trouves.length+'</b> morceau(x) trouvé(s) sur '+demandes.length);
+
+    let rows=[];
+    try{ rows=await catalogueArtiste(g.artiste); }
+    catch(e){ rows=null; }
+
+    /* Apple ne dit pas « tu vas trop vite » : il renvoie une réponse vide.
+       Plusieurs d'affilée, c'est qu'on nous freine — on souffle, plutôt que
+       de brûler le reste de la liste pour rien. */
+    if(!rows||!rows.length){
+      vides++;
+      if(vides>=3){
+        prog('<b>Apple nous freine.</b> Pause de 20 secondes, puis on reprend — '
+          +'rien n\'est perdu.');
+        await new Promise(r=>setTimeout(r,20000));
+        vides=0;
+        try{ rows=await catalogueArtiste(g.artiste); }catch(e){ rows=null; }
+      }
+    } else vides=0;
+
+    for(const d of g.titres){
+      const t=rows?trouverDansCatalogue(rows,g.artiste,d.titre):null;
+      if(t) trouves.push({...t,ligne:d.ligne});
+      else d.rate=true;
+    }
+    if(i<liste.length-1) await new Promise(r=>setTimeout(r,APPLE_PAUSE));
+  }
+
+  /* Second passage : les titres que le catalogue de l'artiste ne contenait
+     pas. Une recherche ciblée par titre les rattrape souvent — un morceau
+     sorti sous un autre nom d'artiste, ou trop récent pour figurer dans les
+     deux cents premiers. */
+  const rates=demandes.filter(d=>d.rate);
+  for(let i=0;i<rates.length;i++){
+    const d=rates[i];
+    prog('<b>Second passage…</b> '+(i+1)+' / '+rates.length+' — <i>'+esc(d.titre)+'</i>'
+      +' · <b>'+trouves.length+'</b> trouvé(s) sur '+demandes.length);
+    try{
+      const t=await chercherUnSon(d.artiste,d.titre);
+      if(t){ trouves.push({...t,ligne:d.ligne}); d.rate=false; }
+    }catch(e){}
+    if(i<rates.length-1) await new Promise(r=>setTimeout(r,APPLE_PAUSE));
+  }
+  demandes.filter(d=>d.rate).forEach(d=>perdus.push(d.ligne));
 
   if(!trouves.length){
     bdiag('<b style="color:var(--t6)">Rien trouvé.</b> Vérifie l\'orthographe : '
@@ -3583,31 +3657,67 @@ async function ajouterParListe(){
   vueBiblio(bilan);
 }
 
-/* Un morceau précis chez Apple. On garde le premier résultat qui passe les
-   mêmes contrôles que le constructeur : un seul artiste, et l'artiste demandé. */
+/* Le catalogue d'un artiste, en une requête. Deux cents titres au maximum :
+   c'est la limite d'Apple, et c'est bien au-delà de ce qu'un artiste a
+   d'habitude. */
+async function catalogueArtiste(artiste){
+  const url="https://itunes.apple.com/search?term="+encodeURIComponent(artiste)
+    +"&entity=song&attribute=artistTerm&limit=200&country=FR&lang=fr_fr";
+  const d=await jsonp(url);
+  return (d&&d.results)||[];
+}
+
+/* Retrouver un titre précis dans le catalogue d'un artiste.
+   Trois niveaux, du plus sûr au plus permissif : le titre exact, un titre qui
+   contient celui demandé, puis l'inverse. On s'arrête au premier qui marche. */
+function trouverDansCatalogue(rows,artiste,titre){
+  const cible=norm(titrePropre(titre));
+  if(!cible) return null;
+  let exact=null, contient=null, contenu=null;
+  for(const r of rows){
+    const t=fabriquerPiste(r,artiste,titre);
+    if(!t) continue;
+    const n=norm(t.title);
+    if(n===cible){ exact=exact||t; break; }
+    if(!contient && n.includes(cible)) contient=t;
+    if(!contenu && cible.includes(n) && n.length>=4) contenu=t;
+  }
+  return exact||contient||contenu;
+}
+
+/* Une piste jouable à partir d'un résultat Apple, ou null si elle ne passe
+   pas les contrôles. Une seule fonction, pour que la recherche par artiste et
+   la recherche par titre appliquent exactement les mêmes règles. */
+function fabriquerPiste(r,artiste,titreDemande){
+  if(!r||!r.previewUrl||!r.artworkUrl100||!r.trackName||!r.artistName) return null;
+  const v=unSeulArtiste(artiste,r.artistName);
+  if(!v.ok) return null;
+  if(REJET.test(r.artistName)||REJET.test(r.trackName)||REJET.test(r.collectionName||"")) return null;
+  const propre=titrePropre(r.trackName);
+  if(!propre) return null;
+  /* REJET_TITRE écarte les lives, remixes et versions alternatives — c'est
+     bon pour le constructeur, qui ratisse au hasard. Ici l'humain a écrit le
+     titre lui-même : s'il correspond exactement à ce qu'il a demandé, on lui
+     fait confiance. « Live Ta Vie » n'est pas un live. */
+  /* « Exact » se juge sur le titre BRUT rendu par Apple, pas sur sa version
+     nettoyée : titrePropre coupe la parenthèse finale, donc « Tchikita
+     (Remix) » deviendrait « Tchikita » et passerait pour le titre demandé.
+     Un remix qu'on n'a pas demandé doit rester écarté. */
+  const exact=titreDemande && norm(r.trackName)===norm(titreDemande);
+  if(!exact && REJET_TITRE.test(r.trackName)) return null;
+  return { id:r.trackId, title:propre, artist:v.artist, credits:v.credits,
+    album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
+    year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
+    art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
+    url:r.trackViewUrl||null, poids:2, rank:0, pop:50 };
+}
+
+/* Un morceau précis, cherché par son titre. Le rattrapage du second passage. */
 async function chercherUnSon(artiste,titre){
   const url="https://itunes.apple.com/search?term="+encodeURIComponent(artiste+" "+titre)
     +"&entity=song&limit=25&country=FR&lang=fr_fr";
   const d=await jsonp(url);
-  const rows=(d&&d.results)||[];
-  const cibleT=norm(titrePropre(titre));
-  let repli=null;
-  for(const r of rows){
-    if(!r.previewUrl||!r.artworkUrl100||!r.trackName||!r.artistName) continue;
-    const v=unSeulArtiste(artiste,r.artistName);
-    if(!v.ok) continue;
-    if(REJET.test(r.artistName)||REJET.test(r.trackName)||REJET.test(r.collectionName||"")) continue;
-    const propre=titrePropre(r.trackName);
-    if(!propre) continue;
-    const t={ id:r.trackId, title:propre, artist:v.artist, credits:v.credits,
-      album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
-      year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
-      art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
-      url:r.trackViewUrl||null, poids:2, rank:0, pop:50 };
-    if(norm(propre)===cibleT) return t;          // le titre exact, on s'arrête là
-    if(!repli && norm(propre).includes(cibleT)) repli=t;
-  }
-  return repli;
+  return trouverDansCatalogue((d&&d.results)||[],artiste,titre);
 }
 
 
@@ -3651,7 +3761,7 @@ function dessinerComposes(){
       +'carte retournée. <b>Si l\'une de ces lignes est un nom de groupe et pas un featuring</b>, clique '
       +'« Annuler » : les cartes retrouvent leur nom entier, et la ligne est protégée pour de bon.</p>'
     +(r.decoupes.length?'<div class="ladder">'+r.decoupes.map((x,i)=>
-      '<div class="lr"><span class="who"><b>'+esc(x.avant)+'</b> → <b style="color:var(--accent)">'+esc(x.apres)+'</b>'
+      '<div class="lr libre"><span class="who"><b>'+esc(x.avant)+'</b> → <b style="color:var(--accent)">'+esc(x.apres)+'</b>'
         +'<br><span style="font-weight:400;opacity:.6;font-size:11px">'+x.titres+' carte(s) · '
         +esc(x.exemples.join(" · "))+(x.titres>x.exemples.length?" …":"")+'</span></span>'
       +'<span class="hint"><button class="btn ghost sm" type="button" data-ret="'+i+'">Annuler le découpage</button></span></div>').join("")
@@ -3664,7 +3774,7 @@ function dessinerComposes(){
       +'<b>Si l\'une d\'elles est en réalité un featuring</b>, retire-la de la liste « Noms à garder entiers » '
       +'puis relance la réparation.</p>'
     +(r.gardes.length?'<div class="ladder">'+r.gardes.map(x=>
-      '<div class="lr"><span class="who"><b>'+esc(x.nom)+'</b>'
+      '<div class="lr libre"><span class="who"><b>'+esc(x.nom)+'</b>'
         +'<br><span style="font-weight:400;opacity:.6;font-size:11px">'+x.titres+' carte(s) · '
         +esc(x.exemples.join(" · "))+(x.titres>x.exemples.length?" …":"")+'</span></span>'
       +'<span class="hint">'+(x.declare?'<b style="color:var(--accent)">déclarée</b>'
@@ -3759,7 +3869,10 @@ async function lancerRecherche(){
      variété sur un mot comme « boom bap ». */
   const base="https://itunes.apple.com/search?country=FR&lang=fr_fr&limit=100&entity=song&term=";
   const url=base+encodeURIComponent(RECH_TERME)
-    +(RECH_TYPE==="artiste"?"&attribute=artistTerm":RECH_TYPE==="titre"?"&attribute=songTerm":"&attribute=genreIndex");
+    /* Par genre, on ne précise PAS d'attribut : « genreIndex » attend un
+       numéro de genre, pas un mot. Une recherche libre sur « boom bap » rend
+       bien plus de choses utiles. */
+    +(RECH_TYPE==="artiste"?"&attribute=artistTerm":RECH_TYPE==="titre"?"&attribute=songTerm":"");
 
   let rows=[];
   try{
@@ -3821,7 +3934,7 @@ function dessinerRecherche(){
   if(!RECH.length){ l.innerHTML=""; if(bar) bar.hidden=true; return; }
 
   l.innerHTML='<div class="ladder">'+RECH.map((t,i)=>
-    '<div class="lr'+(t.deja?" fait":"")+'" style="'+(t.deja?"opacity:.45":"")+'">'
+    '<div class="lr libre'+(t.deja?" fait":"")+'" style="'+(t.deja?"opacity:.45":"")+'">'
       +'<span class="pos">'+(t.deja?'<span title="déjà dans le jeu">✓</span>'
         :'<input type="checkbox" data-i="'+i+'"'+(RECH_SEL.has(i)?' checked':'')+' aria-label="ajouter ce morceau">')+'</span>'
       +'<span class="who" style="display:flex;gap:10px;align-items:center">'

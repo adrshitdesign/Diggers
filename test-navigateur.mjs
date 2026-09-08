@@ -598,6 +598,20 @@ console.log("\n=== RELIRE LES NOMS COMPOSÉS ===");
   R("chaque découpage a un bouton pour l'annuler",
     (await page.locator("#modbox [data-ret]").count()) >= 1);
 
+  /* Le nom doit être LISIBLE. La première version réutilisait la ligne de
+     classement, dont la première colonne fait 34 pixels : les noms
+     s'affichaient « Kos… » et l'écran ne servait à rien. */
+  const largeur = await page.evaluate(() => {
+    const w = document.querySelector("#modbox .lr .who");
+    return w ? w.getBoundingClientRect().width : 0;
+  });
+  R("le nom a la place de s'afficher en entier", largeur > 250);
+  R("il n'est pas coupé par des points de suspension",
+    await page.evaluate(() => {
+      const w = document.querySelector("#modbox .lr .who");
+      return !!w && w.scrollWidth <= w.clientWidth + 2;
+    }));
+
   await page.locator("#modbox [data-ret]").first().click();
   await attendre(600);
   R("annuler demande confirmation", /Rendre son nom entier/i.test(await page.locator(".onb .onb-in").innerText()));
