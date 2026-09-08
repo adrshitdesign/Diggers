@@ -107,8 +107,18 @@ R("et la carte qu'on a posée", r.posee && !!r.posee.title);
 console.log("\n=== VOTER À L'AVEUGLE ===");
 r = await post(defi, { action: "duel" }, J.Mila);
 R("un duel sort", r.code === 200 && r.duel && r.duel.length === 2);
-R("il ne contient jamais sa propre carte",
-  !r.duel.some(x => x.carte.title === maCarte.title));
+/* On compare les ENTRÉES, pas les titres : deux joueurs peuvent parfaitement
+   avoir tiré le même morceau, et l'ancien test échouait alors une fois sur
+   dix sans que rien ne soit cassé. Ce qui doit être vrai, c'est qu'aucune des
+   deux entrées du duel n'est celle de Mila. */
+const mienne = await (async () => {
+  const d = await (await store("defis")).get(jour());
+  const uid = await uidDe("Mila");
+  return (d.entrees || []).find(e => e.uid === uid);
+})();
+R("l'entrée de Mila est bien enregistrée", !!mienne);
+R("il ne contient jamais sa propre entrée",
+  !r.duel.some(x => x.id === mienne.id));
 R("il ne dit pas qui a posé", r.duel.every(x => x.pseudo === undefined));
 R("mais il donne de quoi juger", r.duel.every(x => x.carte.title && x.carte.preview));
 

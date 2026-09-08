@@ -5,6 +5,34 @@
 [functions]
   node_bundler = "esbuild"
 
+# ---------------------------------------------------------------------------
+# Sécurité du transport.
+#
+# Un joueur a signalé « site non sécurisé » sur iPhone. Le certificat existe
+# et fonctionne : le problème est qu'on peut encore atteindre le site en HTTP
+# en clair, et Safari le signale. Ces en-têtes disent au navigateur de ne plus
+# jamais y revenir de lui-même.
+#
+# ATTENTION : ces en-têtes ne suffisent pas seuls. Il faut aussi activer
+# « Force HTTPS » dans Netlify (Site configuration → Domain management →
+# HTTPS). Sans ça, la toute première visite d'un nouveau navigateur passe
+# encore en clair, et c'est celle-là que Safari signale.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # deux ans, sous-domaines compris : après la première visite en HTTPS,
+    # le navigateur refuse de repasser en clair, même si on lui donne un
+    # lien en http://
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    # pas de reniflage de type : un fichier annoncé en texte reste du texte
+    X-Content-Type-Options = "nosniff"
+    # le jeu ne s'affiche pas dans le cadre d'un autre site
+    X-Frame-Options = "DENY"
+    # on ne fuit pas l'adresse de la page vers les sites tiers
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # le jeu n'a besoin ni de la caméra, ni du micro, ni de la position
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+
 # Le jeu est un seul fichier : pas de cache long dessus, sinon les joueurs
 # restent bloqués sur une vieille version après une mise à jour.
 [[headers]]

@@ -77,12 +77,25 @@ export function signatures(b) {
 
 export async function ajouter(track) {
   const b = await lire();
+  ENTIERS_IMPORT = await nomsEntiers();
   if (b.tracks.length >= PLAFOND) throw new Error("Bibliothèque pleine.");
-  const sig = signature(track);
-  if (b.tracks.some(t => signature(t) === sig)) return { b, ajoute: false };
-  b.tracks.push(track);
+  /* Même porte que l'import : une proposition validée ne peut pas entrer
+     signée de deux noms. On rend la fiche telle qu'elle est rangée — c'est
+     elle, et pas la version envoyée, qui part en récompense au trouveur. */
+  const n = normaliserImport(track);
+  /* normaliserImport range une fiche d'import : elle la marque « noyau » et
+     ne connaît pas les champs d'une entrée communautaire. On lui emprunte ses
+     garde-fous, pas son étiquette. */
+  const propre = n
+    ? { ...n, source: track.source || n.source, proposePar: track.proposePar,
+        valideLe: track.valideLe, indice: track.indice || "" }
+    : { ...track };
+  const sig = signature(propre);
+  const deja = b.tracks.find(t => signature(t) === sig);
+  if (deja) return { b, ajoute: false, track: deja };
+  b.tracks.push(propre);
   await ecrire(b);
-  return { b, ajoute: true };
+  return { b, ajoute: true, track: propre };
 }
 
 export async function modifier(id, patch) {
@@ -113,8 +126,12 @@ export async function retirer(id) {
 
 /* Import par tranches : le navigateur envoie le catalogue par paquets.
    Le premier paquet peut demander de repartir de zéro sur le noyau. */
+/* Les exceptions sont relues une fois par import, pas une fois par morceau. */
+let ENTIERS_IMPORT = new Set();
+
 export async function importer(tracks, remplacerNoyau) {
   const b = await lire();
+  ENTIERS_IMPORT = await nomsEntiers();
   if (remplacerNoyau) b.tracks = b.tracks.filter(t => t.source === "communaute");
 
   const vus = signatures(b);
@@ -137,11 +154,20 @@ export async function importer(tracks, remplacerNoyau) {
 /* On garde l'identifiant d'origine : les sauvegardes des joueurs s'y réfèrent. */
 function normaliserImport(t) {
   if (!t || t.id === undefined || t.id === null) return null;
+  /* LA PORTE D'ENTRÉE. Jusqu'ici, le garde-fou « un seul artiste par carte »
+     vivait dans le constructeur, côté navigateur : tout ce qui entrait par un
+     autre chemin (import de fichier, proposition validée, script) pouvait
+     déposer « GIMS & Dadju » en base, et il fallait repasser derrière avec le
+     bouton de réparation. Il est maintenant ici, sur le seul passage que tout
+     le monde emprunte. */
+  const signe = String(t.artist || "").trim().slice(0, 120);
+  const seul = artistePrincipal(signe, { entiers: ENTIERS_IMPORT });
   const c = {
     id: t.id,
     title: String(t.title || "").trim().slice(0, 160),
-    artist: String(t.artist || "").trim().slice(0, 120),
-    credits: t.credits ? String(t.credits).slice(0, 160) : "",
+    artist: seul || signe,
+    // la ligne complète ne se perd pas : elle s'affiche sous la carte retournée
+    credits: t.credits ? String(t.credits).slice(0, 160) : (seul ? signe : ""),
     album: t.album ? String(t.album).slice(0, 160) : "",
     genre: t.genre ? String(t.genre).slice(0, 60) : "Autre",
     year: Number(t.year) || null,
@@ -180,10 +206,18 @@ export async function vider(source) {
    liste. Les cartes entrées avant la v2.2 portent la ligne de crédits
    complète d'Apple ; celles d'après portent déjà un seul nom.
 
-   La règle de réparation : on découpe la ligne, et on garde celui des noms
-   qui existe DÉJÀ comme artiste seul dans la bibliothèque — celui qui a le
-   plus de titres à son nom, donc celui que les joueurs reconnaissent. La
-   ligne complète part dans les crédits, affichée une fois la carte retournée.
+   LA RÈGLE (v2.7) : le PREMIER artiste crédité possède le morceau.
+   « A & B », « A feat. B », « A, B » — c'est A, toujours. C'est la convention
+   de l'industrie, c'est ce qu'attend un joueur, et c'est déterministe : le
+   même morceau tombe toujours sur le même artiste.
+
+   Avant la v2.7 on gardait le plus CONNU des noms cités. C'était plus malin
+   et c'était une erreur : « Mairo & H JeuneCrack » partait chez H JeuneCrack
+   si celui-ci avait plus de titres, et le même morceau pouvait changer de
+   propriétaire à mesure que la bibliothèque grossissait.
+
+   La ligne complète part dans les crédits, affichée une fois la carte
+   retournée : personne n'est effacé, mais une seule bonne réponse existe.
 
    Deux cartes peuvent alors se retrouver identiques (« Ninho & Gazo » et
    « Gazo & Ninho » deviennent le même morceau) : la seconde disparaît.
@@ -198,61 +232,69 @@ export function decouper(nom) {
   return String(nom || "").split(SEP_ARTISTES_G).map(x => x.trim()).filter(Boolean);
 }
 
-/* Qui est l'artiste principal de cette ligne ? Celui qui, parmi les noms
-   cités, a déjà le plus de titres SEUL dans la bibliothèque.
-
-   Et sinon : personne. On ne devine pas. « Earth, Wind & Fire » contient des
-   séparateurs mais c'est un groupe, pas un featuring — le renommer « Earth »
-   serait pire que le laisser tel quel. Tant qu'aucun des noms cités n'est un
-   artiste connu du jeu, on ne touche à rien. */
-export function principal(ligne, solos) {
+/* Le premier nom cité. C'est tout. */
+export function principal(ligne) {
   const parts = decouper(ligne);
   if (parts.length < 2) return null;
-  let meilleur = null, score = 0;
-  for (const p of parts) {
-    const s = solos.get(norm(p));
-    if (s && s.compte > score) { meilleur = s.nom; score = s.compte; }
-  }
-  return meilleur;
+  return parts[0];
 }
 
-/* Un deuxième garde-fou, pour les groupes que le jeu ne connaît pas encore :
-   une ligne de featuring se répète rarement d'un titre à l'autre, un nom de
-   groupe se répète à chaque titre. Au-delà de ce seuil, on considère que
-   c'est un nom, pas une collaboration. */
+/* « feat. », « ft. », « featuring », « avec », « with », « vs » ne laissent
+   aucun doute : c'est une collaboration, jamais un nom de groupe. Sur ces
+   lignes-là on découpe sans hésiter. */
+const MOT_FEAT = /\b(?:feat\.?|ft\.?|featuring|avec|with|vs\.?)\b/i;
+export const collaborationExplicite = nom => MOT_FEAT.test(String(nom || ""));
+
+/* Les noms qu'on ne découpe jamais, quoi qu'il arrive. « Earth, Wind & Fire »
+   est un groupe ; le ramener à « Earth » serait pire que de ne rien faire.
+   Le garde-fou automatique ci-dessous en attrape la plupart, mais un duo qui
+   n'a que deux titres dans le jeu lui échappe : cette liste est là pour ça,
+   et elle se remplit depuis l'écran de modération. */
+export async function nomsEntiers() {
+  const c = await (await store("config")).get("noms-entiers");
+  const l = (c && Array.isArray(c.noms)) ? c.noms : [];
+  return new Set(l.map(norm));
+}
+
+/* Le garde-fou automatique : une ligne de featuring se répète rarement d'un
+   titre à l'autre, un nom de groupe se répète à chaque titre. Au-delà de ce
+   seuil, on considère que c'est un nom et pas une collaboration — sauf si la
+   ligne porte un « feat. », qui tranche la question. */
 export const SEUIL_GROUPE = 3;
 
-export function canoniser(tracks) {
-  // 1. qui est déjà un artiste seul, et avec combien de titres
-  const solos = new Map();
-  for (const t of tracks) {
-    if (plusieursArtistes(t.artist)) continue;
-    const k = norm(t.artist);
-    const e = solos.get(k) || { nom: t.artist, compte: 0 };
-    e.compte++;
-    solos.set(k, e);
-  }
+/* Faut-il découper cette ligne, et si oui en quoi ?
+   Une seule fonction, pour que l'import, la réparation et l'aperçu répondent
+   exactement la même chose. */
+export function artistePrincipal(ligne, { lignes, entiers } = {}) {
+  const nom = String(ligne || "");
+  if (!plusieursArtistes(nom)) return null;
+  if (entiers && entiers.has(norm(nom))) return null;          // exception déclarée
+  const explicite = collaborationExplicite(nom);
+  if (!explicite && lignes && (lignes.get(norm(nom)) || 0) >= SEUIL_GROUPE) return null;  // un groupe
+  const seul = principal(nom);
+  return (seul && norm(seul) !== norm(nom)) ? seul : null;
+}
 
-  // 1 bis. combien de titres portent EXACTEMENT cette ligne : un groupe se
-  // répète, une collaboration presque jamais
+/* Combien de titres portent EXACTEMENT cette ligne : un groupe se répète
+   d'un titre à l'autre, une collaboration presque jamais. */
+function comptageLignes(tracks) {
   const lignes = new Map();
   for (const t of tracks) {
     const k = norm(t.artist);
     lignes.set(k, (lignes.get(k) || 0) + 1);
   }
+  return lignes;
+}
 
-  // 2. on ramène chaque ligne à un seul nom, puis on jette les doublons
+export function canoniser(tracks, entiers) {
+  const lignes = comptageLignes(tracks);
+  // on ramène chaque ligne à un seul nom, puis on jette les doublons
   const vus = new Set(), sortie = [];
   let corriges = 0, fusionnes = 0;
   for (const t of tracks) {
     let c = t, change = false;
-    if (plusieursArtistes(t.artist) && (lignes.get(norm(t.artist)) || 0) < SEUIL_GROUPE) {
-      const seul = principal(t.artist, solos);
-      if (seul && norm(seul) !== norm(t.artist)) {
-        c = { ...t, artist: seul, credits: t.credits || t.artist };
-        change = true;
-      }
-    }
+    const seul = artistePrincipal(t.artist, { lignes, entiers });
+    if (seul) { c = { ...t, artist: seul, credits: t.credits || t.artist }; change = true; }
     const sig = signature(c);
     // Une carte qui disparaît n'est pas « corrigée » : elle est fusionnée.
     // Les deux compteurs ne doivent pas raconter la même carte deux fois.
@@ -266,43 +308,37 @@ export function canoniser(tracks) {
 
 /* Ce que la réparation ferait, sans rien changer : de quoi regarder avant
    d'appuyer. */
-export function apercuArtistes(tracks) {
-  const solos = new Map();
-  for (const t of tracks) {
-    if (plusieursArtistes(t.artist)) continue;
-    const k = norm(t.artist);
-    const e = solos.get(k) || { nom: t.artist, compte: 0 };
-    e.compte++; solos.set(k, e);
-  }
-  const lignes = new Map();
-  for (const t of tracks) {
-    const k = norm(t.artist);
-    lignes.set(k, (lignes.get(k) || 0) + 1);
-  }
-  // seules comptent celles qu'on saurait vraiment corriger
-  const touchees = tracks.filter(t => plusieursArtistes(t.artist)
-    && (lignes.get(norm(t.artist)) || 0) < SEUIL_GROUPE
-    && !!principal(t.artist, solos));
-  const laissees = tracks.filter(t => plusieursArtistes(t.artist)).length - touchees.length;
+export function apercuArtistes(tracks, entiers) {
+  const lignes = comptageLignes(tracks);
+  const touchees = tracks.filter(t => !!artistePrincipal(t.artist, { lignes, entiers }));
+  /* Ce qu'on laisse tel quel : des groupes, ou des noms déclarés entiers. On
+     les nomme, pour que la modération puisse vérifier qu'il n'y a pas
+     d'erreur là-dedans plutôt que de lire un simple compteur. */
+  const gardees = tracks.filter(t => plusieursArtistes(t.artist)
+    && !artistePrincipal(t.artist, { lignes, entiers }));
   /* On annonce exactement les chiffres que la réparation rendra, sinon
      l'aperçu et le résultat se contredisent sous les yeux de la modération. */
-  const r = canoniser(tracks);
+  const r = canoniser(tracks, entiers);
   return {
     total: tracks.length,
     aCorriger: r.corriges,
-    laissees,                       // groupes et duos dont aucun membre n'est connu du jeu
+    laissees: gardees.length,
     aFusionner: r.fusionnes,
     exemples: touchees.slice(0, 30).map(t => ({
-      titre: t.title, avant: t.artist, apres: principal(t.artist, solos)
-    }))
+      titre: t.title, avant: t.artist, apres: artistePrincipal(t.artist, { lignes, entiers })
+    })),
+    // les noms qu'on garde entiers, chacun une fois, avec leur nombre de titres
+    groupes: [...new Map(gardees.map(t => [norm(t.artist),
+      { nom: t.artist, titres: lignes.get(norm(t.artist)) || 1 }])).values()].slice(0, 60)
   };
 }
 
 /* La même chose, mais sur la bibliothèque enregistrée. */
 export async function reparerArtistes() {
   const b = await lire();
+  const entiers = await nomsEntiers();
   const avant = b.tracks.length;
-  const r = canoniser(b.tracks);
+  const r = canoniser(b.tracks, entiers);
   b.tracks = r.tracks;
   await ecrire(b);
   return { corriges: r.corriges, fusionnes: r.fusionnes, avant, total: b.tracks.length };

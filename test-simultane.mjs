@@ -78,11 +78,14 @@ console.log("\n=== DOUBLE-CLIC SUR UN CARTON ===");
 {
   const j = await inscrire("Mila");
   const uid = await uidDe("Mila");
-  // 400 crédits, un carton standard en vaut 100 : quatre au maximum.
+  /* 400 crédits de départ plus la prime du premier jour de série, et un
+     carton standard en vaut 140 : trois au maximum. On lit le solde AVANT
+     plutôt que de recopier un chiffre qui bougera au prochain équilibrage. */
+  const depart = (await post(jeu, { action: "etat" }, j)).etat.credits;
   const r = await Promise.all(Array.from({ length: 6 }, () => post(jeu, { action: "carton", type: "std" }, j)));
   const passes = r.filter(x => x.code === 200).length;
   const f = await U.get(uid);
-  const payes = (400 - f.jeu.credits) / 100;
+  const payes = (depart - f.jeu.credits) / 140;
   R("le compte n'est jamais dans le rouge", f.jeu.credits >= 0);
   R("on paie exactement autant de cartons qu'on en reçoit", passes === payes);
   R("et toutes les cartes reçues sont bien sur l'étagère", f.jeu.coffre.length === passes * 5);
@@ -103,6 +106,7 @@ console.log("\n=== DEUX ACHETEURS, UNE SEULE CARTE ===");
   await majJoueur(uidV, (u) => { u.jeu.coffre.forEach(c => { c.known = true; c.press = "Standard"; }); return u; });
   const mienne = (await U.get(uidV)).jeu.coffre[0];
 
+  const soldeVendeuse = (await U.get(uidV)).jeu.credits;
   const pose = await post(marche, { action: "poser", uid: mienne.uid, prix: 50 }, jV);
   R("l'annonce est posée", pose.code === 200);
   const idAnnonce = pose.annonce.id;
@@ -119,7 +123,7 @@ console.log("\n=== DEUX ACHETEURS, UNE SEULE CARTE ===");
   R("il n'existe toujours qu'un exemplaire de cette carte", exemplaires === 1);
 
   const v = await U.get(uidV);
-  R("la vendeuse n'est payée qu'une fois", v.jeu.credits === 400 + 50);
+  R("la vendeuse n'est payée qu'une fois", v.jeu.credits === soldeVendeuse + 50);
   R("et l'annonce a disparu du marché", !(await (await store("annonces")).get(idAnnonce)));
 }
 

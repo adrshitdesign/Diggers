@@ -40,11 +40,59 @@ export const CLUES = {
   audio: 0, genre: 2, album: 5, mask: 4, flou: 4, crop: 7
 };
 
+/* ============ L'ÉCONOMIE ============
+   Ce que rapporte une identification n'a pas bougé : c'est la récompense du
+   geste central du jeu, et la toucher aurait été punir le joueur pour ce
+   qu'on lui demande de faire.
+
+   Ce qui a changé, c'est la boucle. Avant la v2.7, un carton à 100 crédits
+   rendait jusqu'à 130 crédits de reconnaissances : il se remboursait tout
+   seul, et plus on jouait, plus on était riche, sans plafond. Un joueur
+   acharné ouvrait 40 cartons par jour et finissait le mois avec 14 000
+   crédits d'avance. C'était ça, « très simple de gagner plein de cartes ».
+
+   Trois leviers, et aucun n'est un minuteur :
+
+   1. UN CARTON NE SE REMBOURSE PLUS. 140 crédits pour cinq cartes qui, même
+      reconnues toutes les cinq du premier coup et toutes d'artistes inconnus
+      — le meilleur cas possible — en rendent 130. Les crédits viennent
+      désormais du jeu (sets, défi, régularité, paliers) et les cartons les
+      dépensent. Le test le vérifie : si un jour un carton redevient rentable,
+      test-economie.mjs échoue.
+
+   2. LA DÉCOUVERTE PAIE PLEIN TARIF, LA RÉPÉTITION MOINS. Reconnaître un
+      artiste qu'on a déjà sur son étagère rapporte 55 %. Ce n'est pas une
+      punition : c'est le jeu qui dit ce qu'il attend. Et ça se resserre tout
+      seul à mesure que la collection grandit, sans qu'on ait rien à régler.
+
+   3. REVENIR PAIE. La série de jours consécutifs existait dans le code et ne
+      servait à rien. Elle donne maintenant une prime qui monte du 1er au 7e
+      jour, et des paliers récompensent le nombre d'artistes différents
+      reconnus — des objectifs de collectionneur, atteints une seule fois. */
+
 const LADDER = [26, 13, 7, 4];
 const GAIN_DOUBLON = 3, PLANCHER = 4;
-const SET_CAP = 5, GAIN_WIN = 40, GAIN_TIE = 20, GAIN_LOSS = 12;
+const REMISE_CONNU = 0.55;              // artiste déjà sur l'étagère
+const SET_CAP = 5, GAIN_WIN = 22, GAIN_TIE = 10, GAIN_LOSS = 6;
 const ECLAT_PRESSAGE = [0, 800, 1200, 2000, 3500, 7000, 14000];
-const PACKS = { jour: 0, std: 100, scene: 220 };
+const CARTES_PAR_CARTON = 5;
+const PACKS = { jour: 0, std: 140, scene: 280 };
+
+/* La prime de régularité : 12 crédits le premier jour, +8 par jour consécutif,
+   plafonnée au septième. Manquer un jour ne fait pas repartir de zéro les
+   paliers, seulement la série. */
+const SERIE_BASE = 12, SERIE_PAS = 8, SERIE_MAX = 60;
+export const primeSerie = serie => Math.min(SERIE_MAX, SERIE_BASE + SERIE_PAS * (Math.max(1, serie) - 1));
+
+/* Les paliers de collection : combien d'ARTISTES DIFFÉRENTS on a reconnus.
+   Pas combien de cartes — sinon ouvrir des cartons suffirait. */
+export const PALIERS = [
+  { n: 10,  prime: 50,   titre: "Premiers noms" },
+  { n: 25,  prime: 120,  titre: "Oreille qui traîne" },
+  { n: 50,  prime: 250,  titre: "Bac à disques" },
+  { n: 100, prime: 500,  titre: "Collection qui tient" },
+  { n: 200, prime: 1000, titre: "Discothèque" },
+  { n: 400, prime: 2000, titre: "Mémoire du bac" }];
 const COFFRE_MAX = 4000;
 
 export const CONTRAINTES = [
@@ -129,7 +177,42 @@ function majJournee(g) {
     const hk = h.getUTCFullYear() + "-" + String(h.getUTCMonth() + 1).padStart(2, "0") + "-" + String(h.getUTCDate()).padStart(2, "0");
     g.streak = (g.lastPlayed === hk) ? (g.streak || 0) + 1 : 1;
     g.lastPlayed = t;
+    /* La prime tombe à la première action de la journée, pas à l'ouverture de
+       la page : on récompense le fait de jouer, pas celui de passer. */
+    const prime = primeSerie(g.streak);
+    g.credits += prime;
+    g.primeDuJour = { jour: t, montant: prime, serie: g.streak };
   }
+  return g.primeDuJour && g.primeDuJour.jour === t ? g.primeDuJour : null;
+}
+
+/* Combien d'artistes différents ce joueur a-t-il reconnus ? C'est la mesure
+   de sa collection : mille cartes du même rappeur, ce n'est pas une
+   collection. */
+export function artistesReconnus(g, lib) {
+  const s = new Set();
+  for (const c of g.coffre) {
+    if (!c.known) continue;
+    const t = pisteDe(lib, c.id);
+    if (t && t.artist) s.add(t.artist);
+  }
+  return s.size;
+}
+
+/* Les paliers franchis depuis la dernière fois. Chacun ne paie qu'une fois,
+   et la liste des paliers déjà pris est gardée sur la fiche du joueur. */
+function encaisserPaliers(g, lib) {
+  const n = artistesReconnus(g, lib);
+  g.paliers = Array.isArray(g.paliers) ? g.paliers : [];
+  const gagnes = [];
+  for (const p of PALIERS) {
+    if (n >= p.n && !g.paliers.includes(p.n)) {
+      g.paliers.push(p.n);
+      g.credits += p.prime;
+      gagnes.push(p);
+    }
+  }
+  return gagnes;
 }
 
 export function tauxSec(g) {
@@ -206,7 +289,13 @@ export function etatVu(g, lib) {
     setsToday: g.setsToday, setCap: SET_CAP,
     jourDispo: g.jourDate !== jour(),
     gouts: g.gouts, premier: !!g.premier,
-    streak: g.streak, fondus: g.fondus, achetes: g.achetes,
+    streak: g.streak,
+    primeDuJour: (g.primeDuJour && g.primeDuJour.jour === jour()) ? g.primeDuJour : null,
+    primeDemain: primeSerie((g.streak || 0) + 1),
+    artistes: artistesReconnus(g, lib),
+    paliers: PALIERS.map(p => ({ n: p.n, prime: p.prime, titre: p.titre,
+      pris: (g.paliers || []).includes(p.n) })),
+    fondus: g.fondus, achetes: g.achetes,
     presses: g.presses, vendus: g.vendus || 0
   };
 }
@@ -233,13 +322,27 @@ function distracteurs(lib, bon, n, palier) {
   return out;
 }
 
-function tirerUne(lib, filtre) {
+/* Un carton de cinq cartes, tiré SANS REMISE.
+   Avant la v2.7, les cinq cartes étaient tirées indépendamment : sur un
+   thème qui ne comptait que deux titres, on pouvait recevoir cinq fois le
+   même morceau. Le tirage garde maintenant en mémoire ce qu'il a déjà sorti,
+   et ne le repropose pas tant qu'il reste autre chose à donner.
+
+   Deux exemplaires du même pressage n'ont d'ailleurs aucun intérêt : le
+   second est un doublon qui rapporte 3 crédits. Un carton doit ouvrir cinq
+   fois quelque chose. */
+function tirerUne(lib, filtre, dejaVus) {
+  const libre = t => (!filtre || filtre(t)) && !(dejaVus && dejaVus.has(String(t.id)));
   const want = pickTier();
-  let pool = lib.tracks.filter(t => tierOf(t.pop) === want && (!filtre || filtre(t)));
-  if (!pool.length) pool = lib.tracks.filter(t => !filtre || filtre(t));
-  if (!pool.length) pool = lib.tracks;
+  let pool = lib.tracks.filter(t => tierOf(t.pop) === want && libre(t));
+  if (!pool.length) pool = lib.tracks.filter(libre);
+  /* Dernier recours : la bibliothèque entière, hors de ce qui est déjà sorti.
+     On préfère sortir du thème plutôt que de donner deux fois la même carte —
+     mais ça ne devrait plus arriver, le thème est choisi assez fourni. */
+  if (!pool.length) pool = lib.tracks.filter(t => !(dejaVus && dejaVus.has(String(t.id))));
   if (!pool.length) return null;
   const t = pool[Math.floor(Math.random() * pool.length)];
+  if (dejaVus) dejaVus.add(String(t.id));
   return {
     uid: t.id + "-" + uuid().slice(0, 6),
     id: t.id,
@@ -337,7 +440,7 @@ export default async function (req) {
 
 async function traiter(req, u, b) {
   const g = jeuDe(u);
-  majJournee(g);
+  const prime = majJournee(g);
   const lib = await biblio.lireCache();
   const fini = async (extra) => {
     // Le résumé qui alimente le classement est calculé ici, à partir de l'état
@@ -347,6 +450,9 @@ async function traiter(req, u, b) {
     await majClassement(u);
     return ok({ ...(extra || {}), etat: etatVu(g, lib) });
   };
+  // Ce que la journée vient de rapporter, remonté une fois, à la première
+  // action du jour — de quoi l'annoncer à l'écran.
+  void prime;
 
   switch (b.action) {
 
@@ -369,25 +475,39 @@ async function traiter(req, u, b) {
       const type = String(b.type || "");
       if (!(type in PACKS)) return ko(400, "Carton inconnu.");
       if (!lib.tracks.length) return ko(503, "La bibliothèque est vide.");
-      if (g.coffre.length + 5 > COFFRE_MAX) return ko(409, "Ton étagère est pleine.");
+      if (g.coffre.length + CARTES_PAR_CARTON > COFFRE_MAX) return ko(409, "Ton étagère est pleine.");
       const prix = PACKS[type];
       if (type === "jour") {
         if (g.jourDate === jour()) return ko(429, "Le carton du jour a déjà été ouvert.");
       } else if (g.credits < prix) return ko(402, "Pas assez de crédits.");
 
-      let filtre = null;
+      let filtre = null, theme = null;
       if (g.premier && Array.isArray(g.gouts) && g.gouts.length) {
         const aimes = new Set(g.gouts);
         filtre = t => aimes.has(t.artist);
       } else if (type === "scene") {
-        const genres = [...new Set(lib.tracks.map(t => t.genre || "Autre"))];
-        const genre = genres[Math.floor(Math.random() * genres.length)];
-        filtre = t => (t.genre || "Autre") === genre;
+        /* Un thème n'est proposé que s'il peut vraiment remplir un carton.
+           Un genre à deux titres n'est pas une scène, c'est un accident de
+           catalogue : on ne le tire pas, plutôt que de le compléter avec des
+           doublons. */
+        const parGenre = new Map();
+        for (const t of lib.tracks) {
+          const gr = t.genre || "Autre";
+          parGenre.set(gr, (parGenre.get(gr) || 0) + 1);
+        }
+        const jouables = [...parGenre.entries()].filter(([, n]) => n >= CARTES_PAR_CARTON).map(([gr]) => gr);
+        if (jouables.length) {
+          theme = jouables[Math.floor(Math.random() * jouables.length)];
+          filtre = t => (t.genre || "Autre") === theme;
+        }
+        /* Aucun genre assez fourni : le carton à thème n'a pas de sens sur
+           cette bibliothèque. On le dit, on ne débite rien. */
+        if (!theme) return ko(409, "Aucun style n'a encore assez de morceaux pour un carton à thème. Reviens quand la bibliothèque aura grandi.");
       }
 
-      const tirees = [];
-      for (let i = 0; i < 5; i++) {
-        const c = tirerUne(lib, filtre);
+      const tirees = [], dejaVus = new Set();
+      for (let i = 0; i < CARTES_PAR_CARTON; i++) {
+        const c = tirerUne(lib, filtre, dejaVus);
         if (!c) break;
         g.coffre.push(c);
         tirees.push(c);
@@ -398,7 +518,7 @@ async function traiter(req, u, b) {
       else g.credits -= prix;
       g.premier = false;
 
-      return await fini({ cartes: tirees.map(c => carteVue(c, lib)) });
+      return await fini({ cartes: tirees.map(c => carteVue(c, lib)), theme });
     }
 
     /* ---------- acheter un indice ---------- */
@@ -436,13 +556,25 @@ async function traiter(req, u, b) {
       const aSec = bon && (c.tries || 0) === 0 && !(c.indices || []).length && !c.heard;
       noterIdent(g, aSec);
       const doublon = g.coffre.some(x => x.uid !== c.uid && String(x.id) === String(c.id) && x.known);
-      const gain = passe ? 0 : (doublon ? GAIN_DOUBLON : valeurDe(c));
+      /* Un artiste qu'on a déjà sur son étagère rapporte moins : le jeu paie
+         la découverte, pas la répétition. Le calcul se fait AVANT de marquer
+         la carte reconnue, sinon elle se compterait elle-même. */
+      const dejaVu = !doublon && g.coffre.some(x => x.uid !== c.uid && x.known
+        && (pisteDe(lib, x.id) || {}).artist === t.artist);
+      let gain = 0;
+      if (!passe) {
+        gain = doublon ? GAIN_DOUBLON : valeurDe(c);
+        if (dejaVu) gain = Math.max(GAIN_DOUBLON, Math.round(gain * REMISE_CONNU));
+      }
       c.known = true;
       c.reveals = (c.indices || []).length;
       c.aSec = aSec;
       g.credits += gain;
 
-      return await fini({ bon, passe, gain, doublon, aSec, carte: carteVue(c, lib) });
+      const paliers = bon ? encaisserPaliers(g, lib) : [];
+      return await fini({ bon, passe, gain, doublon, dejaVu, aSec,
+        paliers: paliers.map(p => ({ n: p.n, prime: p.prime, titre: p.titre })),
+        carte: carteVue(c, lib) });
     }
 
     /* ---------- fondre des doublons ---------- */

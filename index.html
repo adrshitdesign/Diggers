@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.6</title>
+<title>Diggers — v2.7</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -60,6 +60,9 @@ button.wallet[aria-pressed="true"]{border-color:var(--accent);color:var(--accent
   padding:0 clamp(12px,3vw,28px) 8px;scrollbar-width:none}
 .sstabs::-webkit-scrollbar{display:none}
 .sstabs:empty{display:none}
+/* L'attribut « hidden » doit gagner sur les display: des classes, sinon une
+   barre marquée cachée reste affichée. */
+[hidden]{display:none!important}
 .sstab{background:none;border:0;border-bottom:2px solid transparent;padding:5px 10px 6px;white-space:nowrap;
   font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.09em;
   text-transform:uppercase;color:var(--ink-3);transition:.16s;flex:0 0 auto;cursor:pointer}
@@ -507,7 +510,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.6 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -535,6 +538,7 @@ a.src:hover{color:var(--accent)}
   <h2 class="h">Qu'est-ce qu'on ouvre ?</h2>
   <p class="sub">Trois pochettes scellées. Elles ne changent pas les chances de rareté — elles changent ce qu'il y a dedans.</p>
   <div class="shop" id="shop"></div>
+  <div id="progres"></div>
   <div class="bar" style="margin-top:20px"><span class="hint" id="chint"></span></div>
   <div id="stage"></div>
   <div class="grid" id="pull"></div>
@@ -709,13 +713,16 @@ const CLUES=[
 /* 26 pour une carte trouvée du premier coup, puis dégressif : rater coûte. */
 const LADDER=[26,13,7,4], GAIN_DOUBLON=3;
 const COUT_REFRESH=20, SET_CAP=5;
-const GAIN_WIN=40, GAIN_LOSS=12, GAIN_TIE=20;
+/* Ces chiffres ne sont qu'un miroir de ceux du serveur, qui seul décide.
+   Ils servent à écrire les règles à l'écran ; s'ils divergent, c'est le
+   serveur qui a raison. */
+const GAIN_WIN=22, GAIN_LOSS=6, GAIN_TIE=10;
 /* Fondre un doublon donne des Éclats ; les Éclats ne servent qu'à presser un titre choisi. */
 const ECLAT_PRESSAGE=[0,800,1200,2000,3500,7000,14000];
 const PACKS=[
   {id:"jour",n:"Carton du jour",c:"var(--t6)",p:0,d:"Un par jour, offert. Remis à zéro à minuit."},
-  {id:"std",n:"Carton standard",c:"var(--accent)",p:100,d:"Cinq disques au hasard dans tout le bac, à toute heure."},
-  {id:"scene",n:"Carton de scène",c:"var(--t3)",p:220,d:"Cinq disques d'un seul genre, tiré au sort à l'ouverture."}];
+  {id:"std",n:"Carton standard",c:"var(--accent)",p:140,d:"Cinq disques différents, au hasard dans tout le bac, à toute heure."},
+  {id:"scene",n:"Carton de scène",c:"var(--t3)",p:280,d:"Cinq disques différents d'un même genre, tiré au sort à l'ouverture."}];
 const RANGS=[{min:0,n:"Curieux"},{min:20,n:"Chineur"},{min:35,n:"Digger"},
   {min:50,n:"Fouineur"},{min:65,n:"Oreille d'or"},{min:80,n:"Conservateur"}];
 
@@ -854,15 +861,24 @@ let ARTISTES_CAT=[], CATMETA=null, CATSOURCE="", CATTEST=null, CATN=0, CATNA=0;
 const SEP_ARTISTES=/\s*(?:,|&|\/|\bfeat\.?|\bft\.?|\bfeaturing\b|\bavec\b|\bwith\b|\bvs\.?|\bx\b|\+)\s*/i;
 const SEP_ARTISTES_G=new RegExp(SEP_ARTISTES.source,"gi");
 
+/* Est-ce bien de l'artiste qu'on cherchait, et à qui la carte appartient-elle ?
+   Deux questions distinctes, et c'est ce qui manquait avant la v2.7 :
+   on cherche « Damso », Apple rend « GIMS & Damso », l'ancienne version
+   classait la carte chez Damso parce que c'est lui qu'on cherchait. Le
+   serveur, lui, la classe chez GIMS — le premier crédité. Deux chemins, deux
+   propriétaires pour le même morceau.
+
+   Maintenant une seule règle : on accepte le morceau si le nom cherché est
+   cité, et on le classe chez le PREMIER nom cité, quel qu'il soit. */
 function unSeulArtiste(cherche,rendu){
   const cible=norm(cherche), plein=norm(rendu);
-  if(plein===cible) return {ok:true,credits:""};
+  if(plein===cible) return {ok:true,artist:rendu,credits:""};
   /* Un nom qui contient déjà un séparateur (« Earth, Wind & Fire ») ne se
      découpe pas : pour lui, c'est exact ou rien. */
   if(SEP_ARTISTES.test(cherche)) return {ok:false};
   const parts=String(rendu).split(SEP_ARTISTES_G).map(x=>x.trim()).filter(Boolean);
   if(parts.length<2) return {ok:false};
-  if(parts.some(p=>norm(p)===cible)) return {ok:true,credits:rendu};
+  if(parts.some(p=>norm(p)===cible)) return {ok:true,artist:parts[0],credits:rendu};
   return {ok:false};
 }
 
@@ -881,7 +897,7 @@ function nettoyer(artiste,poids,rows){
     const cle=norm(titre);
     if(vus.has(cle)) continue;
     vus.add(cle);
-    out.push({ id:r.trackId, title:titre, artist:artiste, credits:v.credits,
+    out.push({ id:r.trackId, title:titre, artist:v.artist, credits:v.credits,
       album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
       year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
       art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
@@ -1086,6 +1102,9 @@ async function openPack(pack){
   if(!r||!r.ok){ busy=false; renderShop(); return; }
 
   await animOuverture(pack);
+  /* Un carton à thème dit sur quoi il est tombé : sans ça, le joueur ne
+     comprend pas pourquoi ses cinq cartes se ressemblent. */
+  if(r.theme) flash("Thème du carton : "+r.theme);
   const tirees=r.cartes||[];
   let found=0;
   for(let i=0;i<tirees.length;i++){ if(await enquete(tirees[i],i+1)) found++; }
@@ -1098,7 +1117,7 @@ async function openPack(pack){
   const aSec=tirees.filter(c=>etat(c.uid).aSec).length;
   document.getElementById("pullshare").innerHTML=
     '<div class="sharebox"><span class="sq">'+carres+'</span>'
-    +'<span class="hint">'+found+'/'+tirees.length+' · '+aSec+' à sec</span>'
+    +'<span class="hint">'+found+'/'+tirees.length+' · '+aSec+' sans aide</span>'
     +'<button class="btn ghost sm" id="shcart">Copier le résultat</button></div>';
   document.getElementById("shcart").onclick=async()=>{
     const t="Diggers "+todayKey()+"\n"+carres+"\n"+found+"/"+tirees.length+" reconnues\n"+location.origin+location.pathname;
@@ -1136,7 +1155,7 @@ function enquete(c,nth){
       +'<p style="color:var(--ink-2);font-size:14px;margin:0">Chaque révélateur se paie sur la valeur de la carte, '
       +'jamais sur ta cagnotte. Se tromper la fait tomber à '+LADDER.slice(1).join(', puis ')+'.</p>'
       +(carte.tries?'<p style="color:var(--bad);font-size:13px;margin:8px 0 0">Déjà tenté '+carte.tries
-        +' fois — cette carte ne comptera plus comme trouvée à sec.</p>':'')
+        +' fois — cette carte ne comptera plus comme trouvée sans aide.</p>':'')
       +'<div class="clues" id="cl"></div><div class="found" id="fd"></div>'
       +'<div class="choices" id="ch"></div><div id="vd"></div>';
 
@@ -1156,7 +1175,7 @@ function enquete(c,nth){
       if(cd.audio&&S.silent)return;
       const b=document.createElement("button");
       b.className="clue"+(cd.cost===0?" free":""); b.type="button"; b.dataset.k=cd.k;
-      b.innerHTML=cd.lbl+'<i>'+(cd.cost===0?(heard?"écouté":"sort du à sec"):"−"+cd.cost)+'</i>';
+      b.innerHTML=cd.lbl+'<i>'+(cd.cost===0?(heard?"écouté":"ne coûte rien, mais la carte ne comptera plus sans aide"):"−"+cd.cost)+'</i>';
       b.onclick=async()=>{
         if(fini||b.disabled)return;
         b.disabled=true;
@@ -1164,7 +1183,8 @@ function enquete(c,nth){
         if(!r||!r.ok){ b.disabled=false; return; }
         carte=r.carte; const ind=carte.indices||{};
         if(cd.audio){
-          /* L'extrait ne coûte pas de crédits, mais il sort la carte du « à sec » :
+          /* L'extrait ne coûte pas de crédits, mais la carte ne compte plus
+             comme trouvée « sans aide » :
              écouter est une aide, et le classement doit en tenir compte. */
           unlock(); heard=true; b.disabled=false;
           b.querySelector("i").textContent="écouté";
@@ -1198,7 +1218,10 @@ function enquete(c,nth){
         vd.innerHTML = r.passe
           ? '<p class="verdict no">C\'était <b style="color:var(--ink)">'+esc(carte.artist)+'</b> — carte gravée, 0 crédit</p>'
           : '<p class="verdict ok">Reconnue · +'+r.gain+' crédit'+(r.gain>1?'s':'')
-            +(r.doublon?' · doublon':(r.aSec?' · à sec':' · avec aide'))+'</p>';
+            +(r.doublon?' · doublon':(r.dejaVu?' · artiste déjà dans ta collection':(r.aSec?' · sans aide':' · avec aide')))+'</p>'
+            +((r.paliers||[]).map(p=>'<p class="verdict ok" style="margin-top:6px">'
+              +'Palier atteint — <b>'+esc(p.titre)+'</b> · '+p.n+' artistes différents · '
+              +'<b style="color:var(--accent)">+'+p.prime+' crédits</b></p>').join(""));
       }else{
         if(btn) btn.classList.add("wrong");
         vd.innerHTML='<p class="verdict no">Raté — la carte reste face cachée, valeur ramenée à '
@@ -1386,8 +1409,12 @@ async function vueVendre(box){
         +'<button class="btn ghost sm" data-non="'+esc(a.id)+'|'+esc(o.id)+'">Refuser</button></p>').join("")+'</div>':'')
     ).join("")+'</div>';
 
-  html+='<h3 class="sect">Poser une carte</h3>'
-    +'<p class="notice">Un doublon part sans rien te coûter — tu gardes toujours le meilleur exemplaire. '
+  html+='<h3 class="sect">Mettre une carte en vente</h3>'
+    +'<p class="notice"><b style="color:var(--ink-2)">C\'est toi qui fixes le prix.</b> '
+    +'Le champ est pré-rempli à la cote de la carte — sa valeur théorique — mais tu écris '
+    +'ce que tu veux&nbsp;: un acheteur paiera ce prix-là, ou te proposera un échange. '
+    +'Tu peux retirer une annonce à tout moment, la carte revient sur ton étagère.<br>'
+    +'Un doublon part sans rien te coûter — tu gardes toujours le meilleur exemplaire. '
     +'Tu peux aussi vendre une carte unique, mais elle quitte vraiment ta collection. '
     +'Un <b>Test press</b> ne se vend jamais : il n\'en existe qu\'un.</p>'
     +'<div class="grid" id="vgrid"></div>';
@@ -1410,14 +1437,30 @@ async function vueVendre(box){
     const wrap=document.createElement("div"); wrap.className="offer";
     wrap.appendChild(cardEl(c,{delay:i*15,cote:true}));
     const act=document.createElement("div"); act.className="act";
-    act.innerHTML='<input type="number" min="1" step="1" value="'+(c.cote||10)+'" style="width:90px">'
-      +'<button>Poser</button>'
-      +'<span class="deal '+(dbl.has(c.uid)?"down":"up")+'">'+(dbl.has(c.uid)?"doublon":"exemplaire unique")+'</span>';
+    /* Le prix était déjà libre, mais c'était un champ nombre nu : personne ne
+       comprenait qu'on pouvait le changer. Il porte maintenant son nom, et il
+       dit tout de suite où l'on se situe par rapport à la cote. */
+    act.innerHTML='<label class="lbl" style="width:100%;margin:0 0 4px">Ton prix, en crédits</label>'
+      +'<input type="number" min="1" step="1" value="'+(c.cote||10)+'" '
+        +'aria-label="Prix de vente en crédits" style="width:100px">'
+      +'<button>Mettre en vente</button>'
+      +'<span class="deal" data-ecart>cote : '+(c.cote||0)+' crédits</span>'
+      +'<span class="deal '+(dbl.has(c.uid)?"down":"up")+'">'+(dbl.has(c.uid)?"tu en as un autre":"seul exemplaire")+'</span>';
+    const champ=act.querySelector("input"), ecart=act.querySelector("[data-ecart]");
+    const majEcart=()=>{
+      const p2=Math.round(Number(champ.value)), cote=c.cote||0;
+      if(!(p2>0)||!cote){ ecart.textContent="cote : "+cote+" crédits"; ecart.className="deal"; return; }
+      const d=Math.round((p2-cote)/cote*100);
+      ecart.textContent=(d>0?"+":"")+d+" % par rapport à la cote ("+cote+")";
+      ecart.className="deal "+(d>0?"up":"down");
+    };
+    champ.oninput=majEcart; majEcart();
     act.querySelector("button").onclick=async()=>{
-      const prix=Math.round(Number(act.querySelector("input").value));
-      if(!(prix>0)){ flash("Il faut un prix"); return; }
+      const prix=Math.round(Number(champ.value));
+      if(!(prix>0)){ flash("Mets un prix d'au moins 1 crédit"); champ.focus(); return; }
       const r2=await apiMarche("poser",{uid:c.uid,prix:prix});
       if(r2&&r2.ok) flash("En vitrine : "+esc(c.artist)+" · "+prix+" crédits");
+      else if(r2) flash(r2.erreur||"Refusé");
       renderMarche();
     };
     wrap.appendChild(act); g.appendChild(wrap);
@@ -1569,7 +1612,7 @@ function renderRegles(){
   +'trouvée de tête d\'une carte trouvée à l\'oreille.</p>'
   +'<div class="scale"><div class="sc head"><span>Révélateur</span><span>Ce qu\'il montre</span><span class="odds">Coût</span><span class="val">Reste</span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">▶ Extrait</span><span class="dsc">Quatre secondes du morceau, réécoutables à volonté.</span>'
-    +'<span class="odds">0 crédit,<br>sort du à sec</span><span class="val">26</span></div>'
+    +'<span class="odds">0 crédit, mais<br>la carte n\'est plus « sans aide »</span><span class="val">26</span></div>'
   +'<div class="sc"><span class="nm">Genre</span><span class="dsc">Il élimine, il ne désigne pas.</span><span class="odds">−2</span><span class="val">24</span></div>'
   +'<div class="sc"><span class="nm">Titre masqué</span><span class="dsc">« O·· M··· T··· » — l\'initiale et le rythme des mots.</span><span class="odds">−4</span><span class="val">22</span></div>'
   +'<div class="sc"><span class="nm">Pochette floutée</span><span class="dsc">Les couleurs et la composition, pas les visages.</span><span class="odds">−4</span><span class="val">22</span></div>'
@@ -1676,20 +1719,29 @@ function renderRegles(){
   +'<section class="rsec" id="r8"><h3><em>08</em>Les crédits</h3>'
   +'<p class="lede">Une seule monnaie, et elle se gagne en jouant ou en vendant à un autre joueur. Jamais en payant.</p>'
   +'<div class="scale"><div class="sc head"><span>Tu gagnes</span><span>Quand</span><span class="odds">Montant</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Reconnaissance</span><span class="dsc">Un titre que tu n\'avais pas. Un <b>doublon ne rapporte que 3</b>.</span><span class="odds">4 à 26</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set gagné</span><span class="dsc">Plafonné à <b>5 sets récompensés par jour</b>.</span><span class="odds">40</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set nul, set perdu</span><span class="dsc">On ne repart jamais les mains vides.</span><span class="odds">20 · 12</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Reconnaissance</span><span class="dsc">Un artiste que tu n\'avais pas encore. Un <b>doublon ne rapporte que 3</b>.</span><span class="odds">4 à 26</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Artiste déjà collectionné</span><span class="dsc">Le même nom une deuxième fois rapporte <b>un peu plus de la moitié</b>. Le jeu paie la découverte.</span><span class="odds">≈ 55 %</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Revenir chaque jour</span><span class="dsc">À la première action de la journée. Monte du 1<sup>er</sup> au 7<sup>e</sup> jour, puis se stabilise. Manquer un jour remet la série à un.</span><span class="odds">12 à 60</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Paliers de collection</span><span class="dsc">10, 25, 50, 100, 200 puis 400 <b>artistes différents</b> reconnus. Une seule fois chacun.</span><span class="odds">50 à 2 000</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set gagné</span><span class="dsc">Plafonné à <b>5 sets récompensés par jour</b>.</span><span class="odds">22</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set nul, set perdu</span><span class="dsc">On ne repart jamais les mains vides.</span><span class="odds">10 · 6</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Vente au marché</span><span class="dsc">Le prix que tu as demandé, payé par un autre joueur.</span><span class="odds">ton prix</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Fondre un doublon</span><span class="dsc">Donne des <b>Éclats</b>, jamais des crédits.</span><span class="odds">cote / 2</span><span class="val"></span></div></div>'
   +'<div class="scale"><div class="sc head"><span>Tu dépenses</span><span>Pour quoi</span><span class="odds">Montant</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton standard</span><span class="dsc">Cinq disques au hasard.</span><span class="odds">100</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton de scène</span><span class="dsc">Cinq disques d\'un seul genre.</span><span class="odds">220</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton standard</span><span class="dsc">Cinq disques différents, au hasard.</span><span class="odds">140</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton de scène</span><span class="dsc">Cinq disques différents d\'un même genre.</span><span class="odds">280</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Révélateurs</span><span class="dsc">Retirés de la valeur de la carte : on ne paie pas, on renonce à gagner.</span><span class="odds">2 à 7</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Achat au marché</span><span class="dsc">Le prix demandé par le joueur qui vend.</span><span class="odds">variable</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Presser un titre</span><span class="dsc">De 800 à 14 000 <b>Éclats</b> selon le palier.</span><span class="odds">éclats</span><span class="val"></span></div></div>'
-  +'<p>Le carton du jour est offert. Un carton payant coûte 100 et rapporte au mieux 130 quand la collection est '
-  +'neuve : à peine rentable au début, franchement déficitaire ensuite, puisque les doublons ne paient que 3. '
-  +'C\'est voulu — les crédits doivent servir à jouer, pas à s\'accumuler.</p>'
+  +'<p>Le carton du jour est offert. Un carton payant coûte <b>140</b> et rapporte au mieux <b>130</b> — '
+  +'et encore, seulement si les cinq disques sont reconnus du premier coup et signés d\'artistes que tu n\'avais '
+  +'jamais eus. <b>Un carton ne se rembourse jamais tout seul.</b> C\'est voulu : les crédits viennent de ce que '
+  +'tu joues — reconnaître, gagner des sets, voter au défi, revenir, franchir des paliers — et les cartons '
+  +'les dépensent. Sinon, ouvrir des cartons en boucle serait la meilleure façon de s\'enrichir, et le jeu '
+  +'n\'aurait plus de fin.</p>'
+  +'<p>La même logique gouverne les reconnaissances : un artiste que tu as déjà sur ton étagère rapporte '
+  +'un peu plus de la moitié. Ce n\'est pas une punition, c\'est ce que le jeu attend de toi — <b>trouver des '
+  +'noms que tu n\'as pas</b>. Et ça se resserre tout seul à mesure que ta collection grandit.</p>'
   +'<p><b>Le jeu est gratuit et le restera.</b> La boutique ne vend que du décor : des bannières et des couleurs '
   +'de profil, payées en <b>jetons</b>. Les jetons ne se transforment jamais en crédits, n\'ouvrent aucun carton, '
   +'n\'entrent pas au marché et ne pèsent rien au classement — qui note ton oreille, pas ton argent. '
@@ -1703,7 +1755,7 @@ function renderRegles(){
 
   /* 9 */
   +'<section class="rsec" id="r9"><h3><em>09</em>Le classement</h3>'
-  +'<p class="lede">Il ne mesure qu\'une chose, et c\'est la seule qui ne s\'achète pas : le taux d\'identification à sec.</p>'
+  +'<p class="lede">Il ne mesure qu\'une chose, et c\'est la seule qui ne s\'achète pas : la part de morceaux reconnus sans aucune aide.</p>'
   +'<p>C\'est le pourcentage de cartes trouvées <b>du premier coup, sans révélateur et sans avoir écouté</b>, sur tes '
   +'200 dernières <b>tentatives</b> — et le mot compte : un échec, un abandon, une reprise, tout est inscrit dans un '
   +'journal séparé de ton étagère. Fondre une carte ou l\'acheter n\'efface rien, et rater ne s\'oublie pas. Si le classement récompensait la taille de la collection, il récompenserait '
@@ -1940,7 +1992,7 @@ function renderProfil(){
       +(CREW?'Crew : <b style="color:var(--ink)">'+esc(CREW.nom)+'</b>':'Sans crew pour le moment')+'</p></div>'
     +'<span class="rankbadge">'+rangDe(t===null?0:t)+'</span></div>'
     +'<div class="kpis">'
-      +'<div class="kpi"><span>Identification à sec</span><b>'+(t===null?"—":t)+'<em>%</em></b>'
+      +'<div class="kpi"><span>Reconnus sans aide</span><b>'+(t===null?"—":t)+'<em>%</em></b>'
         +'<p>'+sec+' sur '+propres+' trouvées sans révélateur. Les cartes achetées ne comptent pas. <b style="color:var(--ink)">C\'est le seul chiffre qui classe.</b></p></div>'
       +'<div class="kpi"><span>Collection</span><b>'+S.shelf.length+'</b><p>'+known.length+' reconnues, '
         +(S.shelf.length-known.length)+' face cachée.</p></div>'
@@ -2727,12 +2779,21 @@ async function formProposition(t){
 const ETIQ={en_attente:["En attente","var(--t3)"],validee:["Validée","var(--ok)"],refusee:["Refusée","var(--t6)"]};
 function vueMiennes(){
   const b=document.getElementById("combox");
-  if(!MESPROPS.length){ b.innerHTML='<div class="empty">Tu n\'as encore rien proposé.</div>'; return; }
+  if(!MESPROPS.length){
+    b.innerHTML='<div class="empty">Tu n\'as encore rien proposé.<br>'
+      +'<span style="font-size:13px">Onglet <b>Chercher</b> : trouve un morceau qui manque au jeu '
+      +'et propose-le. S\'il est validé, la carte arrive sur ton étagère en pressage d\'origine '
+      +'et porte ton nom pour tout le monde.</span></div>';
+    return;
+  }
   b.innerHTML='<div class="lad">'+MESPROPS.map(p=>{
     const e=ETIQ[p.statut]||["?","var(--ink-3)"];
     return '<div class="lr"><span class="pos" style="color:'+e[1]+'">•</span>'
       +'<span class="who">'+esc(p.track.title)+'<small>'+esc(p.track.artist)
-      +(p.note?' — '+esc(p.note):'')+'</small></span>'
+      +' · proposé le '+dateFr(p.cree)
+      +(p.statut!=="en_attente"&&p.tranche?', tranché le '+dateFr(p.tranche):'')
+      +(p.note?'<br><i>« '+esc(p.note)+' »</i>':(p.statut==="refusee"?'<br><i style="opacity:.6">sans motif</i>':''))
+      +'</small></span>'
       +'<span class="num" style="color:'+e[1]+'">'+e[0]+'</span>'
       +'<span class="num">'+(p.pop!=null?TIERS[tierOf(p.pop)].n:"—")+'</span></div>';
   }).join("")+'</div>';
@@ -2765,18 +2826,29 @@ function vueFil(){
 
 /* ============ L'ONGLET MODÉRATION ============ */
 
-let MMODE="file";
+/* « File d'attente » ne disait pas ce qu'il y avait dedans : le premier
+   retour d'adr a été « je ne trouve pas où voir les propositions des
+   joueurs » — alors qu'il regardait l'onglet qui les contient. Il s'appelle
+   maintenant par son contenu, et il porte le nombre de propositions qui
+   attendent une décision. */
+let MMODE="file", ENATTENTE=null;
 function renderModeration(){
   const box=document.getElementById("moderationbox");
   const admin=COMPTE&&COMPTE.role==="admin";
+  const pastille=(ENATTENTE>0)?' <b style="color:var(--accent)">'+ENATTENTE+'</b>':'';
   box.innerHTML='<div class="mktabs" role="tablist">'
-    +'<button class="mktab" data-mm="file" aria-selected="'+(MMODE==="file")+'">File d\'attente</button>'
+    +'<button class="mktab" data-mm="file" aria-selected="'+(MMODE==="file")+'">Propositions des joueurs'+pastille+'</button>'
+    +'<button class="mktab" data-mm="traitees" aria-selected="'+(MMODE==="traitees")+'">Déjà traitées</button>'
     +'<button class="mktab" data-mm="biblio" aria-selected="'+(MMODE==="biblio")+'">Bibliothèque</button>'
+    +(admin?'<button class="mktab" data-mm="chercher" aria-selected="'+(MMODE==="chercher")+'">Chercher des sons</button>':'')
     +(admin?'<button class="mktab" data-mm="joueurs" aria-selected="'+(MMODE==="joueurs")+'">Joueurs</button>':'')
     +(admin?'<button class="mktab" data-mm="mentions" aria-selected="'+(MMODE==="mentions")+'">Mentions légales</button>':'')
     +'</div><div id="modbox"></div>';
   box.querySelectorAll(".mktab").forEach(t=>t.onclick=()=>{ MMODE=t.dataset.mm; renderModeration(); });
   if(MMODE==="file") vueFile();
+  else if(MMODE==="traitees") vueTraitees();
+  else if(MMODE==="chercher") vueChercher();
+  else if(MMODE==="chercher") vueChercher();
   else if(MMODE==="mentions") vueMentions();
   else if(MMODE==="joueurs") vueJoueurs();
   else vueBiblio();
@@ -2784,15 +2856,80 @@ function renderModeration(){
 
 async function vueFile(){
   const box=document.getElementById("modbox");
-  box.innerHTML='<p class="notice">Chargement de la file…</p>';
+  box.innerHTML='<p class="notice">Chargement des propositions…</p>';
   const r=await apiAppel("/api/moderation",{action:"file"});
   if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Modération indisponible.")+'</div>'; return; }
-  if(!r.file.length){ box.innerHTML='<div class="empty">La file est vide. Rien à trancher.</div>'; return; }
+  /* Le compteur de l'onglet ne se connaît qu'une fois la file chargée : on
+     redessine une fois pour l'afficher. Le second passage trouve le même
+     nombre et s'arrête là. */
+  const avant=ENATTENTE; ENATTENTE=r.total||0;
+  if(avant!==ENATTENTE){ renderModeration(); return; }
+  if(!r.file.length){
+    box.innerHTML='<div class="empty">Aucune proposition en attente.<br>'
+      +'<span style="font-size:13px">Les joueurs proposent des morceaux depuis l\'onglet '
+      +'<b>Communauté</b>. Ce qu\'ils envoient arrive ici, et rien n\'entre dans le jeu sans '
+      +'passer par cet écran.<br>Les décisions déjà prises sont dans <b>Déjà traitées</b>.</span></div>';
+    return;
+  }
   box.innerHTML='<p class="notice"><b style="color:var(--ink-2)">'+r.total+' proposition(s) en attente.</b> '
     +'Écoute l\'extrait, vérifie que l\'artiste et le titre sont justes, puis fixe la popularité : '
-    +'c\'est elle qui décide du palier de rareté.</p><div id="modliste"></div>';
+    +'c\'est elle qui décide du palier de rareté. Une proposition validée part chez son trouveur '
+    +'en pressage d\'origine, et porte son nom tant que le jeu existe.</p><div id="modliste"></div>';
   const l=document.getElementById("modliste");
   r.file.forEach(p=>l.appendChild(ficheModeration(p)));
+}
+
+/* Ce qui a déjà été tranché. L'API existait depuis la v2.0 et personne ne
+   pouvait la regarder : aucun écran ne l'appelait. */
+let TRAITEES=[], TQ="", TFILTRE="tout";
+async function vueTraitees(){
+  const box=document.getElementById("modbox");
+  box.innerHTML='<p class="notice">Chargement…</p>';
+  const r=await apiAppel("/api/moderation",{action:"historique"});
+  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Indisponible.")+'</div>'; return; }
+  TRAITEES=r.historique||[];
+  dessinerTraitees();
+}
+
+function dessinerTraitees(){
+  const box=document.getElementById("modbox");
+  const q=norm(TQ);
+  let l=TRAITEES;
+  if(TFILTRE!=="tout") l=l.filter(p=>p.statut===TFILTRE);
+  if(q) l=l.filter(p=>norm((p.track.artist||"")+" "+(p.track.title||"")+" "+((p.par&&p.par.pseudo)||"")).includes(q));
+
+  const nb1=TRAITEES.filter(p=>p.statut==="validee").length;
+  const nb2=TRAITEES.filter(p=>p.statut==="refusee").length;
+
+  box.innerHTML='<div class="kpis" style="margin-top:0">'
+      +'<div class="kpi"><span>Validées</span><b>'+nb1+'</b><p>entrées dans le jeu.</p></div>'
+      +'<div class="kpi"><span>Refusées</span><b>'+nb2+'</b><p>avec un motif, visible par le joueur.</p></div>'
+    +'</div>'
+    +'<div class="bar"><input id="tq" placeholder="Chercher un artiste, un titre, un joueur…" value="'+esc(TQ)+'" style="flex:1;min-width:200px">'
+      +'<select id="tf" style="width:auto">'
+      +['tout|Toutes','validee|Validées','refusee|Refusées'].map(o=>{const[v,n]=o.split("|");
+        return '<option value="'+v+'"'+(TFILTRE===v?' selected':'')+'>'+n+'</option>';}).join("")
+      +'</select></div>'
+    +(l.length?'<div class="ladder">'+l.map(ligneTraitee).join("")+'</div>'
+      :'<div class="empty">Rien sous ce filtre.</div>');
+
+  const qi=document.getElementById("tq");
+  qi.oninput=()=>{ TQ=qi.value; dessinerTraitees(); };
+  document.getElementById("tf").onchange=e=>{ TFILTRE=e.target.value; dessinerTraitees(); };
+}
+
+function ligneTraitee(p){
+  const ok2=p.statut==="validee";
+  return '<div class="lr"><span class="who">'
+      +'<b>'+esc(p.track.artist||"—")+'</b> · '+esc(p.track.title||"—")
+      +'<br><span style="font-weight:400;opacity:.6;font-size:11px">proposé par '
+      +esc((p.par&&p.par.pseudo)||"—")+' le '+dateFr(p.cree)
+      +' · tranché le '+dateFr(p.tranche)+(p.parQui?' par '+esc(p.parQui):'')+'</span></span>'
+    +'<span class="hint">'+(ok2
+        ? '<b style="color:var(--ok)">validée</b>'+(p.pop!=null?' · popularité '+p.pop:'')
+        : '<b style="color:var(--t6)">refusée</b>')
+      +(p.note?'<br><i>« '+esc(p.note)+' »</i>':(ok2?'':'<br><i style="opacity:.6">sans motif</i>'))
+      +'</span></div>';
 }
 
 function ficheModeration(p){
@@ -3011,6 +3148,7 @@ function dessinerBiblio(garder){
       +'<button class="btn ghost sm" type="button" id="bajouter">Ajouter des sons par liste</button>'
       +'<button class="btn ghost sm" type="button" id="benlever">Retirer des sons par liste</button>'
       +'<button class="btn ghost sm" type="button" id="bartistes">Un seul artiste par carte</button>'
+      +'<button class="btn ghost sm" type="button" id="bentiers">Noms à garder entiers</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
       +listeArtistes().length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
@@ -3055,6 +3193,7 @@ function dessinerBiblio(garder){
     document.getElementById("bajouter").onclick=ajouterParListe;
     document.getElementById("benlever").onclick=retirerParListe;
     document.getElementById("bartistes").onclick=reparerArtistes;
+    document.getElementById("bentiers").onclick=reglerNomsEntiers;
     document.getElementById("bvider").onclick=viderNoyau;
   }
   if(garder) bdiag(garder);
@@ -3458,7 +3597,7 @@ async function chercherUnSon(artiste,titre){
     if(REJET.test(r.artistName)||REJET.test(r.trackName)||REJET.test(r.collectionName||"")) continue;
     const propre=titrePropre(r.trackName);
     if(!propre) continue;
-    const t={ id:r.trackId, title:propre, artist:artiste, credits:v.credits,
+    const t={ id:r.trackId, title:propre, artist:v.artist, credits:v.credits,
       album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
       year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
       art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
@@ -3467,6 +3606,178 @@ async function chercherUnSon(artiste,titre){
     if(!repli && norm(propre).includes(cibleT)) repli=t;
   }
   return repli;
+}
+
+
+/* ============ CHERCHER ET AJOUTER, EN QUELQUES CLICS ============
+   L'ajout par liste (v2.5) suppose qu'on sache déjà quoi ajouter. Construire
+   toute la bibliothèque depuis Apple (v1.5) prend une demi-heure et exige de
+   laisser l'onglet ouvert. Entre les deux il manquait le geste le plus
+   courant : « montre-moi ce qu'il y a sous ce nom, je coche ce que je veux ».
+
+   C'est cet écran. Une recherche, des résultats avec pochette, des cases à
+   cocher, un bouton. Tout ce qui est déjà dans le jeu est signalé et ne peut
+   pas être coché deux fois. */
+
+let RECH=[], RECH_SEL=new Set(), RECH_TERME="", RECH_TYPE="artiste", RECH_REQ=0;
+
+async function vueChercher(){
+  const box=document.getElementById("modbox");
+  box.innerHTML=
+    '<p class="notice"><b style="color:var(--ink-2)">Cherche, coche, ajoute.</b> '
+      +'Les résultats viennent d\'Apple Music (boutique France). Un morceau déjà dans le jeu '
+      +'est grisé : on ne l\'ajoute pas deux fois. Rien n\'entre avant que tu cliques sur le bouton.</p>'
+    +'<div class="bar">'
+      +'<select id="rtype" style="width:auto">'
+        +[["artiste","Par artiste"],["titre","Par titre"],["genre","Par genre ou ambiance"]]
+          .map(o=>'<option value="'+o[0]+'"'+(RECH_TYPE===o[0]?' selected':'')+'>'+o[1]+'</option>').join("")
+      +'</select>'
+      +'<input id="rq" placeholder="Damso, ou « Œuvre d\'art », ou « boom bap »" value="'+esc(RECH_TERME)+'" style="flex:1;min-width:200px">'
+      +'<button class="btn sm" type="button" id="rgo">Chercher</button>'
+    +'</div>'
+    +'<div id="rdiag" class="notice"></div>'
+    +'<div id="rlist"></div>'
+    +'<div class="bar" id="rbar" hidden>'
+      +'<button class="btn" type="button" id="radd"></button>'
+      +'<button class="btn ghost sm" type="button" id="rall">Tout cocher</button>'
+      +'<button class="btn ghost sm" type="button" id="rnone">Tout décocher</button>'
+    +'</div>';
+
+  const q=document.getElementById("rq"), t=document.getElementById("rtype");
+  t.onchange=()=>{ RECH_TYPE=t.value; };
+  q.onkeydown=e=>{ if(e.key==="Enter") lancerRecherche(); };
+  document.getElementById("rgo").onclick=lancerRecherche;
+  document.getElementById("rall").onclick=()=>{
+    RECH.forEach((x,i)=>{ if(!x.deja) RECH_SEL.add(i); }); dessinerRecherche(); };
+  document.getElementById("rnone").onclick=()=>{ RECH_SEL.clear(); dessinerRecherche(); };
+  document.getElementById("radd").onclick=ajouterSelection;
+  if(RECH.length) dessinerRecherche();
+  q.focus();
+}
+
+const rdiag=m=>{ const d=document.getElementById("rdiag"); if(d) d.innerHTML=m; };
+
+async function lancerRecherche(){
+  const q=document.getElementById("rq");
+  RECH_TERME=q.value.trim();
+  if(!RECH_TERME){ rdiag('<b style="color:var(--t6)">Écris quelque chose à chercher.</b>'); return; }
+  const mien=++RECH_REQ;
+  RECH=[]; RECH_SEL.clear(); dessinerRecherche();
+  rdiag("Recherche chez Apple…");
+
+  /* Les trois entrées ne posent pas la même question à Apple. Par genre, on
+     demande des albums plutôt que des titres : c'est ce qui donne le plus de
+     variété sur un mot comme « boom bap ». */
+  const base="https://itunes.apple.com/search?country=FR&lang=fr_fr&limit=100&entity=song&term=";
+  const url=base+encodeURIComponent(RECH_TERME)
+    +(RECH_TYPE==="artiste"?"&attribute=artistTerm":RECH_TYPE==="titre"?"&attribute=songTerm":"&attribute=genreIndex");
+
+  let rows=[];
+  try{
+    const d=await jsonp(url);
+    rows=(d&&d.results)?d.results:[];
+  }catch(e){
+    if(mien!==RECH_REQ) return;
+    rdiag('<b style="color:var(--t6)">Apple n\'a pas répondu.</b> Réessaie dans quelques secondes — '
+      +'ils limitent le nombre de recherches par minute.');
+    return;
+  }
+  if(mien!==RECH_REQ) return;
+
+  /* Les mêmes contrôles que partout ailleurs : un extrait, une pochette, un
+     seul artiste par carte, ni karaoké ni reprise. */
+  const vus=new Set(), out=[];
+  for(const r of rows){
+    if(!r.previewUrl||!r.artworkUrl100||!r.trackName||!r.artistName) continue;
+    if(REJET.test(r.artistName)||REJET.test(r.trackName)||REJET.test(r.collectionName||"")) continue;
+    if(REJET_TITRE.test(r.trackName)) continue;
+    const titre=titrePropre(r.trackName);
+    if(!titre) continue;
+    /* Le premier nom crédité possède la carte — la même règle que le serveur. */
+    const parts=String(r.artistName).split(SEP_ARTISTES_G).map(x=>x.trim()).filter(Boolean);
+    const principal=(parts.length>1)?parts[0]:r.artistName;
+    const cle=norm(principal)+"|"+norm(titre);
+    if(vus.has(cle)) continue; vus.add(cle);
+    out.push({ id:r.trackId, title:titre, artist:principal,
+      credits:(parts.length>1)?r.artistName:"",
+      album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
+      year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
+      art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
+      url:r.trackViewUrl||"", poids:2, rank:0, pop:50, deja:false });
+  }
+
+  if(!out.length){
+    rdiag('<b style="color:var(--t6)">Rien d\'utilisable sous ce nom.</b> '
+      +'Écris le nom comme Apple l\'écrit — <i>Angèle</i> et pas <i>Angele</i>. '
+      +'Les karaokés, reprises, lives et remixes sont écartés d\'office.');
+    return;
+  }
+
+  /* Ce qui est déjà dans le jeu : c'est le serveur qui sait. */
+  try{
+    const c=await apiAppel("/api/bibliotheque",{connus:out.slice(0,40).map(t=>({artist:t.artist,title:t.title}))});
+    if(c&&c.ok&&Array.isArray(c.connus)) c.connus.forEach((v,i)=>{ out[i].deja=!!v; });
+  }catch(e){}
+
+  RECH=out.slice(0,40);
+  const neufs=RECH.filter(x=>!x.deja).length;
+  rdiag('<b style="color:var(--ink-2)">'+RECH.length+' morceau(x)</b> — <b>'+neufs+'</b> absent(s) du jeu, '
+    +(RECH.length-neufs)+' déjà là.');
+  dessinerRecherche();
+}
+
+function dessinerRecherche(){
+  const l=document.getElementById("rlist"), bar=document.getElementById("rbar");
+  if(!l) return;
+  if(!RECH.length){ l.innerHTML=""; if(bar) bar.hidden=true; return; }
+
+  l.innerHTML='<div class="ladder">'+RECH.map((t,i)=>
+    '<div class="lr'+(t.deja?" fait":"")+'" style="'+(t.deja?"opacity:.45":"")+'">'
+      +'<span class="pos">'+(t.deja?'<span title="déjà dans le jeu">✓</span>'
+        :'<input type="checkbox" data-i="'+i+'"'+(RECH_SEL.has(i)?' checked':'')+' aria-label="ajouter ce morceau">')+'</span>'
+      +'<span class="who" style="display:flex;gap:10px;align-items:center">'
+        +'<img src="'+esc(t.art)+'" alt="" loading="lazy" style="width:38px;height:38px;border-radius:4px;flex:0 0 auto">'
+        +'<span><b>'+esc(t.artist)+'</b> · '+esc(t.title)
+        +(t.credits?' <i style="opacity:.6">('+esc(t.credits)+')</i>':'')
+        +'<br><span style="font-weight:400;opacity:.6;font-size:11px">'+esc(t.album)+' · '+(t.year||"—")
+        +' · '+esc(t.genre)+' · '+(t.ms?mmss(t.ms):"—")+(t.deja?" · déjà dans le jeu":"")+'</span></span>'
+      +'</span>'
+      +'<span class="hint"><button class="btn ghost sm" type="button" data-ec="'+i+'">▶ Écouter</button></span>'
+    +'</div>').join("")+'</div>';
+
+  l.querySelectorAll("[data-i]").forEach(c=>c.onchange=()=>{
+    const i=+c.dataset.i;
+    if(c.checked) RECH_SEL.add(i); else RECH_SEL.delete(i);
+    majBoutonAjout();
+  });
+  l.querySelectorAll("[data-ec]").forEach(b=>b.onclick=()=>{ unlock(); snip(RECH[+b.dataset.ec],8000,0); });
+  if(bar) bar.hidden=false;
+  majBoutonAjout();
+}
+
+function majBoutonAjout(){
+  const b=document.getElementById("radd");
+  if(!b) return;
+  const n=RECH_SEL.size;
+  b.disabled=!n;
+  b.textContent=n?("Ajouter "+n+" morceau"+(n>1?"x":"")+" à la bibliothèque"):"Coche ce que tu veux ajouter";
+}
+
+async function ajouterSelection(){
+  const choisis=[...RECH_SEL].map(i=>RECH[i]).filter(t=>t&&!t.deja);
+  if(!choisis.length) return;
+  rdiag("Envoi…");
+  const r=await apiAppel("/api/moderation",{action:"importer",tracks:choisis.map(t=>{
+    const c={...t}; delete c.deja; return c; })});
+  if(!r||!r.ok){ rdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Envoi refusé")+'</b>'); return; }
+  rdiag('<b style="color:var(--ok)">'+r.ajoutes+' morceau(x) ajouté(s).</b> '
+    +(r.ignores?r.ignores+' déjà présent(s). ':'')+(r.refuses?r.refuses+' écarté(s). ':'')
+    +'La bibliothèque compte '+r.total+' sons.');
+  /* Ce qu'on vient d'ajouter n'est plus « à ajouter ». */
+  choisis.forEach(t=>{ const x=RECH.find(y=>y.id===t.id); if(x) x.deja=true; });
+  RECH_SEL.clear();
+  dessinerRecherche();
+  await chargerServeur(true); sync();
 }
 
 /* ============ RETIRER DES SONS PAR LISTE ============ */
@@ -3693,13 +4004,19 @@ async function reparerArtistes(){
   const q=await modale("Ramener "+a.aCorriger+" carte(s) à un seul artiste ?",
     '<p>Le jeu propose quatre noms et demande lequel est le bon. Une carte signée '
     +'&laquo; GIMS &amp; Dadju &raquo; n\'a aucune bonne réponse dans la liste : c\'est injouable.</p>'
-    +'<p><b>'+a.aCorriger+'</b> carte(s) seront ramenées au plus connu des artistes cités, '
-    +'la ligne complète restant affichée en crédits une fois la carte retournée.'
+    +'<p><b>'+a.aCorriger+'</b> carte(s) seront attribuées au <b>premier artiste crédité</b> — '
+    +'&laquo; A &amp; B &raquo;, &laquo; A feat. B &raquo;, &laquo; A, B &raquo; : c\'est A, toujours. '
+    +'La ligne complète reste affichée en crédits une fois la carte retournée, personne n\'est effacé.'
     +(a.aFusionner?' <b>'+a.aFusionner+'</b> carte(s) deviendront des doublons et disparaîtront.':'')+'</p>'
-    +(a.laissees?'<p><b>'+a.laissees+'</b> carte(s) ne bougeront pas : aucun des noms cit&eacute;s n\'est un '
-      +'artiste que le jeu conna&icirc;t d&eacute;j&agrave;, ou c\'est un nom de groupe qui revient sur plusieurs '
-      +'titres. &laquo; Earth, Wind &amp; Fire &raquo; n\'est pas un featuring, et le renommer &laquo; Earth &raquo; '
-      +'serait pire que de le laisser.</p>':'')
+    +(a.laissees?'<p><b>'+a.laissees+'</b> carte(s) ne bougeront pas : ce sont des noms de groupe, '
+      +'rep&eacute;r&eacute;s parce que la m&ecirc;me signature revient sur trois titres ou plus, ou parce que '
+      +'tu les as d&eacute;clar&eacute;s entiers. &laquo; Earth, Wind &amp; Fire &raquo; n\'est pas un featuring.'
+      +(a.groupes&&a.groupes.length?'<br><span style="font-size:12.5px;opacity:.75">'
+        +a.groupes.slice(0,20).map(x=>esc(x.nom)+' ('+x.titres+')').join(' · ')
+        +(a.groupes.length>20?' …':'')+'</span>':'')
+      +'<br><span style="font-size:12.5px">S\'il y a une erreur l&agrave;-dedans, ou si un duo est '
+      +'d&eacute;coup&eacute; &agrave; tort, le bouton <b>Noms &agrave; garder entiers</b> est juste &agrave; '
+      +'c&ocirc;t&eacute;.</span></p>':'')
     +'<div class="scale"><div class="sc head"><span>Avant</span><span>Après</span>'
     +'<span class="odds"></span><span class="val"></span></div>'
     +a.exemples.slice(0,12).map(x=>'<div class="sc"><span class="nm">'+esc(x.avant)+'</span>'
@@ -3718,6 +4035,32 @@ async function reparerArtistes(){
   bdiag(bilan);
   await chargerServeur(true); sync();
   vueBiblio(bilan);
+}
+
+/* Les noms qu'on ne découpe jamais. Le garde-fou automatique attrape les
+   groupes qui ont trois titres ou plus ; un duo qui n'en a que deux lui
+   échappe et se ferait découper. Cette liste est la porte de sortie. */
+async function reglerNomsEntiers(){
+  const r=await apiAppel("/api/moderation",{action:"noms-entiers"});
+  if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Indisponible.")+'</b>'); return; }
+  const q=await modale("Noms à garder entiers",
+    '<p>Depuis la v2.7, une carte signée de plusieurs noms appartient au <b>premier</b>. '
+    +'C\'est la bonne règle pour un featuring, et la mauvaise pour un groupe : '
+    +'&laquo; Earth, Wind &amp; Fire &raquo; ne doit pas devenir &laquo; Earth &raquo;.</p>'
+    +'<p class="notice">Le jeu repère tout seul les groupes qui ont <b>trois titres ou plus</b> sous '
+    +'la même signature. Cette liste sert pour les autres : un duo qui n\'a qu\'un ou deux morceaux '
+    +'dans la bibliothèque. <b>Un nom par ligne</b>, écrit exactement comme sur la carte.</p>'
+    +'<textarea id="lentiers" rows="10" placeholder="Earth, Wind &amp; Fire&#10;Simon &amp; Garfunkel&#10;Hall &amp; Oates" '
+    +'style="width:100%;font-family:\'JetBrains Mono\',monospace;font-size:12.5px;line-height:1.6">'
+    +esc((r.noms||[]).join("\n"))+'</textarea>',
+    [{v:"go",n:"Enregistrer",avant:ov=>({go:true,texte:ov.querySelector("#lentiers").value})},
+     {v:0,n:"Annuler",g:true}]);
+  if(!q||!q.go) return;
+  const noms=lignesDe(q.texte);
+  const r2=await apiAppel("/api/moderation",{action:"noms-entiers",noms:noms.length?noms:[""]});
+  if(r2&&r2.ok) bdiag('<b style="color:var(--ok)">'+(r2.noms||[]).length+' nom(s) protégé(s).</b> '
+    +'Ils ne seront plus jamais découpés, ni à l\'import, ni par la réparation.');
+  else bdiag('<b style="color:var(--t6)">'+esc((r2&&r2.erreur)||"Échec")+'</b>');
 }
 
 async function viderNoyau(){
@@ -3923,9 +4266,9 @@ async function renderCrewServeur(){
     +'<button class="btn ghost sm" type="button" id="crout">Quitter</button></div>'
     +'<div class="kpis">'
       +'<div class="kpi"><span>Bac commun</span><b>'+t.cartes+'</b><p>cartes cumulées par le crew.</p></div>'
-      +'<div class="kpi"><span>Oreille moyenne</span><b>'+(t.taux==null?"—":t.taux)+'<em>%</em></b><p>moyenne des taux à sec.</p></div>'
+      +'<div class="kpi"><span>Oreille moyenne</span><b>'+(t.taux==null?"—":t.taux)+'<em>%</em></b><p>moyenne des joueurs.</p></div>'
       +'<div class="kpi"><span>Sons trouvés</span><b>'+t.validees+'</b><p>entrés au catalogue grâce au crew.</p></div></div>'
-    +'<div class="lad"><div class="lr head"><span>#</span><span>Membre</span><span class="num">À sec</span><span class="num">Cartes</span></div>'
+    +'<div class="lad"><div class="lr head"><span>#</span><span>Membre</span><span class="num">Sans aide</span><span class="num">Cartes</span></div>'
     +CREW.membres.map((m,i)=>'<div class="lr'+(COMPTE&&m.uid===COMPTE.uid?" me":"")+'"><span class="pos">'+(i+1)+'</span>'
       +'<span class="who" style="color:'+(PALETTE[m.couleur]||PALETTE.ambre)+'">'+esc(m.pseudo)
       +'<small>'+esc(titreNom(m.titre))+(m.validees?' · '+m.validees+' son(s) trouvé(s)':'')+'</small></span>'
@@ -3965,11 +4308,11 @@ async function renderLadderServeur(){
   const r=await apiAppel("/api/classement",null,"GET");
   if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Classement indisponible.")+'</div>'; return; }
   const t=tauxSec();
-  const tables=[["oreille","Identification à sec","À sec",x=>x.taux==null?"—":x.taux+"%"],
+  const tables=[["oreille","Reconnus sans aide","Sans aide",x=>x.taux==null?"—":x.taux+"%"],
                 ["collection","Taille du bac","Cartes",x=>x.cartes],
                 ["set","Meilleur set","Note",x=>x.meilleurSet],
                 ["defricheurs","Sons trouvés","Entrés",x=>x.validees]];
-  box.innerHTML='<div class="rule"><p style="margin:0"><b>On classe d\'abord sur l\'identification à sec</b> — '
+  box.innerHTML='<div class="rule"><p style="margin:0"><b>On classe d\'abord sur ce qu\'on reconnaît sans aide</b> — '
       +'le pourcentage de cartes reconnues sans révélateur et hors achats. Les autres tableaux sont là pour le reste : '
       +'ils ne donnent pas de rang.</p>'
       +'<p style="margin:0">'+r.joueurs+' joueur(s) inscrits. Il faut au moins dix cartes pour entrer au tableau principal.</p></div>'
@@ -4150,6 +4493,37 @@ function sync(){
   document.getElementById("ecl").textContent=S.eclats;
   document.getElementById("ngrav").textContent=S.shelf.filter(c=>c.known).length+"/"+S.shelf.length;
   renderShop();
+  renderProgres();
+}
+
+/* ---------- la progression ----------
+   Deux choses qui donnent envie de revenir, et aucune n'est un minuteur :
+   la série de jours consécutifs, et les paliers de collection. Ils vivaient
+   déjà dans les données du serveur ; ils n'étaient nulle part à l'écran. */
+function renderProgres(){
+  const box=document.getElementById("progres");
+  if(!box) return;
+  if(!COMPTE||!JEU){ box.innerHTML=""; return; }
+
+  const serie=JEU.streak||0;
+  const prime=JEU.primeDuJour;
+  const paliers=JEU.paliers||[];
+  const artistes=JEU.artistes||0;
+  const prochain=paliers.find(p=>!p.pris);
+  const pris=paliers.filter(p=>p.pris).length;
+
+  box.innerHTML='<div class="kpis" style="margin-top:18px">'
+    +'<div class="kpi"><span>Série</span><b>'+serie+'<em>'+(serie>1?" jours":" jour")+'</em></b>'
+      +'<p>'+(prime?'<b style="color:var(--ok)">+'+prime.montant+' crédits</b> aujourd\'hui. ':'')
+      +'Reviens demain : <b>+'+(JEU.primeDemain||0)+'</b>.</p></div>'
+    +'<div class="kpi"><span>Artistes reconnus</span><b>'+artistes+'</b>'
+      +'<p>'+(prochain
+          ? 'encore <b>'+(prochain.n-artistes)+'</b> pour «&nbsp;'+esc(prochain.titre)+'&nbsp;» (+'+prochain.prime+' crédits).'
+          : 'tous les paliers sont franchis.')+'</p></div>'
+    +'<div class="kpi"><span>Paliers</span><b>'+pris+'<em>/'+paliers.length+'</em></b>'
+      +'<p>'+paliers.map(p=>'<span style="opacity:'+(p.pris?1:.4)+'">'+(p.pris?"●":"○")+'</span>').join(" ")
+      +'</p></div>'
+  +'</div>';
 }
 function syncMute(){
   const b=document.getElementById("mute");

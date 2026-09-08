@@ -53,15 +53,33 @@ R("un nom composé non plus", !biblio.plusieursArtistes("Hamza Namira"));
 R("on retrouve les deux noms", JSON.stringify(biblio.decouper("GIMS & Dadju")) === '["GIMS","Dadju"]');
 R("et les trois", biblio.decouper("XVI, Ninho & Davido").length === 3);
 
+/* LA RÈGLE, DEPUIS LA v2.7 : le premier nom cité possède le morceau.
+   Avant, on gardait le plus connu des noms — plus malin, et faux : le même
+   morceau changeait de propriétaire à mesure que la bibliothèque grossissait. */
 console.log("\n=== QUI EST L'ARTISTE PRINCIPAL ===");
 {
-  const solos = new Map([
-    ["ninho", { nom: "Ninho", compte: 30 }],
-    ["gazo", { nom: "Gazo", compte: 4 }]
-  ]);
-  R("celui qui a le plus de titres à son nom", biblio.principal("Gazo & Ninho", solos) === "Ninho");
-  R("même écrit en premier", biblio.principal("Ninho & Gazo", solos) === "Ninho");
-  R("si aucun n'est connu, on ne devine pas", biblio.principal("Alpha & Beta", solos) === null);
+  R("le premier nom cité, toujours", biblio.principal("Gazo & Ninho") === "Gazo");
+  R("même si l'autre est plus connu", biblio.principal("Ninho & Gazo") === "Ninho");
+  R("un « feat. » ne change rien à la règle", biblio.principal("Ninho feat. Niska") === "Ninho");
+  R("une virgule non plus", biblio.principal("XVI, Ninho & Davido") === "XVI");
+  R("un nom seul n'a pas d'artiste principal", biblio.principal("Ninho") === null);
+
+  R("« feat. » est une collaboration explicite", biblio.collaborationExplicite("A feat. B"));
+  R("« avec » aussi", biblio.collaborationExplicite("A avec B"));
+  R("« & » ne l'est pas — ça peut être un nom de groupe",
+    !biblio.collaborationExplicite("Earth, Wind & Fire"));
+
+  /* Un nom qui revient sur trois titres ou plus est un groupe, pas un duo
+     d'un soir : on n'y touche pas. Sauf s'il porte un « feat. ». */
+  const groupe = new Map([["earthwindfire", 5], ["afeatb", 5]]);
+  R("un groupe est laissé entier",
+    biblio.artistePrincipal("Earth, Wind & Fire", { lignes: groupe }) === null);
+  R("mais un « feat. » répété reste un featuring",
+    biblio.artistePrincipal("A feat. B", { lignes: groupe }) === "A");
+  R("un duo qui n'a qu'un titre est découpé",
+    biblio.artistePrincipal("Gazo & Ninho", { lignes: new Map([["gazoninho", 1]]) }) === "Gazo");
+  R("un nom déclaré entier n'est jamais découpé",
+    biblio.artistePrincipal("Simon & Garfunkel", { entiers: new Set(["simongarfunkel"]) }) === null);
 }
 
 console.log("\n=== LA RÉPARATION ===");
@@ -78,31 +96,37 @@ console.log("\n=== LA RÉPARATION ===");
   await biblio.ecrire({ meta: {}, tracks });
 
   const a = biblio.apercuArtistes(tracks);
-  R("l'aperçu annonce exactement ce que la réparation fera", a.aCorriger === 1 && a.aFusionner === 1);
-  R("et compte celles qu'il laisse volontairement", a.laissees === 6);
-  R("il annonce la fusion à venir", a.aFusionner === 1);
+  /* « Gazo & Ninho » devient Gazo, « Ninho & Gazo » devient Ninho : ce ne sont
+     plus le même morceau, donc plus rien à fusionner. C'est la contrepartie
+     assumée de la règle du premier nommé — elle est déterministe, elle n'est
+     pas maligne. La modération voit les deux et tranche si elle veut. */
+  R("l'aperçu annonce exactement ce que la réparation fera",
+    a.aCorriger === 3 && a.aFusionner === 0);
+  R("et compte celles qu'il laisse volontairement", a.laissees === 5);
+  R("il nomme les groupes qu'il garde entiers",
+    a.groupes.some(x => x.nom === "Earth, Wind & Fire" && x.titres === 5));
   R("il montre des exemples lisibles",
-    a.exemples.length === 2 && a.exemples.every(x => x.avant && x.apres && x.titre));
+    a.exemples.length === 3 && a.exemples.every(x => x.avant && x.apres && x.titre));
 
   const r = await biblio.reparerArtistes();
-  R("une carte corrigée et gardée", r.corriges === 1);
-  R("une carte en double supprimée", r.fusionnes === 1);
-  R("les deux compteurs ne racontent pas la même carte deux fois",
-    r.corriges + r.fusionnes === 2);
+  R("les trois lignes à plusieurs noms sont ramenées à un seul", r.corriges === 3);
+  R("rien n'est fusionné à tort", r.fusionnes === 0);
 
   const apres = await biblio.lire();
   R("plus aucun featuring déguisé en artiste",
-    !apres.tracks.some(t => /GIMS|Gazo &|& Gazo/.test(t.artist)));
-  const duo = apres.tracks.find(t => t.title === "Mangez-les");
-  R("le duo est signé du plus connu des deux", duo.artist === "Ninho");
+    !apres.tracks.some(t => /Gazo &|& Gazo/.test(t.artist)));
+  const duos = apres.tracks.filter(t => t.title === "Mangez-les");
+  R("chaque duo est signé de son premier nom",
+    duos.length === 2 && duos.some(t => t.artist === "Gazo") && duos.some(t => t.artist === "Ninho"));
+  const duo = duos[0];
   R("et la ligne complète est gardée en crédits", /Gazo/.test(duo.credits) && /Ninho/.test(duo.credits));
   R("l'artiste au nom composé n'a pas été touché",
     apres.tracks.some(t => t.artist === "Hamza Namira"));
+  R("un duo de deux inconnus est découpé comme les autres",
+    apres.tracks.some(t => t.title === "Inconnus" && t.artist === "Alpha"));
   R("le groupe au nom à rallonge est intact",
     apres.tracks.filter(t => t.artist === "Earth, Wind & Fire").length === 5);
-  R("le duo d'inconnus est laissé tel quel",
-    apres.tracks.some(t => t.artist === "Alpha & Beta"));
-  R("rien d'autre n'a bougé", apres.tracks.length === 23);
+  R("aucune carte n'a disparu", apres.tracks.length === 24);
 
   const r2 = await biblio.reparerArtistes();
   R("relancer la réparation ne change plus rien", r2.corriges === 0 && r2.fusionnes === 0);
@@ -181,7 +205,7 @@ console.log("\n=== LA LISTE D'ARTISTES ===");
 console.log("\n=== LA VUE PUBLIQUE ===");
 let r = await get(bibliotheque);
 R("elle s'ouvre sans compte", r.code === 200);
-R("elle annonce le nombre de titres", r.meta.titres === 23);
+R("elle annonce le nombre de titres", r.meta.titres === 24);
 R("aucun exemplaire tant que personne ne joue", r.meta.exemplaires === 0);
 R("elle rend les cartes avec leur rareté", r.cartes.length > 0 && !!r.cartes[0].rareteNom);
 R("elle ne cache ni titre ni artiste", r.cartes.every(c => c.title && c.artist));

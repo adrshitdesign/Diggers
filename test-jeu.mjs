@@ -63,8 +63,14 @@ r = await post(compte, { action: "sauver", code: "triche", resume: { cartes: 999
 R("on ne peut plus déposer sa propre sauvegarde", r.code === 410);
 
 r = await post(jeu, { action: "etat" }, jMila);
-R("un joueur neuf a 400 crédits et une étagère vide",
-  r.code === 200 && r.etat.credits === 400 && r.etat.coffre.length === 0);
+/* 400 de départ, plus la prime du premier jour de série (12) : depuis la v2.7
+   la régularité paie, et le premier jour compte comme le premier jour. */
+R("un joueur neuf a 412 crédits et une étagère vide",
+  r.code === 200 && r.etat.credits === 412 && r.etat.coffre.length === 0);
+R("la prime de série est annoncée", r.etat.primeDuJour && r.etat.primeDuJour.montant === 12);
+R("et le jeu dit ce que rapportera demain", r.etat.primeDemain === 20);
+R("elle ne tombe qu'une fois par jour",
+  (await post(jeu, { action: "etat" }, jMila)).etat.credits === 412);
 R("le carton du jour est disponible", r.etat.jourDispo === true);
 R("le taux d'identification est encore vide", r.etat.taux === null);
 
@@ -74,7 +80,7 @@ R("sans jeton valable, aucun état", r.code === 401);
 console.log("\n=== OUVRIR UN CARTON ===");
 r = await post(jeu, { action: "carton", type: "jour" }, jMila);
 R("le carton du jour donne cinq cartes", r.code === 200 && r.cartes.length === 5);
-R("il ne coûte rien", r.etat.credits === 400);
+R("il ne coûte rien", r.etat.credits === 412);
 R("il n'est ouvrable qu'une fois", (await post(jeu, { action: "carton", type: "jour" }, jMila)).code === 429);
 
 const c0 = r.cartes[0];
@@ -85,20 +91,20 @@ R("elle propose quatre réponses", Array.isArray(c0.choices) && c0.choices.lengt
 R("elle vaut 26 crédits tant qu'on n'a rien demandé", c0.valeur === 26);
 
 r = await post(jeu, { action: "carton", type: "std" }, jMila);
-R("un carton standard coûte 100 crédits", r.code === 200 && r.etat.credits === 300);
+R("un carton standard coûte 140 crédits", r.code === 200 && r.etat.credits === 272);
 r = await post(jeu, { action: "carton", type: "scene" }, jTheo);
-R("un carton de scène coûte 220 crédits", r.code === 200 && r.etat.credits === 180);
+R("un carton de scène coûte 280 crédits", r.code === 200 && r.etat.credits === 132);
 r = await post(jeu, { action: "carton", type: "or" }, jMila);
 R("un carton inventé est refusé", r.code === 400);
 
 console.log("\n=== L'ENQUÊTE ===");
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "audio" }, jMila);
-R("l'extrait ne coûte rien", r.code === 200 && r.etat.credits === 300);
+R("l'extrait ne coûte rien", r.code === 200 && r.etat.credits === 272);
 R("il livre enfin l'adresse du son", !!r.carte.indices.preview);
 R("mais il marque la carte comme écoutée", r.carte.heard === true);
 
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "album" }, jMila);
-R("l'album se paie sur le gain, pas sur la caisse", r.carte.valeur === 21 && r.etat.credits === 300);
+R("l'album se paie sur le gain, pas sur la caisse", r.carte.valeur === 21 && r.etat.credits === 272);
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "fausse-cle" }, jMila);
 R("un indice inventé est refusé", r.code === 400);
 
@@ -111,11 +117,11 @@ const vraie = tracks.find(t => t.id === dossier.jeu.coffre[0].id);
 const faux = dossier.jeu.coffre[0].choices.find(x => x !== vraie.artist);
 
 r = await post(jeu, { action: "repondre", uid: c0.uid, choix: faux }, jMila);
-R("une mauvaise réponse ne rapporte rien", r.code === 200 && r.bon === false && r.etat.credits === 300);
+R("une mauvaise réponse ne rapporte rien", r.code === 200 && r.bon === false && r.etat.credits === 272);
 R("elle fait tomber la valeur de la carte", r.valeur === 8);
 
 r = await post(jeu, { action: "repondre", uid: c0.uid, choix: vraie.artist }, jMila);
-R("la bonne réponse paie ce qu'il reste", r.code === 200 && r.bon === true && r.gain === 8 && r.etat.credits === 308);
+R("la bonne réponse paie ce qu'il reste", r.code === 200 && r.bon === true && r.gain === 8 && r.etat.credits === 280);
 R("la carte se retourne enfin", r.carte.known === true && r.carte.artist === vraie.artist);
 R("elle n'est pas trouvée à sec", r.aSec === false);
 R("le taux d'identification existe maintenant", r.etat.taux !== null);
@@ -176,7 +182,7 @@ if (cinq.length === 5) {
   r = await post(jeu, { action: "set-jouer", uids }, jMila);
   R("le set est noté par le serveur", r.code === 200 && r.note.total >= 0 && r.note.total <= 100);
   R("l'adversaire respecte la contrainte du jour", r.adverse.length === 5);
-  R("le gain suit le résultat", r.etat.credits === avant + r.gain && [12, 20, 40].includes(r.gain));
+  R("le gain suit le résultat", r.etat.credits === avant + r.gain && [6, 10, 22].includes(r.gain));
   r = await post(jeu, { action: "set-jouer", uids: [uids[0], uids[0], uids[1], uids[2], uids[3]] }, jMila);
   R("deux fois la même carte est refusé", r.code === 400);
 } else {

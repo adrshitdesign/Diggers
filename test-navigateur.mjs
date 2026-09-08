@@ -88,7 +88,10 @@ await page.click("#onbgo");
 await attendre(800);
 
 console.log("\n=== CARTON ===");
-R("les crédits de départ sont là", (await page.locator("#cred").innerText()) === "400");
+/* 400 de départ, plus la prime du premier jour de série. Depuis la v2.7, la
+   régularité paie, et le premier jour compte comme le premier jour. */
+R("les crédits de départ sont là, prime du jour comprise",
+  (await page.locator("#cred").innerText()) === "412");
 await page.click('[data-pack="jour"]');
 await attendre(2600);
 R("l'enquête s'ouvre sur la première carte", await page.locator("#ch .choice").first().isVisible());
@@ -464,6 +467,128 @@ R("le pseudo recopié supprime le compte", supp2.ok === true);
 await page.evaluate(() => vueJoueurs());
 await attendre(900);
 R("et il disparaît de la liste", !(await page.locator("#modbox").innerText()).includes("Concurrent2"));
+
+/* ============================================================
+   LES RETOURS DE JOUEURS (v2.7)
+   ============================================================ */
+console.log("\n=== LE VOCABULAIRE ===");
+{
+  await aller("regles");
+  await attendre(700);
+  const t = await page.locator("#reglesbox").innerText();
+  R("« à sec » a disparu des règles", !/à sec/i.test(t));
+  R("remplacé par quelque chose de compréhensible", /sans aide/i.test(t));
+  R("les règles annoncent le vrai prix du carton", /140/.test(t));
+  R("et disent qu'un carton ne se rembourse pas", /ne se rembourse jamais/i.test(t));
+  R("la prime de régularité est expliquée", /Revenir chaque jour/i.test(t));
+  R("les paliers aussi", /Paliers de collection/i.test(t));
+}
+
+console.log("\n=== LA PROGRESSION ===");
+{
+  await aller("accueil");
+  await attendre(600);
+  const t = await page.locator("#progres").innerText();
+  R("l'accueil montre la série de jours", /Série/i.test(t));
+  R("il dit ce que rapportera demain", /demain/i.test(t));
+  R("il compte les artistes reconnus", /Artistes reconnus/i.test(t));
+  R("et le prochain palier à atteindre", /encore/i.test(t) || /paliers sont franchis/i.test(t));
+  R("le carton standard coûte bien 140",
+    /140/.test(await page.locator("#shop").innerText()));
+}
+
+console.log("\n=== VENDRE À SON PRIX ===");
+{
+  await aller("marche");
+  await attendre(700);
+  await page.click(".mktab[data-m='vendre']");
+  await attendre(900);
+  const t = await page.locator("#marchebox").innerText();
+  R("l'écran dit que le prix est libre", /C'est toi qui fixes le prix/i.test(t));
+  if (await page.locator("#vgrid .offer input").count()) {
+    R("le champ de prix porte une étiquette", /Ton prix, en crédits/i.test(t));
+    const champ = page.locator("#vgrid .offer input").first();
+    const ecart = page.locator("#vgrid .offer [data-ecart]").first();
+    R("il rappelle la cote au départ", /cote/i.test(await ecart.innerText()));
+    await champ.fill("999999");
+    await attendre(300);
+    R("changer le prix affiche l'écart à la cote", /%/.test(await ecart.innerText()));
+    await champ.fill("0");
+    await attendre(200);
+    await page.locator("#vgrid .offer button").first().click();
+    await attendre(600);
+    R("un prix à zéro est refusé avant même de partir",
+      (await page.locator("#vgrid .offer").count()) > 0);
+  } else {
+    R("le champ de prix porte une étiquette", false);
+  }
+}
+
+console.log("\n=== LES PROPOSITIONS DES JOUEURS ===");
+{
+  await aller("moderation");
+  await attendre(900);
+  const onglets = await page.locator("#moderationbox .mktab").allInnerTexts();
+  R("l'onglet dit ce qu'il contient",
+    onglets.some(x => /propositions des joueurs/i.test(x)));
+  R("« file d'attente » a disparu", !onglets.some(x => /file d'attente/i.test(x)));
+  R("un onglet montre ce qui a déjà été tranché",
+    onglets.some(x => /déjà traitées/i.test(x)));
+  R("et un autre permet de chercher des sons",
+    onglets.some(x => /chercher des sons/i.test(x)));
+
+  await page.locator("#moderationbox .mktab", { hasText: "Propositions des joueurs" }).click();
+  await attendre(900);
+  const vide = await page.locator("#modbox").innerText();
+  R("l'écran vide explique d'où viennent les propositions", /Communauté/i.test(vide));
+  R("et où sont les décisions passées", /Déjà traitées/i.test(vide));
+
+  await page.locator("#moderationbox .mktab", { hasText: "Déjà traitées" }).click();
+  await attendre(900);
+  const h = await page.locator("#modbox").innerText();
+  R("l'historique compte les validées et les refusées",
+    /Validées/i.test(h) && /Refusées/i.test(h));
+}
+
+console.log("\n=== CHERCHER DES SONS ===");
+{
+  await page.locator("#moderationbox .mktab", { hasText: "Chercher des sons" }).click();
+  await attendre(800);
+  R("l'écran de recherche s'ouvre", await page.locator("#rq").isVisible());
+  R("on peut chercher par artiste, titre ou genre",
+    (await page.locator("#rtype option").count()) === 3);
+  R("il explique qu'on coche avant d'ajouter",
+    /Cherche, coche, ajoute/i.test(await page.locator("#modbox").innerText()));
+  /* Apple est coupé dans les tests : on vérifie que l'échec est dit
+     proprement, pas qu'il casse l'écran. */
+  await page.fill("#rq", "Damso");
+  await page.click("#rgo");
+  await attendre(2000);
+  R("sans réponse d'Apple, l'écran le dit au lieu de rester muet",
+    (await page.locator("#rdiag").innerText()).trim().length > 5);
+  R("et le bouton d'ajout reste hors de portée",
+    (await page.locator("#rbar").isVisible().catch(() => false)) === false);
+}
+
+console.log("\n=== NOMS À GARDER ENTIERS ===");
+{
+  await page.locator("#moderationbox .mktab", { hasText: "Bibliothèque" }).click();
+  await attendre(1000);
+  R("le bouton existe", await page.locator("#bentiers").isVisible());
+  await page.click("#bentiers");
+  await attendre(700);
+  R("il ouvre une liste modifiable", await page.locator("#lentiers").isVisible());
+  R("et explique à quoi elle sert",
+    /premier/i.test(await page.locator(".onb .onb-in").innerText()));
+  await page.fill("#lentiers", "Earth, Wind & Fire\nSimon & Garfunkel");
+  await page.locator("#modbar button", { hasText: "Enregistrer" }).click();
+  await attendre(1200);
+  R("elle s'enregistre", /2 nom\(s\) protégé/.test(await page.locator("#bdiag").innerText()));
+  const relu = await page.evaluate(async () =>
+    (await apiAppel("/api/moderation", { action: "noms-entiers" })).noms);
+  R("et le serveur la rend telle quelle",
+    Array.isArray(relu) && relu.length === 2 && relu[0] === "Earth, Wind & Fire");
+}
 
 console.log("\n=== MOT DE PASSE OUBLIÉ ===");
 await aller("reglages");

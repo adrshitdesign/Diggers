@@ -66,10 +66,16 @@ export default async function (req) {
       p.parQui = u.pseudo;
       await P.set(p.id, p);
 
-      const track = { ...p.track, pop, poids: 2, rank: 0,
+      const envoyee = { ...p.track, pop, poids: 2, rank: 0,
         source: "communaute", proposePar: p.par.pseudo, valideLe: p.tranche,
         indice: p.indice || "" };
-      await biblio.ajouter(track);
+      /* La fiche telle qu'elle est RANGÉE, pas telle qu'elle a été envoyée :
+         la bibliothèque peut avoir ramené « A & B » à « A ». La carte du
+         trouveur et la signature doivent parler de la même chose qu'elle. */
+      const rangee = await biblio.ajouter(envoyee);
+      const track = rangee.track || envoyee;
+      p.track = { ...p.track, artist: track.artist, credits: track.credits || "" };
+      await P.set(p.id, p);
 
       const sigApres = signature(p.track);
       if (sigApres !== sigAvant) await SIG.del(sigAvant);
@@ -243,10 +249,28 @@ export default async function (req) {
     if (u.role !== "admin") return ko(403, "Seul l'administrateur répare la bibliothèque.");
     if (b.apercu) {
       const lib = await biblio.lire();
-      return ok({ apercu: true, ...biblio.apercuArtistes(lib.tracks) });
+      return ok({ apercu: true, ...biblio.apercuArtistes(lib.tracks, await biblio.nomsEntiers()) });
     }
     const r = await biblio.reparerArtistes();
     return ok(r);
+  }
+
+  /* ---------------- les noms qu'on ne découpe jamais ----------------
+     « Earth, Wind & Fire » n'est pas un featuring. Le garde-fou automatique
+     (trois titres portant la même signature) en attrape la plupart, mais un
+     duo qui n'a que deux titres dans le jeu lui échappe. Cette liste est la
+     porte de sortie manuelle, et elle vit en base comme le reste. */
+  if (b.action === "noms-entiers") {
+    const C = await store("config");
+    if (!b.noms) {
+      const c = await C.get("noms-entiers");
+      return ok({ noms: (c && c.noms) || [] });
+    }
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur change cette liste.");
+    const noms = [...new Set((Array.isArray(b.noms) ? b.noms : [])
+      .map(x => String(x || "").trim()).filter(Boolean).map(x => x.slice(0, 120)))].slice(0, 500);
+    await C.set("noms-entiers", { noms, maj: Date.now(), par: u.pseudo });
+    return ok({ noms });
   }
 
   if (b.action === "vider") {
