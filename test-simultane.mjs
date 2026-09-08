@@ -22,6 +22,8 @@ await rm(".data-simultane", { recursive: true, force: true });
 
 const compte = (await import("./netlify/functions/compte.mjs")).default;
 const jeu = (await import("./netlify/functions/jeu.mjs")).default;
+/* Le prix vient du serveur : le test survit au prochain équilibrage. */
+const { PACKS } = await import("./netlify/functions/jeu.mjs");
 const marche = (await import("./netlify/functions/marche.mjs")).default;
 const boutique = (await import("./netlify/functions/boutique.mjs")).default;
 const stripe = (await import("./netlify/functions/stripe.mjs")).default;
@@ -78,14 +80,13 @@ console.log("\n=== DOUBLE-CLIC SUR UN CARTON ===");
 {
   const j = await inscrire("Mila");
   const uid = await uidDe("Mila");
-  /* 400 crédits de départ plus la prime du premier jour de série, et un
-     carton standard en vaut 140 : trois au maximum. On lit le solde AVANT
-     plutôt que de recopier un chiffre qui bougera au prochain équilibrage. */
+  /* On lit le solde AVANT et le prix depuis le serveur plutôt que de recopier
+     des chiffres qui bougent à chaque équilibrage. */
   const depart = (await post(jeu, { action: "etat" }, j)).etat.credits;
   const r = await Promise.all(Array.from({ length: 6 }, () => post(jeu, { action: "carton", type: "std" }, j)));
   const passes = r.filter(x => x.code === 200).length;
   const f = await U.get(uid);
-  const payes = (depart - f.jeu.credits) / 140;
+  const payes = (depart - f.jeu.credits) / PACKS.std;
   R("le compte n'est jamais dans le rouge", f.jeu.credits >= 0);
   R("on paie exactement autant de cartons qu'on en reçoit", passes === payes);
   R("et toutes les cartes reçues sont bien sur l'étagère", f.jeu.coffre.length === passes * 5);

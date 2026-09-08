@@ -56,6 +56,14 @@ export async function lireCache() {
   return b;
 }
 
+/* Combien de sons sont entrés depuis N jours. Les sons d'avant la v2.7.3 n'ont
+   pas de date : ils sont comptés comme « au départ », ce qui est vrai pour
+   l'immense majorité d'entre eux. */
+export function ajoutsDepuis(tracks, jours) {
+  const seuil = Date.now() - jours * 86400000;
+  return tracks.filter(t => Number(t.ajouteLe) > seuil).length;
+}
+
 export async function ecrire(b) {
   /* Un numéro de version qui ne recule jamais. La date ne suffit pas : deux
      écritures dans la même milliseconde portent la même, et tout ce qui se
@@ -63,7 +71,11 @@ export async function ecrire(b) {
   b.meta = { ...(b.meta || {}), version: 2, maj: Date.now(),
     rev: ((b.meta && b.meta.rev) || 0) + 1, titres: b.tracks.length,
     noyau: b.tracks.filter(t => t.source !== "communaute").length,
-    communaute: b.tracks.filter(t => t.source === "communaute").length };
+    communaute: b.tracks.filter(t => t.source === "communaute").length,
+    // ce qui est entré récemment, pour ne plus confondre « ajouté » et « d'origine »
+    ajouts7: ajoutsDepuis(b.tracks, 7),
+    ajouts30: ajoutsDepuis(b.tracks, 30),
+    dates: b.tracks.filter(t => Number(t.ajouteLe) > 0).length };
   await (await store("bibliotheque")).set("tout", b);
   // Celui qui vient d'écrire n'a aucune raison de lire une version périmée.
   memo = b; memoT = Date.now();
@@ -202,6 +214,12 @@ function normaliserImport(t) {
     url: String(t.url || ""),
     poids: Number(t.poids) || 2,
     rank: Number(t.rank) || 0,
+    /* Quand ce son est entré dans le jeu. Sans cette date, tout ce qu'on
+       ajoutait après coup se confondait avec l'import de départ : l'écran de
+       la bibliothèque annonçait « import de départ : 14 013 » même après une
+       semaine d'ajouts, et on ne pouvait pas répondre à la question la plus
+       simple — « combien de sons ai-je ajoutés cette semaine ? ». */
+    ajouteLe: Number(t.ajouteLe) || Date.now(),
     // Une popularité absente n'est pas une raison d'écarter un son : une liste
     // collée à la main n'en porte jamais. On prend le milieu de l'échelle.
     pop: Math.max(0, Math.min(99, Math.round(Number.isFinite(Number(t.pop)) ? Number(t.pop) : 50))),

@@ -161,23 +161,21 @@ if (posables) {
 }
 await page.click(".mktab[data-m='fondre']");
 await attendre(500);
-await page.click(".mktab[data-m='presser']");
-await attendre(500);
-R("l'onglet Presser demande une recherche",
-  (await page.locator("#marchebox").innerText()).includes("Cherche un morceau"));
-
-/* La recherche du pressage se fait maintenant côté serveur : le navigateur
-   n'a plus la bibliothèque en mémoire pour la filtrer lui-même. */
-await page.fill("#pq", "Titre 3-2");
-await attendre(1400);
-R("chercher un morceau à presser rend des résultats",
-  (await page.locator("#prs .offer").count()) >= 1);
-R("et chaque résultat propose de le presser",
-  /presser/i.test(await page.locator("#prs").innerText()));
-await page.fill("#pq", "zzzzzzzz");
-await attendre(1400);
-R("une recherche sans réponse le dit clairement",
-  (await page.locator("#prs").innerText()).includes("Rien de ce nom"));
+/* PRESSER N'EXISTE PLUS (v2.7.3). On ne peut plus acheter au jeu la carte de
+   son choix : une carte s'obtient en ouvrant un carton, en l'échangeant avec
+   un autre joueur, ou en la proposant. */
+R("l'onglet Presser a disparu du marché",
+  (await page.locator(".mktab[data-m='presser']").count()) === 0);
+R("il ne reste que les annonces, la vente et la fonte",
+  (await page.locator("#v-marche .mktab").count()) === 3);
+R("et le serveur refuse la vieille action",
+  await page.evaluate(async () =>
+    (await apiAppel("/api/jeu", { action: "presser", id: "c0x0" })).code === 410));
+R("sans rien débiter", await page.evaluate(async () => {
+  const a = (await apiAppel("/api/jeu", { action: "etat" })).etat.credits;
+  await apiAppel("/api/jeu", { action: "presser", id: "c0x0" });
+  return (await apiAppel("/api/jeu", { action: "etat" })).etat.credits === a;
+}));
 
 console.log("\n=== LA SESSION SURVIT AU RECHARGEMENT ===");
 // C'est tout l'intérêt du compte : fermer l'onglet ne doit rien perdre.
@@ -378,24 +376,57 @@ console.log("\n=== CE QUE LA PAGE TÉLÉCHARGE (v2.6) ===");
 
 console.log("\n=== LE MENU ===");
 await aller("accueil");
-R("le menu du haut tient en six familles au plus",
-  (await page.locator("#nav .tab").count()) <= 6);
 R("aucune famille ne dépasse trois vues",
   await page.evaluate(() => FAMILLES.every(f => f.vues.length <= 3)));
 R("toutes les vues du jeu sont rangées quelque part", await page.evaluate(() => {
   const rangees = new Set(FAMILLES.flatMap(f => f.vues.map(v => v[0])));
   return [...document.querySelectorAll(".view")].every(s => rangees.has(s.id.slice(2)));
 }));
+/* Une vue ne se trouve qu'à un seul endroit : sinon on la cherche là où elle
+   n'est pas. */
+R("aucune vue n'apparaît dans deux familles", await page.evaluate(() => {
+  const toutes = FAMILLES.flatMap(f => f.vues.map(v => v[0]));
+  return new Set(toutes).size === toutes.length;
+}));
+
+/* Le menu passe à la ligne au lieu de défiler : aucun onglet ne doit sortir
+   de la barre. C'est ce qui avait fait disparaître « Noms composés ». */
+R("aucun onglet du menu ne sort de la barre", await page.evaluate(() => {
+  const bar = document.getElementById("nav");
+  const b = bar.getBoundingClientRect();
+  return [...bar.children].every(t => {
+    const r = t.getBoundingClientRect();
+    return r.right <= b.right + 1 && r.left >= b.left - 1 && r.width > 30;
+  });
+}));
+
 R("ouvrir une vue allume sa famille", await page.evaluate(async () => {
   go("marche");
-  const t = document.querySelector('[data-fam="echanger"]');
+  const f = FAMILLES.find(x => x.vues.some(v => v[0] === "marche"));
+  const t = document.querySelector('[data-fam="' + f.id + '"]');
   return t && t.getAttribute("aria-selected") === "true";
 }));
 await attendre(400);
-R("et son second étage montre la vue ouverte",
-  (await page.locator('#ssnav [data-v="marche"]').getAttribute("aria-selected")) === "true");
+R("une famille de plusieurs vues montre son second étage", await page.evaluate(async () => {
+  const f = FAMILLES.find(x => x.vues.length > 1);
+  go(f.vues[1][0]);
+  const t = document.querySelector('#ssnav [data-v="' + f.vues[1][0] + '"]');
+  return !!t && t.getAttribute("aria-selected") === "true";
+}));
 R("la famille d'une seule vue n'affiche pas de second étage",
   await page.evaluate(async () => { go("moderation"); return document.getElementById("ssnav").children.length === 0; }));
+
+/* Les noms disent ce qu'on y fait. « Accueil » ne disait pas qu'on y ouvre
+   des cartons ; « Communauté » ne disait pas qu'on y propose des morceaux. */
+{
+  const noms = await page.evaluate(() => FAMILLES.map(f => f.n).join(" | "));
+  const vues = await page.evaluate(() => FAMILLES.flatMap(f => f.vues.map(v => v[1])).join(" | "));
+  R("ouvrir un carton a son propre onglet", /Ouvrir/.test(noms));
+  R("« Accueil » ne dit plus rien à personne", !/Accueil/.test(vues));
+  R("proposer un son porte son nom", /Proposer un son/.test(vues));
+  R("« Communauté » a disparu", !/Communauté/.test(vues) && !/Communauté/.test(noms));
+  R("la bibliothèque annonce ce qu'elle contient", /Tous les sons/.test(vues));
+}
 
 console.log("\n=== AJOUTER ET RETIRER PAR LISTE ===");
 await aller("moderation");
@@ -478,7 +509,7 @@ console.log("\n=== LE VOCABULAIRE ===");
   const t = await page.locator("#reglesbox").innerText();
   R("« à sec » a disparu des règles", !/à sec/i.test(t));
   R("remplacé par quelque chose de compréhensible", /sans aide/i.test(t));
-  R("les règles annoncent le vrai prix du carton", /140/.test(t));
+  R("les règles annoncent le vrai prix du carton", /170/.test(t));
   R("et disent qu'un carton ne se rembourse pas", /ne se rembourse jamais/i.test(t));
   R("la prime de régularité est expliquée", /Revenir chaque jour/i.test(t));
   R("les paliers aussi", /Paliers de collection/i.test(t));
@@ -493,8 +524,8 @@ console.log("\n=== LA PROGRESSION ===");
   R("il dit ce que rapportera demain", /demain/i.test(t));
   R("il compte les artistes reconnus", /Artistes reconnus/i.test(t));
   R("et le prochain palier à atteindre", /encore/i.test(t) || /paliers sont franchis/i.test(t));
-  R("le carton standard coûte bien 140",
-    /140/.test(await page.locator("#shop").innerText()));
+  R("le carton standard coûte bien 170",
+    /170/.test(await page.locator("#shop").innerText()));
 }
 
 console.log("\n=== VENDRE À SON PRIX ===");
@@ -570,8 +601,53 @@ console.log("\n=== CHERCHER DES SONS ===");
     (await page.locator("#rbar").isVisible().catch(() => false)) === false);
 }
 
+console.log("\n=== TOUS LES ONGLETS SONT ATTEIGNABLES ===");
+{
+  /* Sept onglets ne tiennent pas sur une ligne. Sans retour à la ligne, les
+     derniers sortaient de l'écran : « Noms composés » était devenu
+     introuvable alors qu'il était bien là. */
+  const debordent = await page.evaluate(() => {
+    const bar = document.querySelector("#moderationbox .mktabs");
+    const b = bar.getBoundingClientRect();
+    return [...bar.children].filter(t => {
+      const r = t.getBoundingClientRect();
+      return r.right > b.right + 1 || r.left < b.left - 1 || r.width < 40;
+    }).map(t => t.textContent);
+  });
+  R("aucun onglet ne sort de la barre", debordent.length === 0);
+  R("« Noms composés » est bien là",
+    (await page.locator("#moderationbox .mktab").allInnerTexts()).some(x => /noms composés/i.test(x)));
+  R("et il est cliquable",
+    await page.locator("#moderationbox .mktab", { hasText: "Noms composés" }).isVisible());
+}
+
+console.log("\n=== UNE SEULE MONNAIE ===");
+{
+  R("le bandeau ne montre plus d'éclats",
+    (await page.locator("#app header, #app").first().innerText()).indexOf("ÉCLATS") < 0);
+  await aller("regles");
+  await attendre(700);
+  const t = await page.locator("#reglesbox").innerText();
+  R("les règles ne parlent plus d'éclats", !/éclat/i.test(t));
+  R("elles annoncent le prix de la fonte", /cote \/ 8/.test(t));
+  R("elles disent qu'on ne peut pas acheter une carte au jeu",
+    /pas acheter une carte au jeu/i.test(t));
+  R("et rappellent les trois seuls chemins",
+    /sort d\'un carton/i.test(t) && /autre joueur/i.test(t) && /fait entrer/i.test(t));
+
+  await aller("marche");
+  await attendre(700);
+  await page.click(".mktab[data-m='fondre']");
+  await attendre(700);
+  const f = await page.locator("#marchebox").innerText();
+  R("l'écran fondre ne parle plus d'éclats", !/éclat/i.test(f));
+}
+
 console.log("\n=== RELIRE LES NOMS COMPOSÉS ===");
 {
+  /* Le bloc précédent est parti voir les règles et le marché : on revient. */
+  await aller("moderation");
+  await attendre(800);
   /* On installe un cas franc : un duo qui sera découpé, un groupe qui ne le
      sera pas — puis on regarde si l'écran raconte bien les deux. */
   await page.evaluate(async () => {

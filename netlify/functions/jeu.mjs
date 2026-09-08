@@ -21,13 +21,25 @@ export const config = { path: "/api/jeu" };
 
 /* ============ les règles, copiées du jeu et désormais seules valables ============ */
 
+/* LES PALIERS ET LEURS CHANCES (revues en v2.7.3)
+   « w » est le poids du tirage : la chance qu'une carte sorte à ce palier.
+
+   Avant, une Pépite pesait 2 sur 100 — soit une chance sur cinquante par
+   carte, et donc **une chance sur dix par carton de cinq**. Un joueur en
+   voyait une tous les deux jours. Ce n'est pas le fond du bac, c'est le
+   présentoir de la caisse.
+
+   Une Pépite pèse maintenant 0,3 : une chance sur trois cent trente par
+   carte, et **une chance sur soixante-sept par carton**. Elle redevient ce
+   qu'elle prétend être. Le reste de l'échelle a été resserré dans le même
+   mouvement, en gardant les mêmes six paliers et les mêmes seuils. */
 export const TIERS = [null,
-  { n: "Tube",           w: 50, min: 88, base: 20 },
-  { n: "Classique",      w: 25, min: 72, base: 35 },
-  { n: "Titre d'album",  w: 12, min: 55, base: 60 },
-  { n: "Face B",         w: 7,  min: 35, base: 110 },
-  { n: "Rareté",         w: 4,  min: 15, base: 240 },
-  { n: "Pépite",         w: 2,  min: 0,  base: 600 }];
+  { n: "Tube",           w: 60,  min: 88, base: 20 },
+  { n: "Classique",      w: 25,  min: 72, base: 35 },
+  { n: "Titre d'album",  w: 9,   min: 55, base: 60 },
+  { n: "Face B",         w: 4,   min: 35, base: 110 },
+  { n: "Rareté",         w: 1.7, min: 15, base: 240 },
+  { n: "Pépite",         w: 0.3, min: 0,  base: 600 }];
 
 export const PRESS = [
   { n: "Standard",   w: 78,  mult: 1 },
@@ -53,7 +65,7 @@ export const CLUES = {
 
    Trois leviers, et aucun n'est un minuteur :
 
-   1. UN CARTON NE SE REMBOURSE PLUS. 140 crédits pour cinq cartes qui, même
+   1. UN CARTON NE SE REMBOURSE PLUS. 170 crédits pour cinq cartes qui, même
       reconnues toutes les cinq du premier coup et toutes d'artistes inconnus
       — le meilleur cas possible — en rendent 130. Les crédits viennent
       désormais du jeu (sets, défi, régularité, paliers) et les cartons les
@@ -74,9 +86,43 @@ const LADDER = [26, 13, 7, 4];
 const GAIN_DOUBLON = 3, PLANCHER = 4;
 const REMISE_CONNU = 0.55;              // artiste déjà sur l'étagère
 const SET_CAP = 5, GAIN_WIN = 22, GAIN_TIE = 10, GAIN_LOSS = 6;
-const ECLAT_PRESSAGE = [0, 800, 1200, 2000, 3500, 7000, 14000];
+
+/* LE QUOTA DU JOUR (v2.7.3)
+   Le vrai moteur du déséquilibre n'était pas le prix d'un carton : c'était
+   qu'un bon joueur reconnaît presque tout du premier coup, donc chaque carton
+   se remboursait presque entièrement et payait le suivant. On enchaînait les
+   ouvertures sans jamais tomber à court.
+
+   Les DIX PREMIÈRES trouvailles de la journée paient plein tarif. Après, on
+   passe à 40 %. Ce n'est pas une punition et ce n'est pas un minuteur : c'est
+   ce qui fait qu'une session a une fin, et qu'il reste quelque chose à faire
+   demain. La règle est affichée, et le compteur est visible à l'écran — un
+   joueur doit pouvoir la voir venir, pas la découvrir dans son solde. */
+const QUOTA_PLEIN = 10;
+const APRES_QUOTA = 0.4;
+/* ---------- COMMENT ON OBTIENT UNE CARTE ----------
+   Trois chemins, et trois seulement :
+     · elle sort d'un carton ;
+     · on l'achète ou on l'échange à un autre joueur, au marché ;
+     · on la fait entrer dans le jeu en la proposant, et elle arrive alors en
+       pressage d'origine, au nom de celui qui l'a trouvée.
+
+   Il y en avait un quatrième — « presser » : acheter directement la carte de
+   son choix. Supprimé en v2.7.3. C'était le raccourci qui vidait le jeu de
+   son sujet : plus besoin d'ouvrir de cartons, plus besoin de parler à
+   personne, il suffisait d'accumuler des crédits et de commander sa
+   collection sur catalogue. Un jeu de collection dont on peut acheter chaque
+   pièce à l'unité n'est plus un jeu de collection, c'est une liste de courses.
+
+   Les crédits n'achètent donc plus que deux choses : des cartons, et ce que
+   d'autres joueurs mettent en vitrine.
+
+   FONDRE un doublon rapporte peu — le huitième de la cote. Un doublon a
+   d'abord vocation à être vendu ou échangé ; fondre, c'est ce qu'on fait
+   quand personne n'en veut. */
+const DIVISEUR_FONTE = 8;
 const CARTES_PAR_CARTON = 5;
-const PACKS = { jour: 0, std: 140, scene: 280 };
+export const PACKS = { jour: 0, std: 170, scene: 320 };
 
 /* La prime de régularité : 12 crédits le premier jour, +8 par jour consécutif,
    plafonnée au septième. Manquer un jour ne fait pas repartir de zéro les
@@ -109,7 +155,7 @@ export const tierOf = pop => {
   return 6;
 };
 export const coteDe = c => Math.round(TIERS[c.rarity].base * (PRESS.find(p => p.n === c.press) || PRESS[0]).mult);
-export const eclatsDe = c => Math.max(2, Math.round(coteDe(c) / 2));
+export const fonteDe = c => Math.max(2, Math.round(coteDe(c) / DIVISEUR_FONTE));
 
 /* Le hasard reste ici. Rien de tout ça ne doit exister côté navigateur. */
 const pickW = l => {
@@ -149,11 +195,11 @@ export function contrainteDuJour(j) {
 
 export function jeuNeuf() {
   return {
-    credits: 400, eclats: 0,
+    credits: 400,
     coffre: [], enq: {},
     idLog: "",
     gouts: null, premier: true,
-    jourDate: "", setsDate: "", setsToday: 0,
+    jourDate: "", setsDate: "", setsToday: 0, trouvesDate: "", trouvesToday: 0,
     bestSet: 0, sets: 0, setsWon: 0,
     streak: 0, lastPlayed: "",
     fondus: 0, achetes: 0, presses: 0, vendus: 0,
@@ -165,6 +211,16 @@ export function jeuDe(u) {
   if (!u.jeu) u.jeu = jeuNeuf();
   if (!u.jeu.enq) u.jeu.enq = {};
   if (!Array.isArray(u.jeu.coffre)) u.jeu.coffre = [];
+  /* Les éclats accumulés avant la v2.7.2 deviennent des crédits. Le taux
+     conserve le pouvoir d'achat : presser coûtait ~800 éclats au premier
+     palier, il en coûte 90 en crédits — on divise donc par neuf. Personne ne
+     perd ce qu'il avait mis de côté, et la conversion n'a lieu qu'une fois. */
+  if (u.jeu.eclats > 0 && !u.jeu.eclatsConvertis) {
+    u.jeu.credits = (u.jeu.credits || 0) + Math.round(u.jeu.eclats / 9);
+    u.jeu.eclatsRendus = Math.round(u.jeu.eclats / 9);
+    u.jeu.eclats = 0;
+  }
+  if (!u.jeu.eclatsConvertis) u.jeu.eclatsConvertis = true;
   return u.jeu;
 }
 
@@ -172,6 +228,7 @@ export function jeuDe(u) {
 function majJournee(g) {
   const t = jour();
   if (g.setsDate !== t) { g.setsDate = t; g.setsToday = 0; }
+  if (g.trouvesDate !== t) { g.trouvesDate = t; g.trouvesToday = 0; }
   if (g.lastPlayed !== t) {
     const h = new Date(Date.now() - 86400000);
     const hk = h.getUTCFullYear() + "-" + String(h.getUTCMonth() + 1).padStart(2, "0") + "-" + String(h.getUTCDate()).padStart(2, "0");
@@ -244,7 +301,7 @@ export function carteVue(c, lib) {
   const base = {
     uid: c.uid, rarity: c.rarity, press: c.press, known: !!c.known,
     reveals: c.reveals == null ? null : c.reveals,
-    aSec: !!c.aSec, achete: !!c.achete, tries: c.tries || 0,
+    aSec: !!c.aSec, achete: !!c.achete, presse: !!c.presse, tries: c.tries || 0,
     heard: !!c.heard, origine: c.origine || null,
     cote: coteDe(c)
   };
@@ -281,12 +338,17 @@ function valeurDe(c) {
 
 export function etatVu(g, lib) {
   return {
-    credits: g.credits, eclats: g.eclats,
+    credits: g.credits,
+    /* Ce que la conversion des anciens éclats a rendu, une seule fois : de
+       quoi l'annoncer au joueur au lieu de changer son solde en silence. */
+    eclatsRendus: g.eclatsRendus || 0,
     coffre: g.coffre.map(c => carteVue(c, lib)),
     idLog: (g.idLog || "").length,
     taux: tauxSec(g),
     bestSet: g.bestSet, sets: g.sets, setsWon: g.setsWon,
     setsToday: g.setsToday, setCap: SET_CAP,
+    trouvesToday: g.trouvesToday || 0, quota: QUOTA_PLEIN,
+    apresQuota: Math.round(APRES_QUOTA * 100),
     jourDispo: g.jourDate !== jour(),
     gouts: g.gouts, premier: !!g.premier,
     streak: g.streak,
@@ -561,10 +623,17 @@ async function traiter(req, u, b) {
          la carte reconnue, sinon elle se compterait elle-même. */
       const dejaVu = !doublon && g.coffre.some(x => x.uid !== c.uid && x.known
         && (pisteDe(lib, x.id) || {}).artist === t.artist);
-      let gain = 0;
+      let gain = 0, horsQuota = false;
       if (!passe) {
         gain = doublon ? GAIN_DOUBLON : valeurDe(c);
         if (dejaVu) gain = Math.max(GAIN_DOUBLON, Math.round(gain * REMISE_CONNU));
+        /* Le quota du jour. Il ne compte que les vraies trouvailles : passer
+           son tour ou retomber sur un doublon ne l'entame pas. */
+        if (bon && !doublon) {
+          horsQuota = (g.trouvesToday || 0) >= QUOTA_PLEIN;
+          if (horsQuota) gain = Math.max(GAIN_DOUBLON, Math.round(gain * APRES_QUOTA));
+          g.trouvesToday = (g.trouvesToday || 0) + 1;
+        }
       }
       c.known = true;
       c.reveals = (c.indices || []).length;
@@ -572,7 +641,8 @@ async function traiter(req, u, b) {
       g.credits += gain;
 
       const paliers = bon ? encaisserPaliers(g, lib) : [];
-      return await fini({ bon, passe, gain, doublon, dejaVu, aSec,
+      return await fini({ bon, passe, gain, doublon, dejaVu, aSec, horsQuota,
+        trouvesToday: g.trouvesToday || 0, quota: QUOTA_PLEIN,
         paliers: paliers.map(p => ({ n: p.n, prime: p.prime, titre: p.titre })),
         carte: carteVue(c, lib) });
     }
@@ -581,39 +651,36 @@ async function traiter(req, u, b) {
     case "fondre": {
       const uids = Array.isArray(b.uids) ? b.uids.slice(0, 200) : [];
       const fondables = new Set(doublons(g).map(c => c.uid));
-      let eclats = 0, n = 0;
+      let gagne = 0, n = 0;
       for (const uid of uids) {
         if (!fondables.has(uid)) continue;
         const i = g.coffre.findIndex(c => c.uid === uid);
         if (i < 0) continue;
-        eclats += eclatsDe(g.coffre[i]);
+        gagne += fonteDe(g.coffre[i]);
         g.coffre.splice(i, 1);
         n++;
       }
       if (!n) return ko(400, "Aucun doublon à fondre là-dedans.");
-      g.eclats += eclats;
+      g.credits += gagne;
       g.fondus += n;
-      return await fini({ fondus: n, eclats });
+      return await fini({ fondus: n, credits: gagne });
     }
 
-    /* ---------- presser un titre choisi ---------- */
-    case "presser": {
-      const t = pisteDe(lib, b.id);
-      if (!t) return ko(404, "Titre inconnu.");
-      if (g.coffre.length + 1 > COFFRE_MAX) return ko(409, "Ton étagère est pleine.");
-      const cout = ECLAT_PRESSAGE[tierOf(t.pop)];
-      if (g.eclats < cout) return ko(402, "Pas assez d'éclats.");
-      g.eclats -= cout;
-      g.presses++;
-      const c = {
-        uid: t.id + "-" + uuid().slice(0, 6), id: t.id,
-        rarity: tierOf(t.pop), press: pickW(PRESS).n,
-        known: true, reveals: null, aSec: false, achete: true,
-        tries: 0, heard: false, indices: [], choices: []
-      };
-      g.coffre.push(c);
-      return await fini({ carte: carteVue(c, lib), cout });
-    }
+    /* ---------- presser un titre choisi : SUPPRIMÉ en v2.7.3 ----------
+       On pouvait acheter directement la carte de son choix. C'était le
+       raccourci qui vidait le jeu de son sujet : plus besoin d'ouvrir des
+       cartons, plus besoin d'échanger avec personne — il suffisait
+       d'accumuler des crédits et de commander sa collection sur catalogue.
+
+       Une carte s'obtient maintenant de trois façons, et de trois seulement :
+       elle sort d'un carton, on l'achète ou on l'échange à un autre joueur,
+       ou on la fait entrer dans le jeu en la proposant (et elle arrive alors
+       en pressage d'origine, à son nom).
+
+       L'action reste déclarée pour répondre proprement aux anciens onglets
+       encore ouverts, plutôt que de leur rendre « action inconnue ». */
+    case "presser":
+      return ko(410, "Presser un titre n'existe plus. Une carte s'obtient en ouvrant un carton, en l'échangeant avec un autre joueur, ou en la proposant au jeu.");
 
     /* ---------- le Set ---------- */
     case "set": {

@@ -326,6 +326,38 @@ console.log("\n=== LA MÊME RÈGLE PARTOUT ===");
    réparation. Le premier test du navigateur a montré le contraire : importer
    quatre titres de « Vent, Terre & Feu » les découpait un par un, parce que
    normaliserImport ne savait pas compter les signatures. */
+/* « J'ai toujours le même nombre de sons que dans l'import de bibliothèque » :
+   tout ce qu'on ajoutait après coup se confondait avec le fonds de départ,
+   parce que rien ne datait les entrées. */
+console.log("\n=== QUAND UN SON EST-IL ENTRÉ ? ===");
+{
+  await biblio.ecrire({ meta: {}, tracks: [] });
+  await biblio.importer([piste("d1", "Un", "Titre A", 60), piste("d2", "Deux", "Titre B", 60)]);
+  let b = await biblio.lire();
+  R("chaque son entré porte sa date", b.tracks.every(t => t.ajouteLe > 0));
+  R("la bibliothèque compte les ajouts de la semaine", b.meta.ajouts7 === 2);
+  R("et ceux du mois", b.meta.ajouts30 === 2);
+  R("et combien de sons portent une date", b.meta.dates === 2);
+
+  /* Un son entré il y a longtemps ne compte pas dans les ajouts récents. */
+  b.tracks[0].ajouteLe = Date.now() - 40 * 86400000;
+  await biblio.ecrire(b);
+  b = await biblio.lire();
+  R("un son vieux de quarante jours sort des sept derniers", b.meta.ajouts7 === 1);
+  R("et des trente derniers aussi", b.meta.ajouts30 === 1);
+  R("mais il reste compté dans le total", b.meta.titres === 2);
+
+  /* Les sons d'avant cette version n'ont pas de date : on ne leur en invente
+     pas une, ils comptent comme fonds de départ. */
+  const sansDate = piste("vieux", "Trois", "Titre C", 60);
+  delete sansDate.ajouteLe;
+  b.tracks.push(sansDate);
+  await biblio.ecrire(b);
+  b = await biblio.lire();
+  R("un son sans date ne passe pas pour un ajout récent", b.meta.ajouts7 === 1);
+  R("et le fonds de départ se déduit du total", b.meta.titres - b.meta.dates === 1);
+}
+
 console.log("\n=== LA PORTE D'ENTRÉE PROTÈGE LES GROUPES ===");
 {
   await biblio.ecrire({ meta: {}, tracks: [] });

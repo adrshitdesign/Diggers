@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.7.1</title>
+<title>Diggers — v2.7.3</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -46,8 +46,18 @@ button{font:inherit;color:inherit;cursor:pointer}
 button.wallet{transition:.16s}
 button.wallet:hover{border-color:var(--ink-3);color:var(--ink)}
 button.wallet[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
-.tabs{display:flex;gap:3px;overflow-x:auto;max-width:1080px;margin:0 auto;
-  padding:8px clamp(12px,3vw,28px);scrollbar-width:none;-webkit-overflow-scrolling:touch}
+/* Le menu passe à la ligne au lieu de défiler. Une barre qui défile sans
+   barre de défilement visible, c'est un menu dont on ignore la moitié : le
+   dernier onglet est hors de l'écran et rien ne le laisse deviner. Sur
+   téléphone, où la place manque vraiment, on garde le défilement — mais avec
+   un dégradé au bord droit qui montre qu'il reste quelque chose. */
+.tabs{display:flex;flex-wrap:wrap;gap:3px;max-width:1080px;margin:0 auto;
+  padding:8px clamp(12px,3vw,28px)}
+@media (max-width:620px){
+  .tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+    -webkit-mask-image:linear-gradient(to right,#000 88%,transparent);
+    mask-image:linear-gradient(to right,#000 88%,transparent)}
+}
 .tabs::-webkit-scrollbar{display:none}
 .tab{background:none;border:1px solid transparent;border-radius:3px;padding:6px 12px;white-space:nowrap;
   font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.11em;
@@ -56,8 +66,9 @@ button.wallet[aria-pressed="true"]{border-color:var(--accent);color:var(--accent
 .tab[aria-selected="true"]{color:var(--ground);background:var(--accent);border-color:var(--accent)}
 /* Le second niveau : les vues d'une même famille. Plus discret que le premier,
    sinon les deux rangées se disputent le regard. */
-.sstabs{display:flex;gap:2px;overflow-x:auto;max-width:1080px;margin:0 auto;
+.sstabs{display:flex;flex-wrap:wrap;gap:2px;max-width:1080px;margin:0 auto;
   padding:0 clamp(12px,3vw,28px) 8px;scrollbar-width:none}
+@media (max-width:620px){ .sstabs{flex-wrap:nowrap;overflow-x:auto} }
 .sstabs::-webkit-scrollbar{display:none}
 .sstabs:empty{display:none}
 /* L'attribut « hidden » doit gagner sur les display: des classes, sinon une
@@ -278,7 +289,11 @@ button.card:hover{transform:translateY(-5px)}
 .logline.win b{color:var(--ok)} .logline.lose b{color:var(--bad)}
 
 /* ---------- marché ---------- */
-.mktabs{display:flex;gap:6px;margin:0 0 18px}
+/* Sept onglets ne tiennent pas sur une ligne : sans retour à la ligne, les
+   derniers sortent de l'écran et deviennent introuvables. C'est ce qui est
+   arrivé à « Noms composés ». */
+.mktabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 18px}
+.mktab{white-space:nowrap}
 .mktab{background:var(--surface-2);border:1px solid var(--line-strong);border-radius:3px;padding:8px 15px;
   font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
 .mktab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#180810}
@@ -519,7 +534,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.1 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.3 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -531,7 +546,6 @@ a.src:hover{color:var(--accent)}
   <div class="top-in">
     <span class="logo">DIG<em>GERS</em></span>
     <span class="wallet">CRÉDITS <b id="cred">0</b></span>
-    <span class="wallet">ÉCLATS <b id="ecl">0</b></span>
     <span class="wallet">RECONNUES <b id="ngrav">0</b></span>
     <span class="wallet" id="compteChip">COMPTE <b id="moncompte">Hors ligne</b></span>
   <button class="wallet" id="mute" type="button" aria-pressed="false">SON <b id="mutestate">ON</b></button>
@@ -575,8 +589,7 @@ a.src:hover{color:var(--accent)}
   <div class="mktabs" role="tablist">
     <button class="mktab" data-m="annonces" aria-selected="true">Les annonces</button>
     <button class="mktab" data-m="vendre" aria-selected="false">Vendre</button>
-    <button class="mktab" data-m="fondre" aria-selected="false">Fondre</button>
-    <button class="mktab" data-m="presser" aria-selected="false">Presser</button>
+    <button class="mktab" data-m="fondre" aria-selected="false">Fondre mes doublons</button>
   </div>
   <div id="marchebox"></div>
 </section>
@@ -698,19 +711,19 @@ function mentionsCompletes(){
    c'est, la fraction dit à quel point il est dur à sortir, et les deux vont dans le
    même sens : les tubes sont partout, les pépites sont rares. */
 const TIERS=[null,
-  {n:"Tube",c:"var(--t1)",w:50,min:88,odds:"1 sur 2",base:20,d:"Tout le monde le connaît. Vous serez des milliers à l'avoir."},
+  {n:"Tube",c:"var(--t1)",w:60,min:88,odds:"3 sur 5",base:20,d:"Tout le monde le connaît. Vous serez des milliers à l'avoir."},
   {n:"Classique",c:"var(--t2)",w:25,min:72,odds:"1 sur 4",base:35,d:"Un titre installé, mais pas le single évident."},
-  {n:"Titre d'album",c:"var(--t3)",w:12,min:55,odds:"1 sur 8",base:60,d:"On l'a entendu si on a écouté l'album en entier."},
-  {n:"Face B",c:"var(--t4)",w:7,min:35,odds:"1 sur 14",base:110,d:"Le morceau que seuls les fans citent."},
-  {n:"Rareté",c:"var(--t5)",w:4,min:15,odds:"1 sur 25",base:240,d:"Presque personne ne l'a écouté. Presque personne ne l'aura."},
-  {n:"Pépite",c:"var(--t6)",w:2,min:0,odds:"1 sur 50",base:600,d:"Le fond du bac. C'est ce qu'on vient chercher."}];
+  {n:"Titre d'album",c:"var(--t3)",w:9,min:55,odds:"1 sur 11",base:60,d:"On l'a entendu si on a écouté l'album en entier."},
+  {n:"Face B",c:"var(--t4)",w:4,min:35,odds:"1 sur 25",base:110,d:"Le morceau que seuls les fans citent."},
+  {n:"Rareté",c:"var(--t5)",w:1.7,min:15,odds:"1 sur 59",base:240,d:"Presque personne ne l'a écouté. Presque personne ne l'aura."},
+  {n:"Pépite",c:"var(--t6)",w:0.3,min:0,odds:"1 sur 333",base:600,d:"Le fond du bac. Une par carton tous les deux mois."}];
 /* Le pressage est tiré séparément : c'est la vraie chasse. */
 const PRESS=[
   {n:"Standard",w:78,mult:1,d:"Le tirage courant."},
   {n:"Promo",w:12,mult:1.6,d:"Envoyé aux radios, jamais vendu."},
   {n:"Vinyle",w:7,mult:2.5,d:"Le pressage physique."},
   {n:"Or ✦",w:2.5,mult:6,d:"Doré sur tranche."},
-  {n:"Test press",w:0.5,mult:25,d:"Un seul exemplaire par serveur. Ne se vend jamais."}];
+  {n:"Test press",w:0.5,mult:25,d:"Le pressage le plus rare du jeu. Il se vend et s'échange comme les autres."}];
 function tierOf(pop){ for(let i=1;i<TIERS.length;i++) if(pop>=TIERS[i].min) return i; return 6; }
 function coteDe(c){ return Math.round(TIERS[c.rarity].base*(PRESS.find(p=>p.n===c.press)||PRESS[0]).mult); }
 
@@ -726,24 +739,25 @@ const COUT_REFRESH=20, SET_CAP=5;
    Ils servent à écrire les règles à l'écran ; s'ils divergent, c'est le
    serveur qui a raison. */
 const GAIN_WIN=22, GAIN_LOSS=6, GAIN_TIE=10;
-/* Fondre un doublon donne des Éclats ; les Éclats ne servent qu'à presser un titre choisi. */
-const ECLAT_PRESSAGE=[0,800,1200,2000,3500,7000,14000];
+/* Les éclats n'existent plus (v2.7.2) et « presser » non plus (v2.7.3) : les
+   crédits n'achètent que des cartons et ce que d'autres joueurs mettent en
+   vitrine. Ces chiffres ne sont qu'un miroir de ceux du serveur, qui décide. */
 const PACKS=[
   {id:"jour",n:"Carton du jour",c:"var(--t6)",p:0,d:"Un par jour, offert. Remis à zéro à minuit."},
-  {id:"std",n:"Carton standard",c:"var(--accent)",p:140,d:"Cinq disques différents, au hasard dans tout le bac, à toute heure."},
-  {id:"scene",n:"Carton de scène",c:"var(--t3)",p:280,d:"Cinq disques différents d'un même genre, tiré au sort à l'ouverture."}];
+  {id:"std",n:"Carton standard",c:"var(--accent)",p:170,d:"Cinq disques différents, au hasard dans tout le bac, à toute heure."},
+  {id:"scene",n:"Carton de scène",c:"var(--t3)",p:320,d:"Cinq disques différents d'un même genre, tiré au sort à l'ouverture."}];
 const RANGS=[{min:0,n:"Curieux"},{min:20,n:"Chineur"},{min:35,n:"Digger"},
   {min:50,n:"Fouineur"},{min:65,n:"Oreille d'or"},{min:80,n:"Conservateur"}];
 
 /* ============ L'ÉTAT DU JEU ============
-   Il n'est plus ici. La collection, les crédits, les éclats et le journal
+   Il n'est plus ici. La collection, les crédits et le journal
    d'identification vivent sur le serveur : ce navigateur en reçoit une copie
    à chaque réponse, l'affiche, et n'en décide rien. C'est ce qui rend le
    marché entre joueurs possible — une carte ne peut plus être inventée. */
 let JEU=null;
 const S={ silent:false, jeton:"",
   /* miroir de l'état serveur, uniquement pour l'affichage */
-  credits:0, eclats:0, shelf:[], bestSet:0, sets:0, setsWon:0, setsToday:0,
+  credits:0, shelf:[], bestSet:0, sets:0, setsWon:0, setsToday:0,
   streak:0, gouts:null, taux:null, fondus:0, achetes:0, presses:0, vendus:0 };
 
 /* Seuls les réglages de cet appareil sont gardés ici. */
@@ -756,7 +770,7 @@ function load(){ try{ const r=JSON.parse(localStorage.getItem("diggers10")||"nul
 function appliquerEtat(e){
   if(!e) return;
   JEU=e;
-  S.credits=e.credits; S.eclats=e.eclats; S.shelf=e.coffre||[];
+  S.credits=e.credits; S.shelf=e.coffre||[];
   S.bestSet=e.bestSet; S.sets=e.sets; S.setsWon=e.setsWon; S.setsToday=e.setsToday;
   S.streak=e.streak; S.gouts=e.gouts; S.taux=e.taux;
   S.fondus=e.fondus; S.achetes=e.achetes; S.presses=e.presses; S.vendus=e.vendus;
@@ -1227,7 +1241,8 @@ function enquete(c,nth){
         vd.innerHTML = r.passe
           ? '<p class="verdict no">C\'était <b style="color:var(--ink)">'+esc(carte.artist)+'</b> — carte gravée, 0 crédit</p>'
           : '<p class="verdict ok">Reconnue · +'+r.gain+' crédit'+(r.gain>1?'s':'')
-            +(r.doublon?' · doublon':(r.dejaVu?' · artiste déjà dans ta collection':(r.aSec?' · sans aide':' · avec aide')))+'</p>'
+            +(r.doublon?' · doublon':(r.dejaVu?' · artiste déjà dans ta collection':(r.aSec?' · sans aide':' · avec aide')))
+            +(r.horsQuota?' · <b style="color:var(--t3)">au-delà des '+(r.quota||10)+' trouvailles du jour</b>':'')+'</p>'
             +((r.paliers||[]).map(p=>'<p class="verdict ok" style="margin-top:6px">'
               +'Palier atteint — <b>'+esc(p.titre)+'</b> · '+p.n+' artistes différents · '
               +'<b style="color:var(--accent)">+'+p.prime+' crédits</b></p>').join(""));
@@ -1283,10 +1298,10 @@ function renderShelf(){
 }
 
 /* ============ MARCHÉ ============
-   Le marché appartient aux joueurs. Le site ne met plus une seule carte en
+   Le marché appartient aux joueurs. Le site ne met pas une seule carte en
    vente : ce qui est en vitrine est sorti d'une étagère, et y retourne si
-   l'annonce est retirée. Restent deux puits qui font disparaître de la
-   matière plutôt que d'en créer : fondre un doublon, presser un titre. */
+   l'annonce est retirée. Rien ici ne fabrique de carte — fondre un doublon
+   en fait même disparaître une. */
 let mkMode="annonces", pressQ="", ANNONCES=[], MESANN=null;
 
 function doublons(){
@@ -1300,7 +1315,10 @@ function doublons(){
   });
   return out;
 }
-function eclatsDe(c){ return Math.max(2, Math.round((c.cote||0)/2)); }
+/* Fondre rapporte le huitième de la cote. Peu, volontairement : un doublon a
+   d'abord vocation à être vendu ou échangé à un autre joueur. Fondre, c'est
+   ce qu'on fait quand personne n'en veut. */
+function fonteDe(c){ return Math.max(2, Math.round((c.cote||0)/8)); }
 
 async function apiMarche(action,corps){
   const r=await apiAppel("/api/marche",Object.assign({action:action},corps||{}));
@@ -1317,10 +1335,9 @@ function renderMarche(){
       +'<span style="font-size:13px">Onglet Profil — trente secondes, pas d\'adresse e-mail.</span></div>';
     return;
   }
-  if(mkMode==="annonces") return vueAnnonces(box);
   if(mkMode==="vendre") return vueVendre(box);
   if(mkMode==="fondre") return vueFondre(box);
-  return vuePresser(box);
+  return vueAnnonces(box);
 }
 
 /* ---------- ce que les autres proposent ---------- */
@@ -1366,7 +1383,7 @@ async function vueAnnonces(box){
 /* Choisir laquelle de mes cartes je mets sur la table. */
 function choisirCarte(titre,intro){
   return new Promise(res=>{
-    const mes=S.shelf.filter(c=>c.known&&c.press!=="Test press")
+    const mes=S.shelf.filter(c=>c.known)
       .sort((x,y)=>(y.cote||0)-(x.cote||0)).slice(0,80);
     const ov=document.createElement("div"); ov.className="onb";
     ov.innerHTML='<div class="onb-in modale"><h2 class="disp onb-h" style="font-size:clamp(22px,4vw,30px)">'+titre+'</h2>'
@@ -1385,7 +1402,7 @@ function choisirCarte(titre,intro){
   });
 }
 async function proposerEchange(a){
-  if(!S.shelf.some(c=>c.known&&c.press!=="Test press")){ flash("Tu n'as encore rien à échanger"); return; }
+  if(!S.shelf.some(c=>c.known)){ flash("Tu n'as encore rien à échanger"); return; }
   const choix=await choisirCarte("Proposer un échange",
     'Contre <b>'+esc(a.carte.artist)+' · '+esc(a.carte.title)+'</b> ('+esc(a.carte.press)+', cote '+a.cote+').<br>'
     +'La carte que tu proposes quitte ton étagère tant que '+esc(a.vendeur)+' n\'a pas répondu — elle te revient s\'il refuse.');
@@ -1401,7 +1418,7 @@ async function vueVendre(box){
   const r=await apiMarche("miennes");
   if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Indisponible.")+'</div>'; return; }
   MESANN=r;
-  const posables=S.shelf.filter(c=>c.known&&c.press!=="Test press");
+  const posables=S.shelf.filter(c=>c.known);
   const dbl=new Set(doublons().map(c=>c.uid));
 
   let html='<h3 class="sect" style="margin-top:0">Tes annonces en cours <span class="exp">'+r.posees+' / '+r.max+'</span></h3>';
@@ -1484,82 +1501,34 @@ function vueFondre(box){
       +'<span style="font-size:13px">Un doublon est une carte reconnue dont tu possèdes déjà un autre exemplaire. '
       +'Le meilleur des deux est toujours conservé.</span></div>'; return;
   }
-  const tot=dbl.reduce((a,c)=>a+eclatsDe(c),0);
-  box.innerHTML='<div class="bar"><button class="btn" id="foldall">Tout fondre — '+tot+' éclats</button>'
-    +'<span class="hint">'+dbl.length+' doublon(s). Fondre ne rapporte jamais de crédits : '
-    +'les éclats ne servent qu\'à presser un titre que tu choisis.</span></div><div class="grid" id="dbl"></div>';
+  const tot=dbl.reduce((a,c)=>a+fonteDe(c),0);
+  box.innerHTML='<div class="bar"><button class="btn" id="foldall">Tout fondre — '+tot+' crédits</button>'
+    +'<span class="hint">'+dbl.length+' doublon(s). Fondre rapporte peu, exprès : '
+    +'un doublon se vend mieux à un autre joueur qu\'il ne se fond.</span></div><div class="grid" id="dbl"></div>';
   const g=document.getElementById("dbl");
-  dbl.slice().sort((a,b)=>eclatsDe(b)-eclatsDe(a)).forEach((c,i)=>{
+  dbl.slice().sort((a,b)=>fonteDe(b)-fonteDe(a)).forEach((c,i)=>{
     const wrap=document.createElement("div"); wrap.className="offer";
     wrap.appendChild(cardEl(c,{delay:i*20,cote:true}));
     const act=document.createElement("div"); act.className="act";
-    act.innerHTML='<button class="sell">Fondre → '+eclatsDe(c)+' éclats</button>';
+    act.innerHTML='<button class="sell">Fondre → '+fonteDe(c)+' crédits</button>';
     act.querySelector("button").onclick=async()=>{
       const r=await apiJeu("fondre",{uids:[c.uid]});
-      if(r&&r.ok) flash("+"+r.eclats+" éclats");
+      if(r&&r.ok) flash("+"+r.credits+" crédits");
       renderMarche();
     };
     wrap.appendChild(act); g.appendChild(wrap);
   });
   document.getElementById("foldall").onclick=async()=>{
     const r=await apiJeu("fondre",{uids:dbl.map(c=>c.uid)});
-    if(r&&r.ok) flash("+"+r.eclats+" éclats");
+    if(r&&r.ok) flash("+"+r.credits+" crédits");
     renderMarche();
   };
 }
 
-/* ---------- presser ----------
-   La recherche se fait maintenant côté serveur. Le navigateur n'a plus la
-   bibliothèque entière en mémoire — il ne l'a plus parce qu'elle pesait huit
-   mégaoctets — et c'est de toute façon le serveur qui presse la carte. */
-let PRESS_REQ=0;
-function vuePresser(box){
-  const q=pressQ.trim();
-  box.innerHTML='<div class="rule"><p style="margin:0"><b>Presser à la demande</b> — tu choisis le titre, '
-    +'le pressage reste tiré au sort. C\'est le seul moyen d\'aller chercher un morceau précis sans attendre '
-    +'qu\'il sorte d\'un carton, et le seul usage des éclats.</p></div>'
-    +'<div class="bar"><input id="pq" placeholder="Chercher un titre ou un artiste…" value="'+esc(pressQ)+'" style="flex:1;min-width:200px">'
-    +'<span class="hint">Tu as <b style="color:var(--accent)">'+S.eclats+' éclats</b></span></div>'
-    +'<div class="grid" id="prs"></div>';
-  const inp=document.getElementById("pq");
-  inp.oninput=()=>{ pressQ=inp.value; clearTimeout(inp._t); inp._t=setTimeout(()=>renderMarche(),350); };
-  const g=document.getElementById("prs");
-  if(!q){ g.innerHTML='<div class="empty" style="grid-column:1/-1">Cherche un morceau du catalogue.</div>'; return; }
-  g.innerHTML='<div class="empty" style="grid-column:1/-1">Recherche…</div>';
-  chercherAPresser(q,++PRESS_REQ,g);
-}
-
-async function chercherAPresser(q,mien,g){
-  let d=null;
-  try{
-    const r=await fetch(apiBase()+"/api/bibliotheque?parPage=24&tri=commun&q="+encodeURIComponent(q));
-    if(r.ok) d=await r.json();
-  }catch(e){}
-  /* Une frappe plus récente a déjà lancé sa propre recherche : celle-ci est
-     périmée, on ne l'affiche pas. */
-  if(mien!==PRESS_REQ||!document.body.contains(g)) return;
-  if(!d){ g.innerHTML='<div class="empty" style="grid-column:1/-1">La recherche n\'a pas abouti.</div>'; return; }
-  const res=d.cartes||[];
-  if(!res.length){ g.innerHTML='<div class="empty" style="grid-column:1/-1">Rien de ce nom dans la bibliothèque.</div>'; return; }
-  g.innerHTML="";
-  res.forEach((src,i)=>{
-    const t=tierOf(src.pop), cout=ECLAT_PRESSAGE[t];
-    const vue=Object.assign({},src,{rarity:t,press:"Standard",known:true,uid:"p-"+src.id});
-    const wrap=document.createElement("div"); wrap.className="offer";
-    wrap.appendChild(cardEl(vue,{delay:i*15}));
-    const act=document.createElement("div"); act.className="act";
-    act.innerHTML='<button'+(S.eclats<cout?' disabled':'')+'>Presser — '+cout+' éclats</button>'
-      +'<span class="deal down">pressage tiré au sort</span>';
-    act.querySelector("button").onclick=async()=>{
-      const r=await apiJeu("presser",{id:src.id});
-      if(r&&r.ok) flash("Pressée en "+r.carte.press);
-      renderMarche();
-    };
-    wrap.appendChild(act); g.appendChild(wrap);
-  });
-  if(d.total>res.length) g.insertAdjacentHTML("beforeend",
-    '<p class="notice" style="grid-column:1/-1">'+d.total+' résultats en tout — affine ta recherche pour voir les autres.</p>');
-}
+/* L'onglet « Presser » a disparu en v2.7.3. On pouvait y acheter directement
+   la carte de son choix : c'était le raccourci qui vidait le jeu de son sujet.
+   Une carte s'obtient en ouvrant un carton, en l'échangeant avec un autre
+   joueur, ou en la proposant au jeu. */
 
 /* ============ RÈGLES : tout le jeu, en une page ============ */
 function renderRegles(){
@@ -1686,14 +1655,18 @@ function renderRegles(){
   +'<p><b>Ou bien on échange.</b> Sur n\'importe quelle annonce, tu peux proposer une de tes cartes au lieu de payer. '
   +'Le vendeur accepte ou refuse. Tant qu\'il n\'a pas répondu, la carte que tu as proposée quitte ton étagère : '
   +'elle t\'est rendue s\'il refuse ou s\'il retire son annonce.</p>'
-  +'<p><b>Et si personne n\'en veut, il reste les Éclats.</b> Fondre un doublon donne la moitié de sa cote en Éclats — '
-  +'le meilleur exemplaire est toujours conservé — et les Éclats ne servent qu\'à une chose : <b>presser</b> un titre '
-  +'que tu choisis toi-même dans tout le catalogue. C\'est la seule façon d\'aller chercher un morceau précis au lieu '
-  +'de l\'attendre. Le pressage, lui, reste tiré au sort.</p>'
+  +'<p><b>Et si personne n\'en veut, tu peux le fondre.</b> Un doublon fondu rend le <b>huitième de sa cote</b> en '
+  +'crédits — le meilleur exemplaire est toujours conservé. C\'est peu, exprès : un doublon se vend bien mieux à un '
+  +'autre joueur qu\'il ne se fond.</p>'
+  +'<p><b>On ne peut pas acheter une carte au jeu lui-même.</b> Il n\'existe aucun bouton pour se procurer '
+  +'directement le morceau qu\'on veut. Une carte s\'obtient de trois façons, et de trois seulement : '
+  +'elle <b>sort d\'un carton</b>, on <b>l\'achète ou on l\'échange à un autre joueur</b>, ou on la '
+  +'<b>fait entrer dans le jeu</b> en la proposant — et elle arrive alors en pressage d\'origine, à ton nom. '
+  +'C\'est ce qui fait qu\'une collection se construit, au lieu de se commander.</p>'
   +'<ul><li>Une carte achetée ou échangée arrive <b>déjà reconnue</b> : c\'est tout son intérêt.</li>'
   +'<li>Mais elle <b>ne compte pas</b> dans ton taux d\'identification. On achète une collection, jamais un classement.</li>'
   +'<li>Une carte encore face cachée ne se vend pas : il faut savoir ce qu\'on vend.</li>'
-  +'<li>Les <b>Test press</b> ne se vendent ni ne s\'échangent. Il n\'en existe qu\'un.</li>'
+  +'<li>Tout le reste se vend et s\'échange, <b>Test press compris</b> — c\'est même la carte qu\'on a le plus envie de faire circuler.</li>'
   +'<li>Douze annonces en cours au maximum, pour que le marché reste lisible.</li></ul></section>'
 
   /* 7 */
@@ -1729,20 +1702,23 @@ function renderRegles(){
   +'<p class="lede">Une seule monnaie, et elle se gagne en jouant ou en vendant à un autre joueur. Jamais en payant.</p>'
   +'<div class="scale"><div class="sc head"><span>Tu gagnes</span><span>Quand</span><span class="odds">Montant</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Reconnaissance</span><span class="dsc">Un artiste que tu n\'avais pas encore. Un <b>doublon ne rapporte que 3</b>.</span><span class="odds">4 à 26</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Les 10 premières du jour</span><span class="dsc">Passé dix trouvailles dans la journée, les suivantes paient <b>40 %</b>. Le compteur repart chaque jour, et il est affiché sur l\'accueil.</span><span class="odds">puis 40 %</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Artiste déjà collectionné</span><span class="dsc">Le même nom une deuxième fois rapporte <b>un peu plus de la moitié</b>. Le jeu paie la découverte.</span><span class="odds">≈ 55 %</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Revenir chaque jour</span><span class="dsc">À la première action de la journée. Monte du 1<sup>er</sup> au 7<sup>e</sup> jour, puis se stabilise. Manquer un jour remet la série à un.</span><span class="odds">12 à 60</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Paliers de collection</span><span class="dsc">10, 25, 50, 100, 200 puis 400 <b>artistes différents</b> reconnus. Une seule fois chacun.</span><span class="odds">50 à 2 000</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Set gagné</span><span class="dsc">Plafonné à <b>5 sets récompensés par jour</b>.</span><span class="odds">22</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Set nul, set perdu</span><span class="dsc">On ne repart jamais les mains vides.</span><span class="odds">10 · 6</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Vente au marché</span><span class="dsc">Le prix que tu as demandé, payé par un autre joueur.</span><span class="odds">ton prix</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Fondre un doublon</span><span class="dsc">Donne des <b>Éclats</b>, jamais des crédits.</span><span class="odds">cote / 2</span><span class="val"></span></div></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--ok)">Fondre un doublon</span><span class="dsc">Peu, exprès : un doublon se vend mieux qu\'il ne se fond.</span><span class="odds">cote / 8</span><span class="val"></span></div></div>'
   +'<div class="scale"><div class="sc head"><span>Tu dépenses</span><span>Pour quoi</span><span class="odds">Montant</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton standard</span><span class="dsc">Cinq disques différents, au hasard.</span><span class="odds">140</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton de scène</span><span class="dsc">Cinq disques différents d\'un même genre.</span><span class="odds">280</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton standard</span><span class="dsc">Cinq disques différents, au hasard.</span><span class="odds">170</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton de scène</span><span class="dsc">Cinq disques différents d\'un même genre.</span><span class="odds">320</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Révélateurs</span><span class="dsc">Retirés de la valeur de la carte : on ne paie pas, on renonce à gagner.</span><span class="odds">2 à 7</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Achat au marché</span><span class="dsc">Le prix demandé par le joueur qui vend.</span><span class="odds">variable</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Presser un titre</span><span class="dsc">De 800 à 14 000 <b>Éclats</b> selon le palier.</span><span class="odds">éclats</span><span class="val"></span></div></div>'
-  +'<p>Le carton du jour est offert. Un carton payant coûte <b>140</b> et rapporte au mieux <b>130</b> — '
+  +'</div>'
+  +'<p class="notice">Il n\'y a rien d\'autre à acheter. Les crédits ne servent qu\'à ouvrir des cartons '
+  +'et à traiter avec d\'autres joueurs — <b>on ne peut pas se procurer une carte auprès du jeu lui-même</b>.</p>'
+  +'<p>Le carton du jour est offert. Un carton payant coûte <b>170</b> et rapporte au mieux <b>130</b> — '
   +'et encore, seulement si les cinq disques sont reconnus du premier coup et signés d\'artistes que tu n\'avais '
   +'jamais eus. <b>Un carton ne se rembourse jamais tout seul.</b> C\'est voulu : les crédits viennent de ce que '
   +'tu joues — reconnaître, gagner des sets, voter au défi, revenir, franchir des paliers — et les cartons '
@@ -1751,6 +1727,11 @@ function renderRegles(){
   +'<p>La même logique gouverne les reconnaissances : un artiste que tu as déjà sur ton étagère rapporte '
   +'un peu plus de la moitié. Ce n\'est pas une punition, c\'est ce que le jeu attend de toi — <b>trouver des '
   +'noms que tu n\'as pas</b>. Et ça se resserre tout seul à mesure que ta collection grandit.</p>'
+  +'<p><b>Et une session a une fin.</b> Les <b>dix premières trouvailles de la journée</b> paient plein tarif ; '
+  +'au-delà, on passe à 40 %. Sans ça, un joueur qui reconnaît presque tout enchaînerait les cartons sans '
+  +'jamais tomber à court — chaque carton payant presque le suivant. Le compteur est affiché sur l\'accueil, '
+  +'il repart à zéro chaque jour, et il ne compte que les vraies trouvailles : passer son tour ou retomber sur '
+  +'un doublon ne l\'entame pas.</p>'
   +'<p><b>Le jeu est gratuit et le restera.</b> La boutique ne vend que du décor : des bannières et des couleurs '
   +'de profil, payées en <b>jetons</b>. Les jetons ne se transforment jamais en crédits, n\'ouvrent aucun carton, '
   +'n\'entrent pas au marché et ne pèsent rien au classement — qui note ton oreille, pas ton argent. '
@@ -1758,7 +1739,7 @@ function renderRegles(){
   +'<p>C\'est aussi pour ça qu\'il n\'y a <b>rien d\'aléatoire à vendre</b> : pas de carton payant, pas de pochette '
   +'surprise contre des euros. On sait exactement ce qu\'on achète avant de payer.</p>'
   +(S.shelf.length?'<p style="color:var(--ink-3)">Chez toi : <b style="color:var(--accent)">'+S.credits
-    +'</b> crédits, <b style="color:var(--accent)">'+S.eclats+'</b> éclats, '+(S.achetes||0)+' carte(s) achetée(s), '
+    +'</b> crédits, '+(S.achetes||0)+' carte(s) achetée(s), '
     +(S.vendus||0)+' vendue(s).</p>':'')
   +'</section>'
 
@@ -2101,7 +2082,7 @@ function renderReglages(){
         +'rend le marché entre joueurs possible. Onglet <b>Profil</b> pour en créer un — trente secondes, sans e-mail.')
       +'</p></div>'
     +(COMPTE?'<div class="bar"><span class="hint">'+S.shelf.length+' cartes · '
-      +S.shelf.filter(c=>c.known).length+' reconnues · '+S.credits+' crédits · '+S.eclats+' éclats</span></div>':'')
+      +S.shelf.filter(c=>c.known).length+' reconnues · '+S.credits+' crédits</span></div>':'')
 
     +(COMPTE?'<h3 class="sect">Retrouver ton mot de passe <span class="exp">Facultatif</span></h3>'
       +'<p style="color:var(--ink-2);font-size:14px;margin:0 0 10px;max-width:70ch">'
@@ -3145,9 +3126,12 @@ function dessinerBiblio(garder){
   const admin=COMPTE&&COMPTE.role==="admin";
   box.innerHTML=
     '<div class="kpis" style="margin-top:0">'
-      +'<div class="kpi"><span>Sons dans le jeu</span><b>'+(m.titres||0)+'</b><p>sur un plafond de '+nb(BIB.plafond||0)+'.</p></div>'
-      +'<div class="kpi"><span>Import de départ</span><b>'+(m.noyau||0)+'</b><p>venus de catalogue.json.</p></div>'
-      +'<div class="kpi"><span>Apports des joueurs</span><b>'+(m.communaute||0)+'</b><p>validés par la modération.</p></div></div>'
+      +'<div class="kpi"><span>Sons dans le jeu</span><b>'+nb(m.titres||0)+'</b><p>sur un plafond de '+nb(BIB.plafond||0)+'.</p></div>'
+      +'<div class="kpi"><span>Ajoutés cette semaine</span><b>'+nb(m.ajouts7||0)+'</b>'
+        +'<p>'+nb(m.ajouts30||0)+' sur trente jours.</p></div>'
+      +'<div class="kpi"><span>Apports des joueurs</span><b>'+nb(m.communaute||0)+'</b><p>validés par la modération.</p></div>'
+      +'<div class="kpi"><span>Fonds de départ</span><b>'+nb(Math.max(0,(m.titres||0)-(m.dates||0)))+'</b>'
+        +'<p>entrés avant qu\'on date les ajouts.</p></div></div>'
     +(admin?'<div class="onb-bar" style="position:static;background:none;margin:14px 0 0;padding:0">'
       +'<button class="btn sm" type="button" id="bconstruire">Construire depuis Apple</button>'
       +'<button class="btn ghost sm" type="button" id="bimport">Importer catalogue.json</button>'
@@ -4383,7 +4367,7 @@ function habillerProfil(){
     const q=await modale("Se déconnecter ?",
       '<p>Ta collection reste sur ton compte, au serveur. Tu la retrouveras avec ton pseudo, ici ou ailleurs.</p>',
       [{v:1,n:"Se déconnecter"},{v:0,n:"Rester",g:true}]);
-    if(q){ deconnecter(); JEU=null; S.shelf=[]; S.credits=0; S.eclats=0; sync(); renderProfil(); }
+    if(q){ deconnecter(); JEU=null; S.shelf=[]; S.credits=0; sync(); renderProfil(); }
   };
   document.getElementById("ceffacer").onclick=effacerCompte;
   const pp=document.getElementById("ppseudo");
@@ -4692,7 +4676,6 @@ renderReglages=function(){ _renderReglages(); habillerReglages(); };
 
 function sync(){
   document.getElementById("cred").textContent=S.credits;
-  document.getElementById("ecl").textContent=S.eclats;
   document.getElementById("ngrav").textContent=S.shelf.filter(c=>c.known).length+"/"+S.shelf.length;
   renderShop();
   renderProgres();
@@ -4714,7 +4697,15 @@ function renderProgres(){
   const prochain=paliers.find(p=>!p.pris);
   const pris=paliers.filter(p=>p.pris).length;
 
+  const quota=JEU.quota||10, faits=JEU.trouvesToday||0;
+  const reste=Math.max(0,quota-faits);
+
   box.innerHTML='<div class="kpis" style="margin-top:18px">'
+    +'<div class="kpi"><span>Trouvailles du jour</span><b>'+faits+'<em>/'+quota+'</em></b>'
+      +'<p>'+(reste
+          ? 'encore <b>'+reste+'</b> à plein tarif, puis '+(JEU.apresQuota||40)+' %.'
+          : 'plein tarif épuisé — les suivantes paient '+(JEU.apresQuota||40)+' %. <b>Ça repart demain.</b>')
+      +'</p></div>'
     +'<div class="kpi"><span>Série</span><b>'+serie+'<em>'+(serie>1?" jours":" jour")+'</em></b>'
       +'<p>'+(prime?'<b style="color:var(--ok)">+'+prime.montant+' crédits</b> aujourd\'hui. ':'')
       +'Reviens demain : <b>+'+(JEU.primeDemain||0)+'</b>.</p></div>'
@@ -5017,13 +5008,26 @@ function bibLigne(c){
 
    Le regroupement suit ce qu'on vient faire, pas la structure du code :
    « jouer », « ma collection », « échanger », « le jeu », « moi ». */
+/* LE MENU (revu en v2.7.3)
+
+   Chaque famille porte le nom de ce qu'on y FAIT, pas d'une catégorie.
+   « Accueil » ne disait pas qu'on y ouvre des cartons — c'est pourtant le
+   geste central du jeu ; il a maintenant son propre onglet, et il s'appelle
+   « Ouvrir ». « Communauté » ne disait pas qu'on y propose des morceaux :
+   c'est devenu « Proposer un son », rangé à côté de la bibliothèque
+   puisqu'il s'agit de la faire grandir — et non plus à côté du marché, avec
+   lequel il n'a rien à voir.
+
+   Une vue se trouve là où on irait la chercher, et une famille ne dépasse
+   jamais trois vues. */
 const FAMILLES=[
-  {id:"jouer",   n:"Jouer",       vues:[["accueil","Accueil"],["set","Le Set"],["defi","Le Défi"]]},
-  {id:"collec",  n:"Ma collection",vues:[["etagere","Étagère"],["crew","Crew"],["profil","Profil"]]},
-  {id:"echanger",n:"Échanger",    vues:[["marche","Marché"],["communaute","Communauté"]]},
-  {id:"jeu",     n:"Le jeu",      vues:[["bibliotheque","Bibliothèque"],["classement","Classement"],["regles","Règles"]]},
-  {id:"moi",     n:"Réglages",    vues:[["reglages","Réglages"],["boutique","Boutique"]]},
-  {id:"mod",     n:"Modération",  vues:[["moderation","Modération"]], admin:true}
+  {id:"ouvrir",  n:"Ouvrir",        vues:[["accueil","Ouvrir un carton"]]},
+  {id:"collec",  n:"Ma collection", vues:[["etagere","Étagère"],["crew","Crew"],["profil","Profil"]]},
+  {id:"jouer",   n:"Jouer",         vues:[["set","Le Set"],["defi","Le Défi"],["classement","Classement"]]},
+  {id:"marche",  n:"Marché",        vues:[["marche","Marché"]]},
+  {id:"biblio",  n:"La bibliothèque",vues:[["bibliotheque","Tous les sons"],["communaute","Proposer un son"]]},
+  {id:"aide",    n:"Aide & réglages",vues:[["regles","Règles du jeu"],["reglages","Réglages"],["boutique","Boutique"]]},
+  {id:"mod",     n:"Modération",    vues:[["moderation","Modération"]], admin:true}
 ];
 const familleDe=v=>FAMILLES.find(f=>f.vues.some(x=>x[0]===v))||FAMILLES[0];
 

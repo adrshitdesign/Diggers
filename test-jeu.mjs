@@ -91,20 +91,20 @@ R("elle propose quatre réponses", Array.isArray(c0.choices) && c0.choices.lengt
 R("elle vaut 26 crédits tant qu'on n'a rien demandé", c0.valeur === 26);
 
 r = await post(jeu, { action: "carton", type: "std" }, jMila);
-R("un carton standard coûte 140 crédits", r.code === 200 && r.etat.credits === 272);
+R("un carton standard coûte 170 crédits", r.code === 200 && r.etat.credits === 242);
 r = await post(jeu, { action: "carton", type: "scene" }, jTheo);
-R("un carton de scène coûte 280 crédits", r.code === 200 && r.etat.credits === 132);
+R("un carton de scène coûte 320 crédits", r.code === 200 && r.etat.credits === 92);
 r = await post(jeu, { action: "carton", type: "or" }, jMila);
 R("un carton inventé est refusé", r.code === 400);
 
 console.log("\n=== L'ENQUÊTE ===");
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "audio" }, jMila);
-R("l'extrait ne coûte rien", r.code === 200 && r.etat.credits === 272);
+R("l'extrait ne coûte rien", r.code === 200 && r.etat.credits === 242);
 R("il livre enfin l'adresse du son", !!r.carte.indices.preview);
 R("mais il marque la carte comme écoutée", r.carte.heard === true);
 
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "album" }, jMila);
-R("l'album se paie sur le gain, pas sur la caisse", r.carte.valeur === 21 && r.etat.credits === 272);
+R("l'album se paie sur le gain, pas sur la caisse", r.carte.valeur === 21 && r.etat.credits === 242);
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "fausse-cle" }, jMila);
 R("un indice inventé est refusé", r.code === 400);
 
@@ -117,11 +117,11 @@ const vraie = tracks.find(t => t.id === dossier.jeu.coffre[0].id);
 const faux = dossier.jeu.coffre[0].choices.find(x => x !== vraie.artist);
 
 r = await post(jeu, { action: "repondre", uid: c0.uid, choix: faux }, jMila);
-R("une mauvaise réponse ne rapporte rien", r.code === 200 && r.bon === false && r.etat.credits === 272);
+R("une mauvaise réponse ne rapporte rien", r.code === 200 && r.bon === false && r.etat.credits === 242);
 R("elle fait tomber la valeur de la carte", r.valeur === 8);
 
 r = await post(jeu, { action: "repondre", uid: c0.uid, choix: vraie.artist }, jMila);
-R("la bonne réponse paie ce qu'il reste", r.code === 200 && r.bon === true && r.gain === 8 && r.etat.credits === 280);
+R("la bonne réponse paie ce qu'il reste", r.code === 200 && r.bon === true && r.gain === 8 && r.etat.credits === 250);
 R("la carte se retourne enfin", r.carte.known === true && r.carte.artist === vraie.artist);
 R("elle n'est pas trouvée à sec", r.aSec === false);
 R("le taux d'identification existe maintenant", r.etat.taux !== null);
@@ -132,16 +132,20 @@ dossier = await (await store("utilisateurs")).get(dossier.uid);
 const propre = dossier.jeu.coffre.find(c => !c.known);
 const bonne = tracks.find(t => t.id === propre.id).artist;
 r = await post(jeu, { action: "repondre", uid: propre.uid, choix: bonne }, jMila);
-R("trouvée du premier coup : 26 crédits et le statut à sec",
-  r.bon === true && (r.gain === 26 || r.doublon === true) && (r.aSec === true));
+/* 26 crédits pour un artiste qu'on n'avait pas, 14 s'il est déjà sur
+   l'étagère (la découverte paie plein tarif, la répétition moins), 3 si
+   c'est un vrai doublon du même morceau. Dans tous les cas, trouvée sans
+   aucune aide. */
+R("trouvée du premier coup, sans aide", r.bon === true && r.aSec === true);
+R("et payée selon ce qu'on avait déjà",
+  r.doublon ? r.gain === 3 : (r.dejaVu ? r.gain === 14 : r.gain === 26));
 
-console.log("\n=== FONDRE, PRESSER ===");
-r = await post(jeu, { action: "presser", id: tracks[0].id }, jMila);
-R("presser sans éclats est refusé", r.code === 402);
+console.log("\n=== FONDRE ===");
+/* Les éclats n'existent plus (v2.7.2) : fondre rend des crédits. */
 
-// on donne des éclats et deux exemplaires du même titre
+// deux exemplaires du même titre, et de quoi payer
 dossier = await (await store("utilisateurs")).get(dossier.uid);
-dossier.jeu.eclats = 20000;
+dossier.jeu.credits = 20000;
 const modele = { id: tracks[3].id, rarity: 3, press: "Standard", known: true, reveals: null, aSec: false, achete: false, tries: 0, heard: false, indices: [], choices: [] };
 dossier.jeu.coffre.push({ ...modele, uid: "dbl-1" }, { ...modele, uid: "dbl-2", press: "Vinyle" });
 await (await store("utilisateurs")).set(dossier.uid, dossier);
@@ -149,13 +153,37 @@ await (await store("utilisateurs")).set(dossier.uid, dossier);
 r = await post(jeu, { action: "fondre", uids: ["dbl-1", "dbl-2"] }, jMila);
 R("fondre ne prend que le doublon, jamais le meilleur exemplaire", r.code === 200 && r.fondus === 1);
 R("le vinyle est resté", r.etat.coffre.some(c => c.uid === "dbl-2") && !r.etat.coffre.some(c => c.uid === "dbl-1"));
+R("fondre rapporte des crédits", r.credits > 0 && r.etat.credits === 20000 + r.credits);
+R("mais peu : le huitième de la cote", r.credits === Math.max(2, Math.round(60 / 8)));
+const apresFonte = r.etat.credits;
 r = await post(jeu, { action: "fondre", uids: ["dbl-2"] }, jMila);
 R("un exemplaire unique ne se fond pas", r.code === 400);
 
+/* PRESSER N'EXISTE PLUS (v2.7.3). On pouvait acheter directement la carte de
+   son choix : c'était le raccourci qui vidait le jeu de son sujet. Une carte
+   s'obtient en ouvrant un carton, en l'échangeant avec un autre joueur, ou en
+   la proposant au jeu. */
+const avantPress = (await post(jeu, { action: "etat" }, jMila)).etat.credits;
 r = await post(jeu, { action: "presser", id: tracks[0].id }, jMila);
-R("presser donne une carte reconnue, marquée achetée",
-  r.code === 200 && r.carte.known === true && r.carte.achete === true);
-R("et retire les éclats", r.etat.eclats < 20000);
+R("presser un titre n'existe plus", r.code === 410);
+R("et le jeu dit par où passer à la place",
+  /carton/.test(r.erreur || "") && /échange|échangeant/.test(r.erreur || ""));
+R("rien n'est débité", (await post(jeu, { action: "etat" }, jMila)).etat.credits === avantPress);
+R("et aucune carte n'apparaît",
+  (await post(jeu, { action: "etat" }, jMila)).etat.coffre.every(c => !c.presse));
+void apresFonte;
+
+{
+  /* Un Test press, lui, se vend maintenant — c'est même la carte qu'on a le
+     plus envie d'échanger. */
+  const U = await store("utilisateurs");
+  const u = await U.get(dossier.uid);
+  u.jeu.coffre.push({ ...modele, uid: "tp-1", press: "Test press" });
+  await U.set(u.uid, u);
+}
+r = await post(marche, { action: "poser", uid: "tp-1", prix: 900 }, jMila);
+R("un Test press se vend", r.code === 200);
+await post(marche, { action: "retirer", id: r.annonce.id }, jMila);
 
 console.log("\n=== LE SET ===");
 r = await post(jeu, { action: "set" }, jMila);
@@ -255,8 +283,11 @@ R("et celui qui proposait reçoit l'annonce", r.etat.coffre.some(c => c.uid === 
 
 console.log("\n=== LE RETRAIT REND TOUT ===");
 dossier = await (await store("utilisateurs")).get(dossier.uid);
-const troisieme = dossier.jeu.coffre.find(c => c.known && c.press !== "Test press");
+/* Depuis la v2.7.2, tout se vend sauf ce qu'on a pressé soi-même — les Test
+   press compris. */
+const troisieme = dossier.jeu.coffre.find(c => c.known && !c.presse);
 r = await post(marche, { action: "poser", uid: troisieme.uid, prix: 40 }, jMila);
+if (!r.annonce) console.log("      poser a échoué :", JSON.stringify(r).slice(0, 200));
 const a3 = r.annonce.id;
 uTheo = await (await store("utilisateurs")).get(dTheo.uid);
 const offert = uTheo.jeu.coffre.find(c => c.known);

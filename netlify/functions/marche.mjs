@@ -135,8 +135,21 @@ async function traiter(req, u, b, lib, S) {
       const i = g.coffre.findIndex(c => c.uid === String(b.uid || ""));
       if (i < 0) return ko(404, "Cette carte n'est pas dans ton étagère.");
       const carte = g.coffre[i];
+      /* Ce qui se vend, et ce qui ne se vend pas.
+
+         Une carte face cachée ne part pas en vitrine : le marché affiche
+         l'artiste, le titre et la cote, et une carte non identifiée n'a rien
+         de tout ça. La trouver d'abord, c'est le jeu.
+
+         Tout le reste se vend, y compris les Test press. Ils ne se vendaient
+         pas avant « parce qu'il n'en existe qu'un » — c'était exactement la
+         mauvaise raison : une carte dont il n'existe qu'un exemplaire dans
+         tout le jeu, c'est précisément celle qu'on veut pouvoir échanger.
+
+         Il y avait une seconde exception, pour les cartes pressées sur
+         commande. Presser n'existe plus depuis la v2.7.3 : les quelques
+         cartes obtenues ainsi redeviennent des cartes comme les autres. */
       if (!carte.known) return ko(409, "Une carte encore face cachée ne se vend pas : trouve-la d'abord.");
-      if (carte.press === "Test press") return ko(409, "Un test press ne se vend pas. Il n'en existe qu'un.");
 
       const miennes = (await toutesLesAnnonces()).filter(a => a.vendeurUid === u.uid && ouverte(a));
       if (miennes.length >= MAX_ANNONCES) return ko(429, "Tu as déjà " + MAX_ANNONCES + " annonces en cours.");
@@ -229,8 +242,8 @@ async function traiter(req, u, b, lib, S) {
       const i = g.coffre.findIndex(c => c.uid === String(b.uid || ""));
       if (i < 0) return ko(404, "Cette carte n'est pas dans ton étagère.");
       const carte = g.coffre[i];
-      if (!carte.known) return ko(409, "Une carte face cachée ne s'échange pas.");
-      if (carte.press === "Test press") return ko(409, "Un test press ne s'échange pas.");
+      // mêmes règles qu'à la vente : voir le commentaire dans « poser »
+      if (!carte.known) return ko(409, "Une carte face cachée ne s'échange pas : trouve-la d'abord.");
 
       g.coffre.splice(i, 1);
       a.offres = a.offres || [];
