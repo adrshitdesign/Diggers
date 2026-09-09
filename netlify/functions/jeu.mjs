@@ -85,7 +85,6 @@ export const CLUES = {
 const LADDER = [26, 13, 7, 4];
 const GAIN_DOUBLON = 3, PLANCHER = 4;
 const REMISE_CONNU = 0.55;              // artiste déjà sur l'étagère
-const SET_CAP = 5, GAIN_WIN = 22, GAIN_TIE = 10, GAIN_LOSS = 6;
 
 /* LE QUOTA DU JOUR (v2.7.3)
    Le vrai moteur du déséquilibre n'était pas le prix d'un carton : c'était
@@ -141,20 +140,17 @@ export const PALIERS = [
   { n: 400, prime: 2000, titre: "Mémoire du bac" }];
 const COFFRE_MAX = 4000;
 
-export const CONTRAINTES = [
-  { id: "old",   l: "Rien après 1999",             f: c => c.year && c.year <= 1999 },
-  { id: "new",   l: "Rien avant 2010",             f: c => c.year && c.year >= 2010 },
-  { id: "court", l: "Moins de 4 minutes",          f: c => c.ms && c.ms < 240000 },
-  { id: "long",  l: "Plus de 4 minutes",           f: c => c.ms && c.ms >= 240000 },
-  { id: "sous",  l: "Aucun Tube",                  f: c => c.rarity >= 2 },
-  { id: "pep",   l: "Que des Faces B ou plus rare", f: c => c.rarity >= 4 },
-  { id: "libre", l: "Aucune contrainte",           f: () => true }];
 
+/* Le palier d'une carte se lit sur la popularité du morceau, et sa cote
+   combine ce palier et son pressage. */
 export const tierOf = pop => {
   for (let i = 1; i < TIERS.length; i++) if (pop >= TIERS[i].min) return i;
   return 6;
 };
 export const coteDe = c => Math.round(TIERS[c.rarity].base * (PRESS.find(p => p.n === c.press) || PRESS[0]).mult);
+
+/* Fondre un doublon rapporte le huitième de la cote, en crédits, et jamais
+   moins de deux : peu, exprès — un doublon se vend mieux qu'il ne se fond. */
 export const fonteDe = c => Math.max(2, Math.round(coteDe(c) / DIVISEUR_FONTE));
 
 /* Le hasard reste ici. Rien de tout ça ne doit exister côté navigateur. */
@@ -171,26 +167,6 @@ const pickTier = () => {
   return 1;
 };
 
-/* La contrainte du jour : la même pour tout le monde, tirée sur l'horloge du
-   serveur — l'avancer sur sa machine ne change plus rien. */
-function seedOf(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return h >>> 0;
-}
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-export function contrainteDuJour(j) {
-  const r = mulberry32(seedOf((j || jour()) + "|set"));
-  return CONTRAINTES[Math.floor(r() * CONTRAINTES.length)];
-}
-
 /* ============ l'état d'un joueur ============ */
 
 export function jeuNeuf() {
@@ -199,8 +175,7 @@ export function jeuNeuf() {
     coffre: [], enq: {},
     idLog: "",
     gouts: null, premier: true,
-    jourDate: "", setsDate: "", setsToday: 0, trouvesDate: "", trouvesToday: 0,
-    bestSet: 0, sets: 0, setsWon: 0,
+    jourDate: "", trouvesDate: "", trouvesToday: 0,
     streak: 0, lastPlayed: "",
     fondus: 0, achetes: 0, presses: 0, vendus: 0,
     cree: Date.now()
@@ -227,7 +202,6 @@ export function jeuDe(u) {
 /* La journée du joueur, sur l'horloge du serveur. */
 function majJournee(g) {
   const t = jour();
-  if (g.setsDate !== t) { g.setsDate = t; g.setsToday = 0; }
   if (g.trouvesDate !== t) { g.trouvesDate = t; g.trouvesToday = 0; }
   if (g.lastPlayed !== t) {
     const h = new Date(Date.now() - 86400000);
@@ -280,6 +254,12 @@ export function tauxSec(g) {
   return Math.round(n / l.length * 100);
 }
 
+/* UNE CARTE = UNE ENTRÉE. C'était le bug du taux (v2.7.5) : chaque mauvaise
+   réponse écrivait sa propre ligne dans le journal, puis la bonne réponse en
+   écrivait une autre. Une carte trouvée au deuxième essai comptait donc deux
+   échecs, et le pourcentage affiché n'avait plus de rapport avec le « 5 sur 5
+   trouvées sans révélateur » écrit juste en dessous. On n'écrit plus qu'au
+   moment où la carte se referme — trouvée, ou passée. */
 function noterIdent(g, aSec) {
   g.idLog = ((g.idLog || "") + (aSec ? "1" : "0")).slice(-200);
 }
@@ -345,8 +325,6 @@ export function etatVu(g, lib) {
     coffre: g.coffre.map(c => carteVue(c, lib)),
     idLog: (g.idLog || "").length,
     taux: tauxSec(g),
-    bestSet: g.bestSet, sets: g.sets, setsWon: g.setsWon,
-    setsToday: g.setsToday, setCap: SET_CAP,
     trouvesToday: g.trouvesToday || 0, quota: QUOTA_PLEIN,
     apresQuota: Math.round(APRES_QUOTA * 100),
     jourDispo: g.jourDate !== jour(),
@@ -423,64 +401,6 @@ const melanger = a => {
   return l;
 };
 
-/* ============ la note d'un set ============ */
-
-const GENRE_DEC = [60, 52, 40, 28];
-function transition(a, b, run) {
-  const same = a.genre === b.genre;
-  const g = same ? GENRE_DEC[Math.min(run || 0, GENRE_DEC.length - 1)] : 15;
-  const dy = (a.year && b.year) ? Math.abs(a.year - b.year) : 25;
-  return Math.round(Math.min(100, g + 40 * Math.max(0, 1 - dy / 25)));
-}
-function transRuns(s) {
-  const out = []; let run = 0;
-  for (let i = 0; i < s.length - 1; i++) {
-    const same = s[i].genre === s[i + 1].genre;
-    out.push(transition(s[i], s[i + 1], run));
-    run = same ? run + 1 : 0;
-  }
-  return out;
-}
-function noteMontee(s) {
-  let r = 0;
-  for (let i = 0; i < s.length - 1; i++) if (s[i + 1].pop >= s[i].pop) r++;
-  const span = s[s.length - 1].pop - s[0].pop;
-  return Math.round(r / (s.length - 1) * 35 + Math.max(0, Math.min(span, 70)) / 70 * 65);
-}
-const noteFil = s => { const t = transRuns(s); return Math.round(t.reduce((a, b) => a + b, 0) / t.length); };
-const notePepites = s => Math.round(s.reduce((a, c) => a + (100 - c.pop), 0) / s.length);
-const bonusPress = s => Math.max(0, PRESS.findIndex(p => p.n === s[s.length - 1].press)) * 3;
-
-export function noter(s) {
-  const m = noteMontee(s), f = noteFil(s), p = notePepites(s), b = bonusPress(s);
-  return { m, f, p, b, total: Math.min(100, Math.round(m * 0.40 + f * 0.35 + p * 0.25) + b) };
-}
-
-function setAdverse(lib, cont) {
-  const pool = []; let g = 0;
-  const cand = () => {
-    const c = tirerUne(lib, null);
-    if (!c) return null;
-    const t = pisteDe(lib, c.id);
-    return t ? { ...t, rarity: c.rarity, press: c.press } : null;
-  };
-  while (pool.length < 5 && g++ < 600) {
-    const c = cand(); if (!c) break;
-    if (cont.f(c) && !pool.some(x => x.id === c.id) && !pool.some(x => x.artist === c.artist)) pool.push(c);
-  }
-  let h = 0;
-  while (pool.length < 5 && h++ < 600) {
-    const c = cand(); if (!c) break;
-    if (cont.f(c) && !pool.some(x => x.id === c.id)) pool.push(c);
-  }
-  pool.sort((a, b) => a.pop - b.pop);
-  if (pool.length === 5 && Math.random() < 0.45) {
-    const i = 1 + Math.floor(Math.random() * 3);
-    [pool[i], pool[i + 1]] = [pool[i + 1], pool[i]];
-  }
-  return pool;
-}
-
 /* ============ la porte ============ */
 
 export default async function (req) {
@@ -522,7 +442,7 @@ async function traiter(req, u, b) {
     // On en profite pour republier le résumé au classement : c'est le seul
     // endroit d'où il peut venir, et il doit suivre la journée du serveur.
     case "etat":
-      return await fini({ contrainte: contrainteDuJour().l });
+      return await fini({});
 
     /* ---------- l'onboarding : les artistes que le joueur dit reconnaître ---------- */
     case "gouts": {
@@ -609,9 +529,11 @@ async function traiter(req, u, b) {
       if (!passe && !(c.choices || []).includes(choix)) return ko(400, "Réponse hors des propositions.");
       const bon = !passe && choix === t.artist;
 
+      /* Une mauvaise réponse ne ferme pas la carte : on peut réessayer. Elle
+         ne s'inscrit donc pas au journal — mais elle a coûté le « sans aide »,
+         puisque c.tries le retient. */
       if (!bon && !passe) {
         c.tries = (c.tries || 0) + 1;
-        noterIdent(g, false);
         return await fini({ bon: false, carte: carteVue(c, lib), valeur: valeurDe(c) });
       }
 
@@ -682,69 +604,16 @@ async function traiter(req, u, b) {
     case "presser":
       return ko(410, "Presser un titre n'existe plus. Une carte s'obtient en ouvrant un carton, en l'échangeant avec un autre joueur, ou en la proposant au jeu.");
 
-    /* ---------- le Set ---------- */
-    case "set": {
-      const cont = contrainteDuJour();
-      const elig = g.coffre.filter(c => c.known).map(c => carteVue(c, lib))
-        .filter(c => !c.perdue && cont.f(c));
-      const artistes = new Set(elig.map(c => c.artist)).size;
-      // L'adversaire est tiré une fois et gardé : on ne relance pas la machine
-      // jusqu'à tomber sur un set faible.
-      if (!g.setAdv || g.setAdv.jour !== jour() || g.setAdv.cont !== cont.id) {
-        const adv = setAdverse(lib, cont);
-        g.setAdv = adv.length === 5
-          ? { jour: jour(), cont: cont.id, cartes: adv, note: noter(adv) }
-          : null;
-        await ecrireUtilisateur(u);
-      }
-      return ok({
-        contrainte: { id: cont.id, l: cont.l },
-        eligibles: elig, artistes,
-        adverseNote: g.setAdv ? g.setAdv.note.total : null,
-        joue: g.setsToday, cap: SET_CAP,
-        etat: etatVu(g, lib)
-      });
-    }
-
-    case "set-jouer": {
-      const uids = Array.isArray(b.uids) ? b.uids : [];
-      if (uids.length !== 5) return ko(400, "Il faut cinq cartes.");
-      if (new Set(uids).size !== 5) return ko(400, "Deux fois la même carte.");
-      const cont = contrainteDuJour();
-      const cartes = [];
-      for (const uid of uids) {
-        const c = g.coffre.find(x => x.uid === uid && x.known);
-        if (!c) return ko(400, "Une des cartes n'est pas à toi.");
-        const v = carteVue(c, lib);
-        if (v.perdue) return ko(410, "Un des morceaux a quitté la bibliothèque.");
-        if (!cont.f(v)) return ko(400, "Une des cartes ne respecte pas la contrainte du jour.");
-        cartes.push(v);
-      }
-      if (new Set(cartes.map(c => c.artist)).size !== 5) return ko(400, "Il faut cinq artistes différents.");
-
-      const moi = noter(cartes);
-      const garde = (g.setAdv && g.setAdv.jour === jour() && g.setAdv.cont === cont.id) ? g.setAdv : null;
-      const adv = garde ? garde.cartes : setAdverse(lib, cont);
-      if (adv.length < 5) return ko(503, "Pas assez de morceaux pour un adversaire.");
-      const advNote = garde ? garde.note : noter(adv);
-      g.setAdv = null;   // le prochain set aura un autre adversaire
-      const won = moi.total > advNote.total, tie = moi.total === advNote.total;
-      const paye = g.setsToday < SET_CAP;
-      const gain = paye ? (won ? GAIN_WIN : tie ? GAIN_TIE : GAIN_LOSS) : 0;
-
-      g.credits += gain;
-      g.sets++;
-      if (won) g.setsWon++;
-      g.setsToday++;
-      if (moi.total > g.bestSet) g.bestSet = moi.total;
-
-      return await fini({
-        note: moi, adverse: adv.map(a => ({
-          id: a.id, title: a.title, artist: a.artist, art: a.art, genre: a.genre,
-          year: a.year, pop: a.pop, rarity: a.rarity, press: a.press
-        })), adverseNote: advNote, won, tie, gain, paye
-      });
-    }
+    /* ---------- le Set ----------
+       Retiré en v2.7.5. Le mode ne fonctionnait plus (l'écran s'appuyait sur
+       deux fonctions de dessin qui n'existaient plus), et sa contrainte du
+       jour était devenue injouable après le rééquilibrage des raretés : « que
+       des Faces B ou plus rare » demande cinq cartes d'un palier tiré une fois
+       sur vingt-cinq. On répond aux anciens onglets au lieu de les laisser
+       tomber dans le vide. */
+    case "set":
+    case "set-jouer":
+      return ko(410, "Le Set est retiré du jeu pour le moment. Le Défi du jour, lui, se joue tous les jours.");
 
     default:
       return ko(400, "Action inconnue.");
@@ -771,7 +640,6 @@ export function resumeDe(g) {
   return {
     cartes: g.coffre.filter(c => c.known).length,
     taux: tauxSec(g),
-    meilleurSet: g.bestSet || 0,
     serie: g.streak || 0
   };
 }

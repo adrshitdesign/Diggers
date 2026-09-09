@@ -23,7 +23,7 @@ async function vue(crew) {
   return {
     id: crew.id, nom: crew.nom, code: crew.code, chef: crew.chef, cree: crew.cree,
     places: PLACES, membres: membres.map(m => ({ uid: m.uid, pseudo: m.pseudo, couleur: m.couleur,
-      titre: m.titre, cartes: m.cartes, taux: m.taux, meilleurSet: m.meilleurSet, validees: m.validees })),
+      titre: m.titre, cartes: m.cartes, taux: m.taux, validees: m.validees })),
     total: { cartes, taux: taux.length ? Math.round(taux.reduce((a, m) => a + m.taux, 0) / taux.length) : null,
       validees: membres.reduce((a, m) => a + (m.validees || 0), 0) }
   };
@@ -33,11 +33,25 @@ export default async function (req) {
   if (req.method === "OPTIONS") return preflight();
   if (req.method !== "POST") return ko(405, "méthode non autorisée");
 
-  const u = await authentifier(req);
-  if (!u) return ko(401, "Il faut un compte pour rejoindre un crew.");
   const b = await corps(req);
   const C = await store("crews");
   const IDX = await store("codes");
+
+  /* Le palmarès des crews est un CLASSEMENT : il s'affiche dans l'écran du
+     classement, qui se consulte sans compte comme le reste du jeu. Il passe
+     donc avant l'authentification — il ne lit rien de personnel, seulement des
+     totaux déjà publics. (v2.7.5) */
+  if (b.action === "palmares") {
+    const ids = await C.list("");
+    const tous = (await Promise.all(ids.map(i => C.get(i)))).filter(Boolean);
+    const vues = await Promise.all(tous.map(vue));
+    vues.sort((a, b2) => (b2.total.taux ?? -1) - (a.total.taux ?? -1) || b2.total.cartes - a.total.cartes);
+    return ok({ crews: vues.slice(0, 30).map(v => ({ nom: v.nom, membres: v.membres.length,
+      cartes: v.total.cartes, taux: v.total.taux, validees: v.total.validees })) });
+  }
+
+  const u = await authentifier(req);
+  if (!u) return ko(401, "Il faut un compte pour rejoindre un crew.");
 
   if (b.action === "mien") {
     if (!u.crew) return ok({ crew: null });
@@ -107,15 +121,6 @@ export default async function (req) {
     await C.set(c.id, c);
     cible.crew = null; await ecrireUtilisateur(cible);
     return ok({ crew: await vue(c), chef: true });
-  }
-
-  if (b.action === "palmares") {
-    const ids = await C.list("");
-    const tous = (await Promise.all(ids.map(i => C.get(i)))).filter(Boolean);
-    const vues = await Promise.all(tous.map(vue));
-    vues.sort((a, b2) => (b2.total.taux ?? -1) - (a.total.taux ?? -1) || b2.total.cartes - a.total.cartes);
-    return ok({ crews: vues.slice(0, 30).map(v => ({ nom: v.nom, membres: v.membres.length,
-      cartes: v.total.cartes, taux: v.total.taux, validees: v.total.validees })) });
   }
 
   return ko(400, "Action inconnue.");

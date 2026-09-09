@@ -364,7 +364,7 @@ export async function majClassement(u) {
     couleur: (u.profil || {}).couleur || "ambre",
     titre: (u.profil || {}).titre || "curieux",
     cartes: r.cartes || 0, taux: r.taux == null ? null : r.taux,
-    meilleurSet: r.meilleurSet || 0, serie: r.serie || 0,
+    serie: r.serie || 0,
     validees: (u.stats || {}).validees || 0,
     maj: Date.now()
   });

@@ -206,8 +206,23 @@ async function traiter(u, b, aujourdhui) {
 
     // on sert d'abord les entrées les moins vues, pour que tout le monde soit jugé
     autres.sort((a, b2) => a.duels - b2.duels || Math.random() - 0.5);
-    const second = 1 + Math.floor(Math.random() * Math.min(4, autres.length - 1));
-    const paire = [autres[0], autres[second]];
+
+    /* ON NE RESSERT PAS UN DUEL DÉJÀ TRANCHÉ (v2.7.5). Le tirage ne regardait
+       pas la liste des duels déjà jugés : un joueur qui avait voté sur la seule
+       paire disponible se la voyait reproposer, votait, et se faisait répondre
+       « tu as déjà tranché ce duel ». Invisible tant que le Défi était un onglet
+       qu'on ouvrait une fois ; franchement cassé maintenant qu'il est sur
+       l'accueil. On cherche donc une paire neuve, en gardant la priorité aux
+       cartes les moins vues. */
+    const vus = new Set(j.vus || []);
+    const neuve = (x, y) => !vus.has([x.id, y.id].sort().join("|"));
+    let paire = null;
+    for (let i = 0; i < autres.length && !paire; i++) {
+      const suite = autres.slice(i + 1).filter(y => neuve(autres[i], y));
+      if (suite.length) paire = [autres[i], suite[Math.floor(Math.random() * Math.min(4, suite.length))]];
+    }
+    if (!paire) return ok({ duel: null, votesRestants: MAX_VOTES - (j.votes || 0),
+      raison: "Tu as tranché tous les duels possibles pour l'instant." });
     return ok({
       duel: paire.map(e => entreeVue(e, lib, false)),
       theme: d.theme, votesRestants: MAX_VOTES - (j.votes || 0)

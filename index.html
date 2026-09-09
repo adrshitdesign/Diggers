@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.7.3</title>
+<title>Diggers — v2.7.5</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -247,46 +247,11 @@ button.card:hover{transform:translateY(-5px)}
 .verdict{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;margin-top:12px}
 .verdict.ok{color:var(--ok)} .verdict.no{color:var(--bad)}
 
-/* ---------- Le Set ---------- */
+/* ---------- l'encadré du thème (le Défi) ---------- */
 .epreuve{border:1px solid var(--accent);background:rgba(255,61,127,.07);border-radius:3px;padding:13px 15px;margin:0 0 14px}
 .epreuve .lbl{font-family:"JetBrains Mono",monospace;font-size:9.5px;font-weight:700;letter-spacing:.16em;
   text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px}
 .epreuve p{margin:0;font-size:15px}
-.target{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;background:var(--surface-2);
-  border-radius:4px;padding:14px 16px;margin:0 0 10px}
-.target .lab{font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-3)}
-.target .big{font-family:"Archivo";font-variation-settings:"wdth" 120;font-weight:900;font-size:38px;line-height:1;font-variant-numeric:tabular-nums}
-.target .mine{color:var(--accent)} .target .theirs{color:var(--ink)}
-.target .gap{font-size:13px;color:var(--ink-3)}
-.curve{width:100%;height:74px;display:block;margin:2px 0 0}
-.slots{display:flex;flex-wrap:wrap;align-items:stretch;gap:7px;margin:12px 0 0}
-.slot{position:relative;width:124px;min-height:96px;border:1px dashed var(--line-strong);border-radius:4px;display:grid;place-items:center;padding:6px}
-.slot.filled{border-style:solid;border-color:transparent;padding:0}
-.slot .card{padding:7px 7px 9px}
-.slotn{position:absolute;top:-8px;left:-8px;z-index:3;width:20px;height:20px;border-radius:50%;
-  background:var(--accent);color:#180810;font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;display:grid;place-items:center}
-.slotempty{font-family:"JetBrains Mono",monospace;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
-.trans{align-self:center;display:grid;justify-items:center;gap:2px;min-width:56px}
-.trans .v{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;color:var(--ink-3);font-variant-numeric:tabular-nums}
-.trans .w{font-size:9px;line-height:1.15;color:var(--ink-3);text-align:center;max-width:70px}
-.trans.good .v{color:var(--ok)} .trans.mid .v{color:var(--t6)} .trans.bad .v{color:var(--bad)}
-.cb{background:var(--surface-2);border-radius:4px;padding:14px 15px;display:grid;gap:9px}
-.cbh{display:flex;justify-content:space-between;align-items:baseline;font-family:"JetBrains Mono",monospace;
-  font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
-.cbh b{font-family:"Archivo";font-variation-settings:"wdth" 120;font-weight:900;font-size:26px;
-  letter-spacing:-.01em;color:var(--ink);font-variant-numeric:tabular-nums}
-.cb.big .cbh b{font-size:34px}
-.cbr{display:grid;grid-template-columns:minmax(0,124px) 1fr 30px;align-items:center;gap:8px;
-  font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.05em;color:var(--ink-3);font-variant-numeric:tabular-nums}
-.cbr b{color:var(--ink);font-weight:500;text-align:right}
-.cbr .pbar{height:5px;background:var(--surface-3)}
-.cbr .pbar i{background:var(--accent);transition:width .6s cubic-bezier(.2,.8,.3,1)}
-.vsgrid{display:grid;gap:12px;margin:16px 0 0}
-@media(min-width:620px){.vsgrid{grid-template-columns:1fr 1fr}}
-.log{margin-top:14px;display:grid;gap:6px}
-.logline{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-3);display:flex;gap:9px}
-.logline b{color:var(--ink);font-weight:500;font-size:11px}
-.logline.win b{color:var(--ok)} .logline.lose b{color:var(--bad)}
 
 /* ---------- marché ---------- */
 /* Sept onglets ne tiennent pas sur une ligne : sans retour à la ligne, les
@@ -534,7 +499,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.3 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.5 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -559,13 +524,14 @@ a.src:hover{color:var(--accent)}
 <section class="view on" id="v-accueil">
   <p class="kick">La boutique</p>
   <h2 class="h">Qu'est-ce qu'on ouvre ?</h2>
-  <p class="sub">Trois pochettes scellées. Elles ne changent pas les chances de rareté — elles changent ce qu'il y a dedans.</p>
+  <p class="sub">Trois pochettes scellées. Elles ne changent pas les chances de rareté — elles changent ce qu'il y a dedans. <b>Le Défi du jour est juste en dessous</b> : on y vote sans quitter cette page.</p>
   <div class="shop" id="shop"></div>
   <div id="progres"></div>
   <div class="bar" style="margin-top:20px"><span class="hint" id="chint"></span></div>
   <div id="stage"></div>
   <div class="grid" id="pull"></div>
   <div id="pullshare"></div>
+  <div id="defiaccueil"></div>
 </section>
 
 <section class="view" id="v-etagere">
@@ -592,12 +558,6 @@ a.src:hover{color:var(--accent)}
     <button class="mktab" data-m="fondre" aria-selected="false">Fondre mes doublons</button>
   </div>
   <div id="marchebox"></div>
-</section>
-
-<section class="view" id="v-set">
-  <p class="kick">Le mode compétitif</p>
-  <h2 class="h">Le Set</h2>
-  <div id="setbox"></div>
 </section>
 
 <section class="view" id="v-regles">
@@ -757,7 +717,7 @@ const RANGS=[{min:0,n:"Curieux"},{min:20,n:"Chineur"},{min:35,n:"Digger"},
 let JEU=null;
 const S={ silent:false, jeton:"",
   /* miroir de l'état serveur, uniquement pour l'affichage */
-  credits:0, shelf:[], bestSet:0, sets:0, setsWon:0, setsToday:0,
+  credits:0, shelf:[],
   streak:0, gouts:null, taux:null, fondus:0, achetes:0, presses:0, vendus:0 };
 
 /* Seuls les réglages de cet appareil sont gardés ici. */
@@ -771,7 +731,6 @@ function appliquerEtat(e){
   if(!e) return;
   JEU=e;
   S.credits=e.credits; S.shelf=e.coffre||[];
-  S.bestSet=e.bestSet; S.sets=e.sets; S.setsWon=e.setsWon; S.setsToday=e.setsToday;
   S.streak=e.streak; S.gouts=e.gouts; S.taux=e.taux;
   S.fondus=e.fondus; S.achetes=e.achetes; S.presses=e.presses; S.vendus=e.vendus;
   sync();
@@ -894,6 +853,13 @@ const SEP_ARTISTES_G=new RegExp(SEP_ARTISTES.source,"gi");
    Maintenant une seule règle : on accepte le morceau si le nom cherché est
    cité, et on le classe chez le PREMIER nom cité, quel qu'il soit. */
 function unSeulArtiste(cherche,rendu){
+  /* Aucun artiste demandé : on prend ce qu'Apple donne, et on applique la
+     règle du premier crédité. C'est le cas de l'écran de proposition, où le
+     joueur cherche un morceau sans forcément savoir de qui il est. */
+  if(!cherche){
+    const p=String(rendu).split(SEP_ARTISTES_G).map(x=>x.trim()).filter(Boolean);
+    return (p.length>1) ? {ok:true,artist:p[0],credits:rendu} : {ok:true,artist:rendu,credits:""};
+  }
   const cible=norm(cherche), plein=norm(rendu);
   if(plein===cible) return {ok:true,artist:rendu,credits:""};
   /* Un nom qui contient déjà un séparateur (« Earth, Wind & Fire ») ne se
@@ -921,6 +887,7 @@ function nettoyer(artiste,poids,rows){
     if(vus.has(cle)) continue;
     vus.add(cle);
     out.push({ id:r.trackId, title:titre, artist:v.artist, credits:v.credits,
+      artistId:r.artistId||null,
       album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
       year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
       art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
@@ -934,7 +901,8 @@ async function fetchDig(paire){
   const url="https://itunes.apple.com/search?term="+encodeURIComponent(artiste)
     +"&entity=song&limit="+APPLE_LIMITE+"&country=FR&lang=fr_fr";
   const d=await jsonp(url);
-  return nettoyer(artiste,poids,(d&&d.results)?d.results:[]);
+  // on ne garde que les morceaux de CET artiste, pas de ses homonymes
+  return nettoyer(artiste,poids,filtrerSurLArtiste((d&&d.results)?d.results:[],artiste));
 }
 
 /* Le catalogue vient de la bibliothèque du serveur, et de nulle part ailleurs.
@@ -1538,7 +1506,7 @@ function renderRegles(){
 
   const toc=[["r1","1 · Le but"],["r2","2 · Les cartons"],["r3","3 · L'enquête"],
     ["r4","4 · Reconnue ou cachée"],["r5","5 · La rareté"],["r6","6 · La cote et le marché"],
-    ["r7","7 · Le Set"],["r8","8 · Les crédits"],["r9","9 · Le classement"],["r10","10 · Le crew"]];
+    ["r7","7 · Le Défi"],["r8","8 · Les crédits"],["r9","9 · Le classement"],["r10","10 · Le crew"]];
 
   document.getElementById("reglesbox").innerHTML =
 
@@ -1670,32 +1638,11 @@ function renderRegles(){
   +'<li>Douze annonces en cours au maximum, pour que le marché reste lisible.</li></ul></section>'
 
   /* 7 */
-  +'<section class="rsec" id="r7"><h3><em>07</em>Le Set</h3>'
-  +'<p class="lede">Cinq morceaux, dans l\'ordre que tu choisis, et <b>cinq artistes différents</b>. On ne compare pas les cartes une à une — on note la sélection entière.</p>'
-  +'<p>Trois règles pour qu\'il y ait vraiment un choix à faire : <b>un seul titre par artiste</b> — c\'est aussi une '
-  +'règle de DJ —, <b>le bonus du même genre s\'épuise</b> d\'une transition à l\'autre (60, 52, 40, 28), et le '
-  +'<b>pressage de la carte de clôture</b> ajoute un petit bonus. La contrainte du jour est la même pour tout le monde '
-  +'et change à minuit.</p>'
-  +'<div class="scale"><div class="sc head"><span>Critère</span><span>Ce qui est noté</span><span class="odds">Poids</span><span class="val">Max</span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--accent)">Montée</span>'
-    +'<span class="dsc">La popularité doit grimper du premier au dernier morceau — et l\'amplitude compte plus que la simple progression. Passer de 5 à 20 n\'a fait monter personne.</span>'
-    +'<span class="odds">40 %</span><span class="val">100</span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--accent)">Enchaînements</span>'
-    +'<span class="dsc">Chaque passage est noté sur le genre (même genre : 60 points) et l\'écart d\'années (jusqu\'à 40 points, nul au-delà de 25 ans).</span>'
-    +'<span class="odds">35 %</span><span class="val">100</span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--accent)">Pépites</span>'
-    +'<span class="dsc">La popularité moyenne inversée : plus les titres sont peu écoutés, plus la note monte.</span>'
-    +'<span class="odds">25 %</span><span class="val">100</span></div></div>'
-  +'<p><b>Le piège :</b> une pépite est par définition peu populaire, donc elle plombe la montée. '
-  +'On ne peut pas maximiser les trois. Un set de pures pépites marque environ 76, un set de purs tubes 58, '
-  +'et le bon compromis passe les 85 — c\'est l\'arbitrage qui fait le mode.</p>'
-  +'<p><b>La contrainte du jour</b> (« rien après 1999 », « aucun Tube », « moins de 4 minutes »…) filtre ton bac, et '
-  +'elle est la même pour tous les joueurs pendant vingt-quatre heures. Elle t\'empêche de rejouer éternellement le '
-  +'même set gagnant, et elle fait que l\'étendue de ta collection compte autant que sa valeur.</p>'
-  +'<p><b>La note de l\'adversaire est affichée avant que tu composes.</b> Tu sais ce que tu dois battre, la courbe '
-  +'de popularité se dessine au fur et à mesure, et chaque transition t\'explique sa note en français. '
-  +'Gain : <b>40</b> crédits si tu gagnes, <b>20</b> en cas d\'égalité, <b>12</b> si tu perds — pour les cinq premiers '
-  +'sets de la journée. Au-delà, on joue pour le classement.</p></section>'
+  +'<section class="rsec" id="r7"><h3><em>07</em>Le Défi du jour</h3>'
+  +'<p class="lede">Un thème pour tout le monde, le même de minuit à minuit. Tu poses <b>une</b> carte de ton étagère — il faut donc l\'avoir, et l\'avoir trouvée.</p>'
+  +'<p><b>Le vote est aveugle.</b> Deux cartes côte à côte, sans savoir qui les a posées : ce qui gagne, c\'est le morceau, pas le pseudo. Chaque duel tranché rapporte <b>2 crédits</b>, quel que soit ton camp.</p>'
+  +'<p>Le lendemain le palmarès tombe et le podium est payé. Le classement du Défi se fait sur le <b>taux de victoire</b> en duel, pas sur le nombre de votes reçus : poser tard dans la journée ne pénalise pas.</p>'
+  +'<p class="notice">Le Set — le mode de composition en cinq morceaux — est retiré du jeu pour le moment.</p></section>'
 
   /* 8 */
   +'<section class="rsec" id="r8"><h3><em>08</em>Les crédits</h3>'
@@ -1706,8 +1653,6 @@ function renderRegles(){
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Artiste déjà collectionné</span><span class="dsc">Le même nom une deuxième fois rapporte <b>un peu plus de la moitié</b>. Le jeu paie la découverte.</span><span class="odds">≈ 55 %</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Revenir chaque jour</span><span class="dsc">À la première action de la journée. Monte du 1<sup>er</sup> au 7<sup>e</sup> jour, puis se stabilise. Manquer un jour remet la série à un.</span><span class="odds">12 à 60</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Paliers de collection</span><span class="dsc">10, 25, 50, 100, 200 puis 400 <b>artistes différents</b> reconnus. Une seule fois chacun.</span><span class="odds">50 à 2 000</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set gagné</span><span class="dsc">Plafonné à <b>5 sets récompensés par jour</b>.</span><span class="odds">22</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--ok)">Set nul, set perdu</span><span class="dsc">On ne repart jamais les mains vides.</span><span class="odds">10 · 6</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Vente au marché</span><span class="dsc">Le prix que tu as demandé, payé par un autre joueur.</span><span class="odds">ton prix</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Fondre un doublon</span><span class="dsc">Peu, exprès : un doublon se vend mieux qu\'il ne se fond.</span><span class="odds">cote / 8</span><span class="val"></span></div></div>'
   +'<div class="scale"><div class="sc head"><span>Tu dépenses</span><span>Pour quoi</span><span class="odds">Montant</span><span class="val"></span></div>'
@@ -1786,182 +1731,6 @@ function renderRegles(){
   });
 }
 
-/* ============ LE SET ============ */
-const CONTRAINTES=[
-  {id:"old",l:"Rien après 1999",f:c=>c.year&&c.year<=1999},
-  {id:"new",l:"Rien avant 2010",f:c=>c.year&&c.year>=2010},
-  {id:"court",l:"Moins de 4 minutes",f:c=>c.ms&&c.ms<240000},
-  {id:"long",l:"Plus de 4 minutes",f:c=>c.ms&&c.ms>=240000},
-  {id:"sous",l:"Aucun Tube",f:c=>c.rarity>=2},
-  {id:"pep",l:"Que des Faces B ou plus rare",f:c=>c.rarity>=4},
-  {id:"libre",l:"Aucune contrainte",f:()=>true}];
-let SET=null;
-
-function noteMontee(s){
-  let r=0; for(let i=0;i<s.length-1;i++) if(s[i+1].pop>=s[i].pop) r++;
-  const span=s[s.length-1].pop-s[0].pop;
-  return Math.round(r/(s.length-1)*35+Math.max(0,Math.min(span,70))/70*65);
-}
-/* Le bonus de genre s'épuise : enchaîner le même genre une quatrième fois
-   ne vaut plus grand-chose. Un set mono-artiste cesse d'être la réponse. */
-const GENRE_DEC=[60,52,40,28];
-function transition(a,b,run){
-  const same=a.genre===b.genre;
-  const g=same?GENRE_DEC[Math.min(run||0,GENRE_DEC.length-1)]:15;
-  const dy=(a.year&&b.year)?Math.abs(a.year-b.year):25;
-  return Math.round(Math.min(100,g+40*Math.max(0,1-dy/25)));
-}
-function transRuns(s){
-  const out=[]; let run=0;
-  for(let i=0;i<s.length-1;i++){
-    const same=s[i].genre===s[i+1].genre;
-    out.push(transition(s[i],s[i+1],run));
-    run = same ? run+1 : 0;
-  }
-  return out;
-}
-function transMot(a,b,run){
-  const same=a.genre===b.genre, dy=(a.year&&b.year)?Math.abs(a.year-b.year):25;
-  if(same&&run>=2) return "encore le même genre — le bonus s'épuise";
-  if(same&&dy<=5) return "même genre, "+dy+" an"+(dy>1?"s":"")+" — ça glisse";
-  if(same) return "même genre, "+dy+" ans d'écart";
-  if(dy<=5) return "autre genre, années proches";
-  return "cassure : autre genre, "+dy+" ans";
-}
-function noteFil(s){ const t=transRuns(s); return Math.round(t.reduce((a,b)=>a+b,0)/t.length); }
-function notePepites(s){ return Math.round(s.reduce((a,c)=>a+(100-c.pop),0)/s.length); }
-/* Le pressage entre enfin dans le jeu : la carte de clôture le fait compter. */
-function bonusPress(s){ const i=PRESS.findIndex(p=>p.n===s[s.length-1].press); return Math.max(0,i)*3; }
-function noter(s){
-  const m=noteMontee(s),f=noteFil(s),p=notePepites(s),b=bonusPress(s);
-  return {m,f,p,b,total:Math.min(100,Math.round(m*0.40+f*0.35+p*0.25)+b)};
-}
-/* L'adversaire, la contrainte et la note sont au serveur : cette page ne fait
-   que composer et montrer. Le calcul local qui suit ne sert qu'à l'aperçu en
-   direct pendant qu'on pose les cartes — c'est le serveur qui tranche. */
-async function startSet(){
-  const box=document.getElementById("setbox");
-  if(!COMPTE){
-    box.innerHTML='<div class="empty">Le Set se joue avec un compte : la contrainte, l\'adversaire et la note '
-      +'viennent du serveur.<br><span style="font-size:13px">Onglet Profil pour en créer un.</span></div>';
-    return;
-  }
-  box.innerHTML='<p class="notice">Lecture de la contrainte du jour…</p>';
-  const r=await apiJeu("set");
-  if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Le Set est indisponible.")+'</div>'; return; }
-  const elig=r.eligibles||[];
-  const artistes=new Set(elig.map(c=>c.artist)).size;
-  if(elig.length<5||artistes<5){
-    box.innerHTML='<div class="epreuve"><span class="lbl">Contrainte du jour · la même pour tout le monde</span><p>'+esc(r.contrainte.l)+'</p></div>'
-      +'<div class="empty">Il te faut <b>5 cartes reconnues d\'artistes différents</b> qui respectent la contrainte du jour.<br>'
-      +'<span style="font-size:13px">Tu en as '+elig.length+' pour '+artistes+' artiste(s). '
-      +'La contrainte ne dépend pas de ton bac — c\'est ce qui rend une collection large utile.</span></div>';
-    return;
-  }
-  SET={cont:r.contrainte, elig:elig, slots:[null,null,null,null,null],
-       advTotal:r.adverseNote==null?"—":r.adverseNote, joue:r.joue, cap:r.cap};
-  renderSet();
-}
-function renderSet(){
-  const chosen=SET.slots.filter(Boolean);
-  const live=chosen.length>=5?noter(chosen):null;
-  const advT=typeof SET.advTotal==="number"?SET.advTotal:null;
-  const diff=(live&&advT!=null)?live.total-advT:null;
-  const restants=SET.cap-SET.joue;
-  document.getElementById("setbox").innerHTML=
-    '<div class="rule"><p style="margin:0"><b>Cinq morceaux, dans l\'ordre, et cinq artistes différents.</b> '
-      +'On note la sélection entière : <b>montée</b> (la popularité doit grimper, franchement), '
-      +'<b>enchaînements</b> (genre et écart d\'années — et le bonus du même genre s\'épuise d\'une transition à l\'autre), '
-      +'<b>pépites</b> (les titres peu écoutés), plus un petit <b>bonus de pressage</b> sur la carte de clôture.</p>'
-      +'<p style="margin:0"><b>Le piège :</b> une pépite est peu populaire, donc elle plombe la montée. On ne peut pas tout avoir.</p></div>'
-    +'<div class="panel">'
-    +'<div class="epreuve"><span class="lbl">Contrainte du jour · la même pour tout le monde, jusqu\'à minuit</span><p>'+SET.cont.l
-      +' <span style="color:var(--ink-3)">· '+SET.elig.length+' cartes éligibles · '
-      +(restants>0?restants+' set(s) récompensé(s) restant(s) aujourd\'hui':'plafond du jour atteint, on joue pour le classement')+'</span></p></div>'
-    +'<div class="target"><span class="lab">Note à battre</span><span class="big theirs">'+(advT==null?"—":advT)+'</span>'
-      +'<span class="lab">Ton set</span><span class="big mine">'+(live?live.total:"—")+'</span>'
-      +'<span class="gap">'+(live?(diff==null?"Note calculée au lancement":diff>0?"Tu mènes de "+diff:diff===0?"À égalité":"Il te manque "+(-diff))
-        :"La note s\'affiche quand les cinq cartes sont posées")+'</span></div>'
-    +courbeSVG(SET.slots)
-    +'<div class="slots" id="slots"></div>'
-    +(live?'<div style="margin-top:16px" id="live"></div>':'')
-    +'<div class="bar" style="margin:16px 0 0"><button class="btn" id="go2"'+(chosen.length<5?' disabled':'')+'>Lancer le set</button>'
-      +'<button class="btn ghost sm" id="clr">Vider</button><span class="hint">'+chosen.length+'/5 posées</span></div>'
-    +'<h3 class="sect">Ton bac, filtré par la contrainte</h3><div class="grid" id="pool"></div></div>';
-
-  const runs = chosen.length>1 ? transRuns(SET.slots.filter(Boolean)) : [];
-  const slots=document.getElementById("slots");
-  let runCount=0;
-  SET.slots.forEach((c,i)=>{
-    const d=document.createElement("div"); d.className="slot"+(c?" filled":"");
-    if(c){ const b=cardEl(c,{button:true});
-      b.addEventListener("click",()=>{SET.slots[i]=null;compact();renderSet();});
-      d.appendChild(b);
-      const n=document.createElement("span"); n.className="slotn"; n.textContent=i+1; d.appendChild(n);
-    }else d.innerHTML='<span class="slotn">'+(i+1)+'</span><span class="slotempty">vide</span>';
-    slots.appendChild(d);
-    if(i<4){ const t=document.createElement("div"); t.className="trans";
-      const a=SET.slots[i], b2=SET.slots[i+1];
-      if(a&&b2){ const v=transition(a,b2,runCount);
-        t.classList.add(v>=70?"good":v>=40?"mid":"bad");
-        t.innerHTML='<span class="v">'+v+'</span><span class="w">'+transMot(a,b2,runCount)+'</span>';
-        runCount = (a.genre===b2.genre) ? runCount+1 : 0;
-      }else{ t.innerHTML='<span class="v">·</span>'; runCount=0; }
-      slots.appendChild(t); }
-  });
-  if(live) document.getElementById("live").innerHTML=courbesHTML("Ton set",live,false);
-
-  const pool=document.getElementById("pool");
-  const artistesPoses=new Set(SET.slots.filter(Boolean).map(c=>c.artist));
-  SET.elig.forEach(c=>{
-    const pose=SET.slots.some(x=>x&&x.uid===c.uid);
-    /* Un artiste par set — c'est aussi une vraie règle de DJ. */
-    const bloque=!pose&&artistesPoses.has(c.artist);
-    const el=cardEl(c,{button:true});
-    if(pose||bloque){ el.style.opacity=bloque?".22":".28"; el.disabled=true;
-      if(bloque) el.title=c.artist+" est déjà dans ton set"; }
-    else el.addEventListener("click",()=>{ const i=SET.slots.indexOf(null); if(i===-1)return; SET.slots[i]=c; renderSet(); });
-    pool.appendChild(el);
-  });
-  document.getElementById("clr").onclick=()=>{SET.slots=[null,null,null,null,null];renderSet();};
-  const g=document.getElementById("go2");
-  if(g&&!g.disabled) g.onclick=jouerSet;
-}
-async function jouerSet(){
-  const mine=SET.slots.filter(Boolean);
-  const g2=document.getElementById("go2"); if(g2) g2.disabled=true;
-  const r=await apiJeu("set-jouer",{uids:mine.map(c=>c.uid)});
-  if(!r||!r.ok){ if(g2) g2.disabled=false; return; }
-  const me=r.note, them=r.adverseNote, won=r.won, tie=r.tie, gain=r.gain, paye=r.paye;
-  const adv=(r.adverse||[]).map(c=>Object.assign({},c,{known:true,uid:"adv-"+c.id}));
-  const runs=transRuns(mine), lignes=[];
-  let rc=0;
-  for(let i=0;i<mine.length-1;i++){
-    const t=runs[i];
-    lignes.push({k:t>=70?"win":(t>=40?"":"lose"),n:"T"+(i+1),
-      t:mine[i].artist+" → "+mine[i+1].artist+" · "+t+" · "+transMot(mine[i],mine[i+1],rc)});
-    rc = (mine[i].genre===mine[i+1].genre) ? rc+1 : 0;
-  }
-  document.getElementById("setbox").innerHTML='<div class="panel">'
-    +'<div class="epreuve" style="border-color:'+(won?"var(--ok)":tie?"var(--line-strong)":"var(--bad)")+';background:none">'
-      +'<span class="lbl" style="color:'+(won?"var(--ok)":tie?"var(--ink-3)":"var(--bad)")+'">'
-      +(won?"Set remporté":tie?"Égalité":"Set perdu")+'</span><p>'+me.total+' contre '+them.total+'. '
-      +(paye?'+'+gain+' crédits.':'<b>Plafond de '+SET.cap+' sets récompensés atteint pour aujourd\'hui</b> — celui-ci compte pour le classement, pas pour la bourse.')
-      +' <span style="color:var(--ink-3)">Contrainte : '+esc(SET.cont.l)+'</span></p></div>'
-    +'<div class="vsgrid">'+courbesHTML("Toi",me,true)+courbesHTML("Adversaire",them,true)+'</div>'
-    +'<h3 class="sect">Ton set, dans l\'ordre</h3>'+courbeSVG(mine)+'<div class="grid" id="finalset"></div>'
-    +'<div class="log">'+lignes.map(l=>'<div class="logline '+l.k+'"><span>'+l.n+'</span><b>'+esc(l.t)+'</b></div>').join("")+'</div>'
-    +'<h3 class="sect">Le set de l\'adversaire</h3><div class="grid" id="advset"></div>'
-    +'<div class="bar" style="margin:18px 0 0"><button class="btn" id="again">Nouveau set</button>'
-    +'<button class="btn ghost sm" id="shimg">Image du set</button>'
-    +'<button class="btn ghost sm" id="shlien">Copier le lien</button></div></div>';
-  document.getElementById("shimg").onclick=()=>partagerSet(mine,me.total,SET.cont.l);
-  document.getElementById("shlien").onclick=()=>copierLien(mine,me.total);
-  const fs=document.getElementById("finalset"); mine.forEach((c,i)=>fs.appendChild(cardEl(c,{delay:i*70})));
-  const as=document.getElementById("advset"); adv.forEach((c,i)=>as.appendChild(cardEl(c,{delay:i*70})));
-  document.getElementById("again").onclick=startSet;
-}
-
 /* ============ PROFIL · CREW · CLASSEMENT ============ */
 /* Le taux se lit dans le journal des tentatives, pas dans l'étagère :
    un échec y reste inscrit même si la carte est fondue ou n'est jamais trouvée. */
@@ -1973,7 +1742,10 @@ function pseudo(){ return (COMPTE&&COMPTE.pseudo)||"Toi"; }
 function renderProfil(){
   const known=S.shelf.filter(c=>c.known), t=tauxSec(), box=document.getElementById("profilbox");
   if(!known.length){ box.innerHTML='<div class="empty">Ton profil se remplit quand tu reconnais des cartes.</div>'; return; }
-  const sec=S.shelf.filter(c=>c.known&&!c.achete&&c.reveals===0).length;
+  /* Le chiffre affiché sous le taux doit compter EXACTEMENT ce que le taux
+     compte, sinon il le contredit : c'est le drapeau aSec que le serveur pose
+     sur la carte, pas une reconstitution locale à partir des révélateurs. */
+  const sec=S.shelf.filter(c=>c.known&&!c.achete&&c.aSec).length;
   const propres=S.shelf.filter(c=>c.known&&!c.achete).length;
   const valeur=known.reduce((a,c)=>a+(c.cote||0),0);
   const counts={}; S.shelf.forEach(c=>counts[c.rarity]=(counts[c.rarity]||0)+1);
@@ -1987,8 +1759,8 @@ function renderProfil(){
       +'<div class="kpi"><span>Collection</span><b>'+S.shelf.length+'</b><p>'+known.length+' reconnues, '
         +(S.shelf.length-known.length)+' face cachée.</p></div>'
       +'<div class="kpi"><span>Valeur du bac</span><b>'+valeur+'</b><p>Somme des cotes. '+(S.fondus||0)+' fondue(s), '+(S.achetes||0)+' achetée(s), '+(S.vendus||0)+' vendue(s).</p></div>'
-      +'<div class="kpi"><span>Meilleur set</span><b>'+(S.bestSet||"—")+'</b>'
-        +'<p>'+(S.sets?S.setsWon+" gagné(s) sur "+S.sets:"Aucun set joué.")+'</p></div></div>'
+      +'<div class="kpi"><span>Série</span><b>'+(S.streak||0)+'<em>j</em></b>'
+        +'<p>jours d\'affilée. La série paie la prime du carton du jour.</p></div></div>'
     +'<h3 class="sect">Répartition de l\'étagère</h3><div class="chips">'
       +TIERS.slice(1).map((x,i)=>'<span class="chip" style="color:'+x.c+'">'+x.n+' · '+(counts[i+1]||0)+'</span>').join("")+'</div>'
     +'<h3 class="sect">Tes dernières trouvailles</h3><div class="grid" id="recents"></div>';
@@ -2155,167 +1927,6 @@ function renderReglages(){
   };
   document.getElementById("rgmute").onclick=()=>{ S.silent=!S.silent; save(); syncMute(); renderReglages(); };
   document.getElementById("testaudio2").onclick=()=>testAudio("diag2");
-}
-
-/* ============ PARTAGE ============
-   Le jeu ne produisait rien qu'on puisse montrer : pas un bouton, pas une
-   balise. Le set terminé est pourtant une playlist toute faite, et c'est le
-   seul écran qui explique Diggers à quelqu'un qui n'y joue pas. */
-
-function chargerImage(src){
-  return new Promise(res=>{
-    const i=new Image();
-    i.crossOrigin="anonymous";      /* si Apple refuse le CORS, onerror → aplat de secours */
-    i.onload=()=>res(i); i.onerror=()=>res(null);
-    i.src=src;
-  });
-}
-const TIER_HEX=["#8A8CA0","#8A8CA0","#4FC08D","#6098F2","#A481F5","#FF4B87","#E0B04A"];
-
-async function imageDuSet(set,note,contrainte){
-  const W=1200,H=630,c=document.createElement("canvas");
-  c.width=W; c.height=H;
-  const x=c.getContext("2d");
-  x.fillStyle="#0D0D14"; x.fillRect(0,0,W,H);
-  const g=x.createRadialGradient(W/2,-120,60,W/2,-120,760);
-  g.addColorStop(0,"rgba(255,61,127,.22)"); g.addColorStop(1,"rgba(255,61,127,0)");
-  x.fillStyle=g; x.fillRect(0,0,W,H);
-
-  x.fillStyle="#F0EFF5"; x.font="900 40px Archivo, Impact, sans-serif";
-  x.fillText("DIGGERS", 60, 84);
-  x.fillStyle="#FF3D7F"; x.fillRect(60,100,86,4);
-  x.fillStyle="#6F7183"; x.font="700 17px 'JetBrains Mono', monospace";
-  x.fillText(contrainte.toUpperCase(), 60, 140);
-
-  const imgs=await Promise.all(set.map(t=>chargerImage(t.art)));
-  const T=182, GAP=22, x0=60, y0=182;
-  set.forEach((t,i)=>{
-    const px=x0+i*(T+GAP);
-    if(imgs[i]){ x.save(); x.beginPath(); x.rect(px,y0,T,T); x.clip();
-      x.drawImage(imgs[i],px,y0,T,T); x.restore(); }
-    else{
-      const lg=x.createLinearGradient(px,y0,px+T,y0+T);
-      lg.addColorStop(0,TIER_HEX[t.rarity]); lg.addColorStop(1,"#101019");
-      x.fillStyle=lg; x.fillRect(px,y0,T,T);
-      x.fillStyle="rgba(0,0,0,.55)"; x.beginPath(); x.arc(px+T/2,y0+T/2,T*0.13,0,7); x.fill();
-    }
-    x.strokeStyle=TIER_HEX[t.rarity]; x.lineWidth=3; x.strokeRect(px+1.5,y0+1.5,T-3,T-3);
-    x.fillStyle="#0D0D14"; x.fillRect(px,y0+T,T,58);
-    x.fillStyle="#F0EFF5"; x.font="700 15px 'Instrument Sans', sans-serif";
-    const titre=t.title.length>22?t.title.slice(0,21)+"…":t.title;
-    x.fillText(titre,px+4,y0+T+22);
-    x.fillStyle="#6F7183"; x.font="13px 'Instrument Sans', sans-serif";
-    const art=t.artist.length>24?t.artist.slice(0,23)+"…":t.artist;
-    x.fillText(art,px+4,y0+T+41);
-    x.fillStyle="#FF3D7F"; x.font="700 12px 'JetBrains Mono', monospace";
-    x.fillText(String(i+1),px+T-14,y0+T+22);
-  });
-
-  /* la courbe de popularité, la métaphore du mode */
-  const cy=498, ch=64;
-  x.strokeStyle="#292A38"; x.lineWidth=1;
-  x.beginPath(); x.moveTo(60,cy+ch); x.lineTo(W-60,cy+ch); x.stroke();
-  x.strokeStyle="#FF3D7F"; x.lineWidth=3; x.beginPath();
-  set.forEach((t,i)=>{
-    const px=x0+i*(T+GAP)+T/2, py=cy+ch-(t.pop/100)*ch;
-    i?x.lineTo(px,py):x.moveTo(px,py);
-  });
-  x.stroke();
-  set.forEach((t,i)=>{
-    const px=x0+i*(T+GAP)+T/2, py=cy+ch-(t.pop/100)*ch;
-    x.fillStyle="#FF3D7F"; x.beginPath(); x.arc(px,py,5,0,7); x.fill();
-  });
-
-  x.textAlign="right";
-  x.fillStyle="#6F7183"; x.font="700 15px 'JetBrains Mono', monospace";
-  x.fillText("NOTE DU SET", W-60, 84);
-  x.fillStyle="#F0EFF5"; x.font="900 92px Archivo, Impact, sans-serif";
-  x.fillText(String(note), W-60, 168);
-  x.fillStyle="#6F7183"; x.font="13px 'Instrument Sans', sans-serif";
-  x.fillText(pseudo()+" · "+todayKey(), W-60, 596);
-  x.textAlign="left";
-  x.fillStyle="#6F7183"; x.font="13px 'Instrument Sans', sans-serif";
-  x.fillText("Extraits et pochettes : Apple Music", 60, 596);
-  return c;
-}
-
-async function partagerSet(set,note,contrainte){
-  track("partage_set",{note});
-  let canvas;
-  try{ canvas=await imageDuSet(set,note,contrainte); }
-  catch(e){ flash("Image impossible à générer"); return; }
-  canvas.toBlob(async blob=>{
-    if(!blob){ flash("Image impossible à générer"); return; }
-    const f=new File([blob],"diggers-set.png",{type:"image/png"});
-    if(navigator.canShare && navigator.canShare({files:[f]})){
-      try{ await navigator.share({files:[f], title:"Mon set Diggers",
-        text:"Set noté "+note+" — "+contrainte}); return; }catch(e){}
-    }
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob); a.download="diggers-set.png"; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-    flash("Image enregistrée");
-  },"image/png");
-}
-
-function lienDuSet(set,note){
-  const u=new URL(location.href);
-  u.search="";
-  u.searchParams.set("set",set.map(c=>c.id).join("."));
-  u.searchParams.set("n",note);
-  u.searchParams.set("de",pseudo());
-  return u.toString();
-}
-async function copierLien(set,note){
-  const l=lienDuSet(set,note);
-  try{ await navigator.clipboard.writeText(l); flash("Lien copié"); }
-  catch(e){ prompt("Copie ce lien :", l); }
-  track("partage_lien",{note});
-}
-
-/* Un set partagé s'ouvre sans compte : on voit les cinq pochettes,
-   on écoute les extraits, et on est invité à faire mieux. */
-function setPartage(){
-  const q=new URLSearchParams(location.search);
-  const ids=(q.get("set")||"").split(".").filter(Boolean).map(Number);
-  if(ids.length<2) return null;
-  return {ids, note:+q.get("n")||null, de:q.get("de")||"un joueur"};
-}
-async function renderSetPartage(){
-  const sp=setPartage(); if(!sp) return false;
-  /* Les cinq cartes se demandent par leur identifiant. Le navigateur n'a plus
-     la bibliothèque entière sous la main, et il n'en a pas besoin pour cinq
-     pochettes. */
-  let trouves=[];
-  try{
-    const r=await fetch(apiBase()+"/api/bibliotheque?ids="+sp.ids.join(","));
-    if(r.ok) trouves=((await r.json()).cartes)||[];
-  }catch(e){}
-  const box=document.createElement("section");
-  box.className="view on"; box.id="v-partage";
-  box.innerHTML='<p class="kick">Set partagé</p><h2 class="h">'+esc(sp.de)+' te défie</h2>'
-    +'<div class="target"><span class="lab">Sa note</span><span class="big theirs">'+(sp.note||"—")+'</span>'
-    +'<span class="gap">'+trouves.length+' morceau(x) sur '+sp.ids.length+' retrouvé(s) dans ton catalogue'
-    +(trouves.length<sp.ids.length?' — les autres ne sont pas dans ta version du bac.':'')+'</span></div>'
-    +'<div class="grid" id="spg" style="margin-top:18px"></div>'
-    +'<div class="bar" style="margin-top:22px"><button class="btn" id="spgo">Composer mon set</button>'
-    +'<button class="btn ghost sm" id="spno">Voir le jeu</button></div>'
-    +'<p class="notice">Clique une pochette pour écouter l\'extrait. Extraits de 30 s et pochettes fournis '
-    +'par l\'API iTunes d\'Apple ; chaque carte renvoie vers la fiche du morceau.</p>';
-  document.querySelector("main").prepend(box);
-  document.querySelectorAll(".view").forEach(v=>{ if(v.id!=="v-partage") v.classList.remove("on"); });
-  const g=box.querySelector("#spg");
-  trouves.forEach((t,i)=>{
-    const v=Object.assign({},t,{rarity:tierOf(t.pop),press:"Standard",known:true,uid:"sp"+t.id});
-    const el=cardEl(v,{button:true,delay:i*60});
-    el.addEventListener("click",()=>{ unlock(); snip(v,7000,0); });
-    g.appendChild(el);
-  });
-  const partir=()=>{ box.remove(); history.replaceState({},"",location.pathname); go("accueil"); };
-  box.querySelector("#spgo").onclick=()=>{ box.remove(); history.replaceState({},"",location.pathname); go("set"); };
-  box.querySelector("#spno").onclick=partir;
-  track("set_partage_ouvert",{n:trouves.length});
-  return true;
 }
 
 /* ============ CHROME ============ */
@@ -2682,88 +2293,204 @@ function ongletCom(){
   if(CMODE==="fil") vueFil();
 }
 
+/* ============ PROPOSER UN SON ============
+   Refait en v2.7.4, sur le même modèle que l'écran de recherche de la
+   modération — c'est ce qu'adr a demandé, et c'était aussi la correction
+   technique.
+
+   L'ancienne version envoyait le champ brut à Apple : « Mairo Second souffle »
+   rendait douze morceaux sans aucun rapport, parce qu'Apple, faute de
+   correspondance, se rabat sur une recherche floue mot à mot. On précise
+   maintenant ce qu'on cherche — un artiste, un titre — et Apple répond
+   précisément.
+
+   Le reste suit : une liste lisible plutôt qu'une grille de pochettes, des
+   cases à cocher pour en proposer plusieurs d'un coup, ce qui est déjà dans le
+   jeu grisé et non cochable, et un seul motif pour tout le lot. */
+
+let PROP=[], PROP_SEL=new Set(), PROP_TERME="", PROP_TYPE="artiste", PROP_REQ=0;
+
 function vueProposer(){
   const b=document.getElementById("combox");
-  b.innerHTML='<div class="keyrow"><input id="qson" placeholder="Artiste et titre — ex. « Sœur K Nuit blanche »" maxlength="80">'
-    +'<button class="btn sm" type="button" id="qgo">Chercher</button></div>'
-    +'<p class="notice" id="qdiag">La recherche passe par l\'API d\'Apple, depuis ton navigateur.</p>'
-    +'<div class="grid" id="qres"></div>';
-  const q=document.getElementById("qson");
-  document.getElementById("qgo").onclick=()=>chercherSon(q.value);
-  q.onkeydown=e=>{ if(e.key==="Enter") chercherSon(q.value); };
+  b.innerHTML=
+    '<p class="notice"><b style="color:var(--ink-2)">Cherche, coche, propose.</b> '
+      +'On ne met aucun fichier en ligne : on cherche le morceau chez Apple, comme le reste du jeu. '
+      +'Ce qui est <b>déjà dans Diggers</b> apparaît grisé — inutile de le proposer. '
+      +'Tu peux en cocher plusieurs : ils partiront tous avec la même explication.</p>'
+    +'<div class="bar">'
+      +'<select id="ptype" style="width:auto">'
+        +[["artiste","Par artiste"],["titre","Par titre"],["libre","Recherche libre"]]
+          .map(o=>'<option value="'+o[0]+'"'+(PROP_TYPE===o[0]?' selected':'')+'>'+o[1]+'</option>').join("")
+      +'</select>'
+      +'<input id="pq" placeholder="Mairo" value="'+esc(PROP_TERME)+'" maxlength="80" style="flex:1;min-width:200px">'
+      +'<button class="btn sm" type="button" id="pgo">Chercher</button>'
+    +'</div>'
+    +'<p class="notice" id="ppdiag">Choisis <b>Par artiste</b> et tape juste son nom : c\'est ce qui marche le mieux. '
+      +'« Par titre » sert quand tu connais le morceau mais pas l\'orthographe exacte du groupe.</p>'
+    +'<div id="plist"></div>'
+    +'<div class="bar" id="pbar" hidden>'
+      +'<button class="btn" type="button" id="padd"></button>'
+      +'<button class="btn ghost sm" type="button" id="pnone">Tout décocher</button>'
+      +'<span class="hint">5 propositions en attente au maximum, 10 par jour.</span>'
+    +'</div>';
+
+  const q=document.getElementById("pq"), t=document.getElementById("ptype");
+  t.onchange=()=>{ PROP_TYPE=t.value; };
+  q.onkeydown=e=>{ if(e.key==="Enter") lancerProposition(); };
+  document.getElementById("pgo").onclick=lancerProposition;
+  document.getElementById("pnone").onclick=()=>{ PROP_SEL.clear(); dessinerProposition(); };
+  document.getElementById("padd").onclick=envoyerPropositions;
+  if(PROP.length) dessinerProposition();
+  q.focus();
 }
 
-async function chercherSon(terme){
-  terme=(terme||"").trim();
-  const d=document.getElementById("qdiag"), g=document.getElementById("qres");
-  if(terme.length<3){ d.textContent="Écris au moins trois lettres."; return; }
-  d.textContent="Recherche…"; g.innerHTML="";
+const pdiag=m=>{ const d=document.getElementById("ppdiag"); if(d) d.innerHTML=m; };
+
+async function lancerProposition(){
+  const q=document.getElementById("pq");
+  PROP_TERME=q.value.trim();
+  if(PROP_TERME.length<2){ pdiag('<b style="color:var(--t6)">Écris au moins deux lettres.</b>'); return; }
+  const mien=++PROP_REQ;
+  PROP=[]; PROP_SEL.clear(); dessinerProposition();
+  pdiag("Recherche chez Apple…");
+
+  /* Préciser l'attribut change tout : sans lui, Apple fait une recherche floue
+     mot à mot et rend n'importe quoi dès que le morceau n'existe pas. */
+  const url="https://itunes.apple.com/search?country=FR&lang=fr_fr&limit=60&entity=song&term="
+    +encodeURIComponent(PROP_TERME)
+    +(PROP_TYPE==="artiste"?"&attribute=artistTerm":PROP_TYPE==="titre"?"&attribute=songTerm":"");
+
   let rows=[];
-  try{
-    const u="https://itunes.apple.com/search?term="+encodeURIComponent(terme)
-      +"&entity=song&limit=25&country=FR&lang=fr_fr";
-    const r=await jsonp(u);
-    rows=(r&&r.results)?r.results:[];
-  }catch(e){ d.innerHTML='<b style="color:var(--t6)">La recherche n\'a pas abouti.</b> Réessaie dans un instant.'; return; }
+  try{ const d=await jsonp(url); rows=(d&&d.results)||[]; }
+  catch(e){
+    if(mien!==PROP_REQ) return;
+    pdiag('<b style="color:var(--t6)">Apple n\'a pas répondu.</b> Réessaie dans quelques secondes.');
+    return;
+  }
+  if(mien!==PROP_REQ) return;
 
   const vus=new Set(), out=[];
   for(const r of rows){
-    if(!r.previewUrl||!r.artworkUrl100||!r.trackName||!r.artistName) continue;
-    if(REJET.test(r.artistName)||REJET.test(r.trackName)) continue;
-    const cle=norm(r.artistName)+"|"+norm(titrePropre(r.trackName));
+    const t2=fabriquerPiste(r,null,null);
+    if(!t2) continue;
+    const cle=norm(t2.artist)+"|"+norm(t2.title);
     if(vus.has(cle)) continue; vus.add(cle);
-    out.push({ id:String(r.trackId), title:titrePropre(r.trackName), artist:r.artistName,
-      album:r.collectionName||"", genre:r.primaryGenreName||"Autre",
-      year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
-      art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
-      url:r.trackViewUrl||"", deja:false });
+    out.push({...t2, deja:false});
+    if(out.length>=40) break;
   }
-  RECHERCHE=out.slice(0,12);
-  if(!RECHERCHE.length){ d.textContent="Rien trouvé sous ce nom."; return; }
 
-  /* « Ce son est-il déjà dans le jeu ? » — c'est le serveur qui le sait. Le
-     navigateur posait la question à une copie de la bibliothèque qu'il gardait
-     en mémoire ; on ne la lui envoie plus. En cas de silence du serveur on
-     n'invente pas de réponse : la proposition partira, et le pare-doublons du
-     serveur la refusera proprement. */
+  if(!out.length){
+    pdiag('<b style="color:var(--t6)">Rien d\'utilisable sous ce nom.</b> '
+      +'Écris-le comme Apple l\'écrit — <i>Angèle</i> et pas <i>Angele</i>. '
+      +'Les karaokés, reprises, lives et remixes sont écartés d\'office.');
+    return;
+  }
+
+  /* Ce qui est déjà dans le jeu : c'est le serveur qui sait. */
   try{
-    const r=await apiAppel("/api/bibliotheque",
-      {connus:RECHERCHE.map(t=>({artist:t.artist,title:t.title}))});
-    if(r&&r.ok&&Array.isArray(r.connus))
-      RECHERCHE.forEach((t,i)=>{ t.deja=!!r.connus[i]; });
+    const c=await apiAppel("/api/bibliotheque",{connus:out.slice(0,40).map(x=>({artist:x.artist,title:x.title}))});
+    if(c&&c.ok&&Array.isArray(c.connus)) c.connus.forEach((v,i)=>{ out[i].deja=!!v; });
   }catch(e){}
-  const neufs=RECHERCHE.filter(x=>!x.deja).length;
-  d.innerHTML='<b style="color:var(--ink-2)">'+RECHERCHE.length+' résultats</b> — '
-    +(neufs?neufs+' absent(s) du catalogue.':'tous sont déjà dans le jeu.');
-  RECHERCHE.forEach((t,i)=>{
-    const c=Object.assign({},t,{rarity:3,press:"Standard",known:true,pop:20,rank:"?"});
-    const el=cardEl(c,{button:true,delay:i*30});
-    if(t.deja){ el.classList.add("deja"); el.title="Déjà dans le catalogue"; }
-    el.addEventListener("click",()=>{ unlock(); snip(t,6000,0); if(!t.deja) formProposition(t); else flash("Ce son est déjà dans le jeu"); });
-    g.appendChild(el);
-  });
+
+  PROP=out;
+  const neufs=PROP.filter(x=>!x.deja).length;
+  pdiag('<b style="color:var(--ink-2)">'+PROP.length+' morceau(x)</b> — <b>'+neufs+'</b> absent(s) du jeu, '
+    +(PROP.length-neufs)+' déjà là.'
+    +(neufs?'':' <br>Cherche un autre artiste : tout ce qu\'il a est déjà dans Diggers.'));
+  dessinerProposition();
 }
 
-async function formProposition(t){
-  const v=await modale("Proposer « "+esc(t.title)+" »",
-    '<p class="notice" style="margin-top:0">'+esc(t.artist)+' · '+(t.year||"—")+' · '+esc(t.genre)+'</p>'
-    +'<label class="lbl">Pourquoi ce son mérite une carte</label>'
-    +'<textarea id="pmotif" maxlength="240" rows="3" placeholder="Ce qu\'il a de particulier, où tu l\'as trouvé, pourquoi personne ne le connaît."></textarea>'
-    +'<label class="lbl">Un indice pour ceux qui devront le reconnaître (facultatif)</label>'
+function dessinerProposition(){
+  const l=document.getElementById("plist"), bar=document.getElementById("pbar");
+  if(!l) return;
+  if(!PROP.length){ l.innerHTML=""; if(bar) bar.hidden=true; return; }
+
+  l.innerHTML='<div class="ladder">'+PROP.map((t,i)=>
+    '<div class="lr libre'+(t.deja?" fait":"")+'" style="'+(t.deja?"opacity:.45":"")+'">'
+      +'<span class="pos">'+(t.deja?'<span title="déjà dans le jeu">✓</span>'
+        :'<input type="checkbox" data-p="'+i+'"'+(PROP_SEL.has(i)?' checked':'')+' aria-label="proposer ce morceau">')+'</span>'
+      +'<span class="who" style="display:flex;gap:10px;align-items:center">'
+        +'<img src="'+esc(t.art)+'" alt="" loading="lazy" style="width:38px;height:38px;border-radius:4px;flex:0 0 auto">'
+        +'<span><b>'+esc(t.artist)+'</b> · '+esc(t.title)
+        +(t.credits?' <i style="opacity:.6">('+esc(t.credits)+')</i>':'')
+        +'<br><span style="font-weight:400;opacity:.6;font-size:11px">'+esc(t.album)+' · '+(t.year||"—")
+        +' · '+esc(t.genre)+' · '+(t.ms?mmss(t.ms):"—")+(t.deja?" · déjà dans le jeu":"")+'</span></span>'
+      +'</span>'
+      +'<span class="hint"><button class="btn ghost sm" type="button" data-pe="'+i+'">▶ Écouter</button></span>'
+    +'</div>').join("")+'</div>';
+
+  l.querySelectorAll("[data-p]").forEach(c=>c.onchange=()=>{
+    const i=+c.dataset.p;
+    if(c.checked) PROP_SEL.add(i); else PROP_SEL.delete(i);
+    majBoutonProposer();
+  });
+  l.querySelectorAll("[data-pe]").forEach(b=>b.onclick=()=>{ unlock(); snip(PROP[+b.dataset.pe],8000,0); });
+  if(bar) bar.hidden=false;
+  majBoutonProposer();
+}
+
+function majBoutonProposer(){
+  const b=document.getElementById("padd");
+  if(!b) return;
+  const n=PROP_SEL.size;
+  b.disabled=!n;
+  b.textContent=n?("Proposer "+n+" morceau"+(n>1?"x":"")):"Coche ce que tu veux proposer";
+}
+
+async function envoyerPropositions(){
+  const choisis=[...PROP_SEL].map(i=>PROP[i]).filter(t=>t&&!t.deja);
+  if(!choisis.length) return;
+
+  const v=await modale("Proposer "+choisis.length+" morceau"+(choisis.length>1?"x":""),
+    '<div class="scale"><div class="sc head"><span>Titre</span><span>Artiste</span>'
+      +'<span class="odds">Année</span><span class="val"></span></div>'
+    +choisis.slice(0,12).map(t=>'<div class="sc"><span class="nm">'+esc(t.title)+'</span>'
+      +'<span class="dsc">'+esc(t.artist)+'</span><span class="odds">'+(t.year||"—")+'</span>'
+      +'<span class="val"></span></div>').join("")
+    +(choisis.length>12?'<div class="sc"><span class="nm">…</span><span class="dsc">et '
+      +(choisis.length-12)+' autres</span><span class="odds"></span><span class="val"></span></div>':'')
+    +'</div>'
+    +'<label class="lbl">Pourquoi ces sons méritent une carte</label>'
+    +'<textarea id="pmotif" maxlength="240" rows="3" placeholder="Ce qu\'ils ont de particulier, où tu les as trouvés, pourquoi personne ne les connaît."></textarea>'
+    +'<label class="lbl">Un indice pour ceux qui devront les reconnaître (facultatif)</label>'
     +'<input id="pindice" maxlength="120" placeholder="ex. « rap marseillais, cassette de 1997 »">'
-    +'<p class="notice">L\'extrait et la pochette restent hébergés chez Apple, et la carte renverra vers la fiche du morceau.</p>',
-    [{v:1,n:"Envoyer la proposition",avant:ov=>({motif:ov.querySelector("#pmotif").value, indice:ov.querySelector("#pindice").value})},
+    +'<p class="notice">La même explication accompagnera chacun. La modération tranche un par un, '
+    +'et tu verras le verdict dans <b>Mes propositions</b>.</p>'
+    +'<p class="notice">L\'extrait et la pochette restent hébergés chez Apple, et la carte renverra vers '
+    +'la fiche du morceau.</p>',
+    [{v:1,n:"Envoyer",avant:ov=>({motif:ov.querySelector("#pmotif").value,indice:ov.querySelector("#pindice").value})},
      {v:0,n:"Annuler",g:true}]);
-  if(!v||!v.motif) return;
-  const r=await apiAppel("/api/propositions",{action:"creer", track:{
-    id:t.id,title:t.title,artist:t.artist,album:t.album,genre:t.genre,
-    year:t.year,ms:t.ms,art:t.art,preview:t.preview,url:t.url},
-    motif:v.motif, indice:v.indice});
-  if(r&&r.ok){
-    flash("Proposition envoyée");
-    await rafraichirPropositions();
-    CMODE="miennes"; renderCommunaute(); ongletCom();
-  } else modale("Refusé", '<p>'+esc((r&&r.erreur)||"Envoi impossible.")+'</p>');
+  if(!v) return;
+  if(!v.motif||v.motif.trim().length<10){
+    pdiag('<b style="color:var(--t6)">Il faut une phrase d\'explication</b> — dix signes au minimum. '
+      +'C\'est ce que lit la modération.');
+    return;
+  }
+
+  let passees=0, dejaLa=0, refus=[];
+  for(let i=0;i<choisis.length;i++){
+    const t=choisis[i];
+    pdiag('<b>Envoi…</b> '+(i+1)+' / '+choisis.length+' — <i>'+esc(t.artist)+' · '+esc(t.title)+'</i>');
+    const r=await apiAppel("/api/propositions",{action:"creer", track:{
+      id:t.id,title:t.title,artist:t.artist,album:t.album,genre:t.genre,
+      year:t.year,ms:t.ms,art:t.art,preview:t.preview,url:t.url},
+      motif:v.motif, indice:v.indice});
+    if(r&&r.ok){ passees++; t.deja=true; }
+    else if(r&&r.code===409){ dejaLa++; t.deja=true; }
+    else {
+      refus.push(esc(t.artist)+" · "+esc(t.title)+" — "+esc((r&&r.erreur)||"envoi impossible"));
+      /* Quota atteint : inutile d'insister avec les suivantes. */
+      if(r&&r.code===429) break;
+    }
+  }
+
+  PROP_SEL.clear();
+  dessinerProposition();
+  pdiag((passees?'<b style="color:var(--ok)">'+passees+' proposition(s) envoyée(s).</b> '
+          +'La modération les regarde ; tu verras le verdict dans <b>Mes propositions</b>. ':'')
+    +(dejaLa?dejaLa+' étai(en)t déjà dans le jeu. ':'')
+    +(refus.length?'<br><b style="color:var(--t6)">Non envoyé(s) :</b><br>'+refus.slice(0,6).join("<br>"):''));
+  if(passees) await rafraichirPropositions();
 }
 
 const ETIQ={en_attente:["En attente","var(--t3)"],validee:["Validée","var(--ok)"],refusee:["Refusée","var(--t6)"]};
@@ -2840,7 +2567,6 @@ function renderModeration(){
   else if(MMODE==="traitees") vueTraitees();
   else if(MMODE==="chercher") vueChercher();
   else if(MMODE==="composes") vueComposes();
-  else if(MMODE==="chercher") vueChercher();
   else if(MMODE==="mentions") vueMentions();
   else if(MMODE==="joueurs") vueJoueurs();
   else vueBiblio();
@@ -3144,6 +2870,7 @@ function dessinerBiblio(garder){
       +'<button class="btn ghost sm" type="button" id="benlever">Retirer des sons par liste</button>'
       +'<button class="btn ghost sm" type="button" id="bartistes">Un seul artiste par carte</button>'
       +'<button class="btn ghost sm" type="button" id="bentiers">Noms à garder entiers</button>'
+      +'<button class="btn ghost sm" type="button" id="bverif">Vérifier les artistes chez Apple</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
       +listeArtistes().length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
@@ -3189,6 +2916,7 @@ function dessinerBiblio(garder){
     document.getElementById("benlever").onclick=retirerParListe;
     document.getElementById("bartistes").onclick=reparerArtistes;
     document.getElementById("bentiers").onclick=reglerNomsEntiers;
+    document.getElementById("bverif").onclick=verifierArtistes;
     document.getElementById("bvider").onclick=viderNoyau;
   }
   if(garder) bdiag(garder);
@@ -3648,7 +3376,26 @@ async function catalogueArtiste(artiste){
   const url="https://itunes.apple.com/search?term="+encodeURIComponent(artiste)
     +"&entity=song&attribute=artistTerm&limit=200&country=FR&lang=fr_fr";
   const d=await jsonp(url);
-  return (d&&d.results)||[];
+  return filtrerSurLArtiste((d&&d.results)||[],artiste);
+}
+
+/* Apple cherche par NOM, et un nom attrape des homonymes : « Jul » rend aussi
+   les morceaux d'un autre Jul, « Booba » ceux d'un dessin animé. On repère
+   donc l'IDENTIFIANT de l'artiste qu'on cherchait — celui du premier résultat
+   dont le nom correspond exactement — et on ne garde que ses morceaux à lui.
+   C'est la différence entre « quelqu'un qui porte ce nom » et « lui ». */
+function filtrerSurLArtiste(rows,nom){
+  if(!nom||!rows.length) return rows;
+  const cible=norm(nom);
+  const exact=rows.find(r=>norm(r.artistName)===cible&&r.artistId);
+  if(!exact) return rows;                    // aucun nom exact : on ne filtre pas
+  const id=exact.artistId;
+  const siens=rows.filter(r=>r.artistId===id);
+  /* Les featurings sont crédités à un autre identifiant : on les garde s'ils
+     citent bien le nom cherché. */
+  const cites=rows.filter(r=>r.artistId!==id
+    && String(r.artistName).split(SEP_ARTISTES_G).some(x=>norm(x)===cible));
+  return siens.concat(cites);
 }
 
 /* Retrouver un titre précis dans le catalogue d'un artiste.
@@ -3690,6 +3437,12 @@ function fabriquerPiste(r,artiste,titreDemande){
   const exact=titreDemande && norm(r.trackName)===norm(titreDemande);
   if(!exact && REJET_TITRE.test(r.trackName)) return null;
   return { id:r.trackId, title:propre, artist:v.artist, credits:v.credits,
+    /* L'IDENTIFIANT de l'artiste chez Apple, pas seulement son nom.
+       Un nom n'est pas une identité : deux artistes peuvent s'appeler pareil,
+       et une recherche par nom rend des homonymes. Avec cet identifiant, on
+       peut vérifier à tout moment qui est vraiment l'auteur d'un morceau —
+       c'est ce qui rend la bibliothèque réparable. */
+    artistId:r.artistId||null,
     album:r.collectionName||"Sortie hors album", genre:r.primaryGenreName||"Non classé",
     year:r.releaseDate?+r.releaseDate.slice(0,4):null, ms:r.trackTimeMillis||0,
     art:r.artworkUrl100.replace("100x100","400x400"), preview:r.previewUrl,
@@ -4249,6 +4002,129 @@ async function reglerNomsEntiers(){
   else bdiag('<b style="color:var(--t6)">'+esc((r2&&r2.erreur)||"Échec")+'</b>');
 }
 
+/* ============ VÉRIFIER LES ARTISTES AUPRÈS D'APPLE ============
+   La bibliothèque a été bâtie en cherchant des NOMS, et un nom n'est pas une
+   identité : « Jul » attrape un autre Jul, « Booba » un dessin animé, et la
+   recherche floue d'Apple rend des morceaux qui n'ont rien à voir. D'où des
+   sons rangés sous le mauvais artiste.
+
+   La réponse durable tient à une chose : on a gardé l'IDENTIFIANT Apple de
+   chaque morceau. On peut donc toujours redemander à Apple qui en est
+   l'auteur, et le comparer à ce qu'on a écrit. Deux cents identifiants par
+   requête, une requête toutes les 3,4 secondes : quatorze mille morceaux se
+   vérifient en quatre minutes.
+
+   Ça se relance quand on veut, et ça converge. */
+async function verifierArtistes(){
+  const q=await modale("Vérifier les artistes chez Apple ?",
+    '<p>Chaque morceau du jeu porte son identifiant Apple. On les renvoie à Apple '
+    +'par paquets de deux cents, et on lui redemande <b>qui en est l\'auteur</b>.</p>'
+    +'<p class="notice">C\'est la réponse au problème de fond : la bibliothèque a été bâtie en cherchant '
+    +'des <i>noms</i>, et un nom n\'est pas une identité — deux artistes peuvent s\'appeler pareil, et une '
+    +'recherche floue rend n\'importe quoi. Un identifiant, lui, ne se trompe pas.</p>'
+    +'<p class="notice">Compte environ <b>quatre minutes pour quatorze mille morceaux</b>. '
+    +'Laisse cet onglet ouvert. Tu verras la liste de ce qui cloche <b>avant</b> que quoi que ce soit '
+    +'ne change.</p>',
+    [{v:1,n:"Vérifier"},{v:0,n:"Annuler",g:true}]);
+  if(!q) return;
+
+  const bar=document.getElementById("bdiag");
+  const prog=m=>{ if(bar) bar.innerHTML=m; };
+  STOP_CONSTRUCTION=false;
+  prog('<b>Vérification…</b> <button class="btn ghost sm" type="button" id="vstop">Arrêter</button><br><span id="vprog"></span>');
+  const st=document.getElementById("vstop"); if(st) st.onclick=()=>{ STOP_CONSTRUCTION=true; };
+  const pp=m=>{ const e=document.getElementById("vprog"); if(e) e.innerHTML=m; };
+
+  let depuis=0, total=0, vus=0, muets=0;
+  const aCorriger=[];
+
+  while(true){
+    if(STOP_CONSTRUCTION) break;
+    const lot=await apiAppel("/api/moderation",{action:"a-verifier",depuis,paquet:200});
+    if(!lot||!lot.ok){ prog('<b style="color:var(--t6)">'+esc((lot&&lot.erreur)||"Échec")+'</b>'); return; }
+    total=lot.total;
+    const pistes=lot.pistes||[];
+    if(!pistes.length) break;
+
+    pp((depuis+pistes.length)+' / '+total+' vérifiés · <b>'+aCorriger.length+'</b> à corriger'
+      +(muets?' · '+muets+' inconnus d\'Apple':''));
+
+    /* Apple accepte deux cents identifiants d'un coup. C'est ce qui rend la
+       vérification de toute la bibliothèque supportable. */
+    let rows=[];
+    try{
+      const d=await jsonp("https://itunes.apple.com/lookup?country=FR&lang=fr_fr&id="
+        +pistes.map(x=>encodeURIComponent(x.id)).join(","));
+      rows=(d&&d.results)||[];
+    }catch(e){ rows=null; }
+
+    if(rows===null){
+      /* Apple nous freine : on souffle et on refait ce paquet, plutôt que de
+         le compter comme « inconnu » et de fausser le résultat. */
+      pp('Apple ne répond plus — pause de 20 secondes, puis on reprend ce paquet.');
+      await new Promise(r=>setTimeout(r,20000));
+      continue;
+    }
+
+    const parId=new Map(rows.filter(r=>r.wrapperType==="track").map(r=>[String(r.trackId),r]));
+    for(const p of pistes){
+      vus++;
+      const r=parId.get(String(p.id));
+      if(!r||!r.artistName){ muets++; continue; }
+      const parts=String(r.artistName).split(SEP_ARTISTES_G).map(x=>x.trim()).filter(Boolean);
+      const vrai=(parts.length>1)?parts[0]:r.artistName;
+      if(norm(vrai)!==norm(p.artist))
+        aCorriger.push({ id:p.id, artist:r.artistName, artistId:r.artistId||null,
+          avant:p.artist, apres:vrai, titre:p.title });
+    }
+
+    depuis=lot.suivant;
+    if(depuis>=total) break;
+    await new Promise(r=>setTimeout(r,APPLE_PAUSE));
+  }
+
+  if(!aCorriger.length){
+    bdiag('<b style="color:var(--ok)">Tout est en ordre.</b> '+vus+' morceau(x) vérifiés chez Apple, '
+      +'aucun n\'est rangé sous le mauvais artiste.'
+      +(muets?' ('+muets+' ne sont plus connus d\'Apple — ils gardent leur nom actuel.)':''));
+    return;
+  }
+
+  const ok2=await modale(aCorriger.length+" morceau(x) sous le mauvais artiste",
+    '<p>Apple les attribue à quelqu\'un d\'autre que ce qui est écrit chez nous. '
+    +'La règle du <b>premier artiste crédité</b> s\'appliquera à la correction, comme partout ailleurs.</p>'
+    +'<div class="scale"><div class="sc head"><span>Chez nous</span><span>Chez Apple</span>'
+    +'<span class="odds"></span><span class="val"></span></div>'
+    +aCorriger.slice(0,40).map(x=>'<div class="sc"><span class="nm">'+esc(x.avant)+'</span>'
+      +'<span class="dsc">'+esc(x.apres)+' — <i>'+esc(x.titre)+'</i></span>'
+      +'<span class="odds"></span><span class="val"></span></div>').join("")
+    +(aCorriger.length>40?'<div class="sc"><span class="nm">…</span><span class="dsc">et '
+      +(aCorriger.length-40)+' autres</span><span class="odds"></span><span class="val"></span></div>':'')
+    +'</div>'
+    +'<p class="notice">Les exemplaires déjà tirés par les joueurs ne bougent pas : ils pointent vers le '
+    +'morceau, pas vers son nom d\'artiste.</p>'
+    +(muets?'<p class="notice">'+muets+' morceau(x) ne sont plus connus d\'Apple : on n\'y touche pas.</p>':''),
+    [{v:1,n:"Corriger"},{v:0,n:"Annuler",g:true}]);
+  if(!ok2){ bdiag("Vérification annulée — rien n'a changé."); return; }
+
+  let corriges=0, inchanges=0, absents=0;
+  for(let i=0;i<aCorriger.length;i+=500){
+    prog('<b>Correction…</b> '+Math.min(i+500,aCorriger.length)+' / '+aCorriger.length);
+    const r=await apiAppel("/api/moderation",{action:"artistes-verifies",
+      corrections:aCorriger.slice(i,i+500).map(x=>({id:x.id,artist:x.artist,artistId:x.artistId}))});
+    if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>'); return; }
+    corriges+=r.corriges; inchanges+=r.inchanges; absents+=r.absents;
+  }
+  const bilan='<b style="color:var(--ok)">'+corriges+' morceau(x) rangés sous le bon artiste.</b> '
+    +(inchanges?inchanges+' étaient déjà justes après application de la règle du premier crédité. ':'')
+    +(absents?absents+' introuvables. ':'')
+    +(muets?muets+' ne sont plus connus d\'Apple. ':'')
+    +'Relance quand tu veux : la vérification converge.';
+  bdiag(bilan);
+  await chargerServeur(true); sync();
+  vueBiblio(bilan);
+}
+
 async function viderNoyau(){
   const q=await modale("Vider l'import de départ ?",
     '<p>Les '+(BIB.meta.noyau||0)+' sons venus de catalogue.json sortent du jeu. '
@@ -4494,10 +4370,14 @@ async function renderLadderServeur(){
   const r=await apiAppel("/api/classement",null,"GET");
   if(!r||!r.ok){ box.innerHTML='<div class="empty">'+esc((r&&r.erreur)||"Classement indisponible.")+'</div>'; return; }
   const t=tauxSec();
+  /* Le classement des crews existait, mais enterré tout en bas de l'écran
+     Crew — là où on ne va que si on en a déjà un. Il devient un onglet ici,
+     à côté des autres : c'est un classement, sa place est au classement. */
+  const crews=await apiAppel("/api/crews",{action:"palmares"});
   const tables=[["oreille","Reconnus sans aide","Sans aide",x=>x.taux==null?"—":x.taux+"%"],
                 ["collection","Taille du bac","Cartes",x=>x.cartes],
-                ["set","Meilleur set","Note",x=>x.meilleurSet],
-                ["defricheurs","Sons trouvés","Entrés",x=>x.validees]];
+                ["defricheurs","Sons trouvés","Entrés",x=>x.validees],
+                ["crews","Les crews","Oreille",x=>x.taux==null?"—":x.taux+"%"]];
   box.innerHTML='<div class="rule"><p style="margin:0"><b>On classe d\'abord sur ce qu\'on reconnaît sans aide</b> — '
       +'le pourcentage de cartes reconnues sans révélateur et hors achats. Les autres tableaux sont là pour le reste : '
       +'ils ne donnent pas de rang.</p>'
@@ -4514,6 +4394,19 @@ async function renderLadderServeur(){
       +RANGS.map(x=>'<span class="chip" style="color:'+(rangDe(t||0)===x.n?"var(--accent)":"var(--ink-3)")+'">'+x.n+' · '+x.min+'%+</span>').join("")+'</div>';
   const dessine=cle=>{
     const t2=tables.find(x=>x[0]===cle);
+    if(cle==="crews"){
+      const l=(crews&&crews.crews)||[];
+      document.getElementById("ladbox").innerHTML= l.length
+        ? '<div class="lad"><div class="lr head"><span>#</span><span>Crew</span><span class="num">Oreille</span><span class="num">Cartes</span></div>'
+          +l.map((c,i)=>'<div class="lr'+(CREW&&c.nom===CREW.nom?" me":"")+'"><span class="pos">'+(i+1)+'</span>'
+            +'<span class="who">'+esc(c.nom)+'<small>'+c.membres+' membre(s) · '+c.validees+' son(s) trouvé(s)</small></span>'
+            +'<span class="num hi">'+(c.taux==null?"—":c.taux+"%")+'</span><span class="num">'+c.cartes+'</span></div>').join("")+'</div>'
+          +'<p class="notice">Un crew se classe sur l\'oreille <b>moyenne</b> de ses membres, pas sur leur nombre : '
+          +'recruter large ne fait pas monter, recruter juste oui. Onglet <b>Ma collection → Crew</b> pour en créer un ou en rejoindre un.</p>'
+        : '<div class="empty">Aucun crew pour l\'instant.<br><span style="font-size:13px">Onglet <b>Ma collection → Crew</b> : vingt places et un code à partager.</span></div>';
+      document.querySelectorAll("#ladderbox .mktab").forEach(b=>b.setAttribute("aria-selected",b.dataset.l===cle));
+      return;
+    }
     const l=r[cle]||[];
     document.getElementById("ladbox").innerHTML= l.length
       ? '<div class="lad"><div class="lr head"><span>#</span><span>Digger</span><span class="num">'+t2[2]+'</span><span class="num">Cartes</span></div>'
@@ -4821,15 +4714,7 @@ async function renderDefiDuel(){
 
   box.innerHTML=tete
     +'<p class="hint">Laquelle répond le mieux ? Tu ne vois pas qui a posé quoi, c\'est voulu.</p>'
-    +'<div class="defi-duo">'+r.duel.map(e=>
-      '<button class="defi-c" type="button" data-id="'+esc(e.id)+'">'
-      +(e.carte.perdue?'<div class="empty" style="padding:20px">Morceau retiré</div>'
-        :'<img src="'+esc(e.carte.art)+'" alt="" loading="lazy">'
-         +'<div class="t">'+esc(e.carte.title)+'</div>'
-         +'<div class="a">'+esc(e.carte.artist)+(e.carte.year?' · '+e.carte.year:'')+'</div>'
-         +(e.carte.preview?'<audio controls preload="none" src="'+esc(e.carte.preview)+'"></audio>':''))
-      +'</button>').join("")
-    +'</div>'
+    +duoHTML(r.duel)
     +'<p class="notice">Chaque duel tranché rapporte 2 crédits, quel que soit ton camp. '
     +'Le vote aveugle est là pour que ce soit le morceau qui gagne, pas le pseudo.</p>'
     +defiMaCarte();
@@ -4845,6 +4730,19 @@ async function renderDefiDuel(){
   });
 }
 
+/* Le duel s'affiche à deux endroits depuis la v2.7.5 : dans l'écran du Défi et
+   sur l'accueil. Un seul morceau de balisage, pour qu'ils ne divergent pas. */
+function duoHTML(duel){
+  return '<div class="defi-duo">'+duel.map(e=>
+    '<button class="defi-c" type="button" data-id="'+esc(e.id)+'">'
+    +(e.carte.perdue?'<div class="empty" style="padding:20px">Morceau retiré</div>'
+      :'<img src="'+esc(e.carte.art)+'" alt="" loading="lazy">'
+       +'<div class="t">'+esc(e.carte.title)+'</div>'
+       +'<div class="a">'+esc(e.carte.artist)+(e.carte.year?' · '+e.carte.year:'')+'</div>'
+       +(e.carte.preview?'<audio controls preload="none" src="'+esc(e.carte.preview)+'"></audio>':''))
+    +'</button>').join("")+'</div>';
+}
+
 function defiMaCarte(){
   if(!DEFI||!DEFI.posee) return "";
   const c=DEFI.posee;
@@ -4853,6 +4751,65 @@ function defiMaCarte(){
     +(c.art?'<img src="'+esc(c.art)+'" alt="">':'')
     +'<div style="flex:1"><div style="font-weight:700">'+esc(c.title||"?")+'</div>'
     +'<div class="hint">'+esc(c.artist||"")+'</div></div></div>';
+}
+
+/* ---- le Défi sur l'accueil (v2.7.5) ----
+   Le Défi était une page qu'il fallait aller chercher. Un jeu quotidien qui
+   demande un détour n'est pas joué : on le pose là où le joueur arrive déjà
+   tous les jours, juste sous les cartons, et on lui donne de quoi VOTER sur
+   place. Un duel à la fois, le suivant s'enchaîne — le vote est le geste, pas
+   la navigation. */
+async function renderDefiAccueil(){
+  const box=document.getElementById("defiaccueil");
+  if(!box) return;
+  if(!COMPTE){ box.innerHTML=""; return; }
+  box.innerHTML='<h3 class="sect">Le Défi du jour</h3><p class="notice">Chargement…</p>';
+
+  const e=await apiAppel("/api/defi",{action:"etat"});
+  if(!e||!e.ok){ box.innerHTML=""; return; }
+  DEFI=e;
+  const tete='<h3 class="sect">Le Défi du jour</h3>'
+    +'<div class="epreuve"><span class="lbl">Le thème du jour · le même pour tout le monde</span>'
+    +'<p>'+esc(e.theme||"…")+'</p></div>';
+  const versDefi='<div class="bar" style="margin-top:12px">'
+    +'<button class="btn ghost sm" type="button" id="dacc-plus">Ouvrir le Défi</button></div>';
+  const brancher=()=>{ const b=box.querySelector("#dacc-plus"); if(b) b.onclick=()=>go("defi"); };
+
+  if(!e.posee){
+    box.innerHTML=tete
+      +'<p class="hint">Pose <b>une</b> carte de ton étagère : c\'est ce qui ouvre les votes. '
+      +'Personne ne saura qu\'elle vient de toi avant le palmarès.</p>'
+      +'<div class="bar"><button class="btn" type="button" id="dacc-poser">Poser ma carte</button>'
+      +'<button class="btn ghost sm" type="button" id="dacc-plus">Ouvrir le Défi</button></div>';
+    box.querySelector("#dacc-poser").onclick=()=>go("defi");
+    brancher();
+    return;
+  }
+
+  const d=await apiAppel("/api/defi",{action:"duel"});
+  if(d&&d.code===429){
+    box.innerHTML=tete+'<p class="hint">Tous tes duels du jour sont faits, et ta carte est posée. '
+      +'Le palmarès tombe demain.</p>'+versDefi; brancher(); return;
+  }
+  if(!d||!d.ok||!d.duel){
+    box.innerHTML=tete+'<p class="hint">'+esc((d&&d.raison)||"Les duels s\'ouvrent dès qu\'il y a deux autres cartes posées.")
+      +' Ta carte, elle, est déjà en jeu.</p>'+versDefi; brancher(); return;
+  }
+
+  box.innerHTML=tete
+    +'<p class="hint">Laquelle répond le mieux au thème ? Tu ne vois pas qui a posé quoi. '
+    +'<b>2 crédits</b> par duel tranché — il t\'en reste <b>'+(d.votesRestants!=null?d.votesRestants:"?")+'</b>.</p>'
+    +duoHTML(d.duel)+versDefi;
+  brancher();
+
+  const ids=d.duel.map(x=>x.id);
+  box.querySelectorAll(".defi-c").forEach((b,i)=>b.onclick=async ev=>{
+    if(ev.target.tagName==="AUDIO") return;      // on écoute sans voter
+    box.querySelectorAll(".defi-c").forEach(x=>x.disabled=true);
+    const r2=await apiAppel("/api/defi",{action:"voter",gagnant:ids[i],perdant:ids[1-i]});
+    if(r2&&r2.ok){ await apiJeu("etat"); renderDefiAccueil(); }
+    else { flash((r2&&r2.erreur)||"Vote refusé"); renderDefiAccueil(); }
+  });
 }
 
 /* ---- 3. le palmarès ---- */
@@ -5023,7 +4980,7 @@ function bibLigne(c){
 const FAMILLES=[
   {id:"ouvrir",  n:"Ouvrir",        vues:[["accueil","Ouvrir un carton"]]},
   {id:"collec",  n:"Ma collection", vues:[["etagere","Étagère"],["crew","Crew"],["profil","Profil"]]},
-  {id:"jouer",   n:"Jouer",         vues:[["set","Le Set"],["defi","Le Défi"],["classement","Classement"]]},
+  {id:"jouer",   n:"Jouer",         vues:[["defi","Le Défi"],["classement","Classement"]]},
   {id:"marche",  n:"Marché",        vues:[["marche","Marché"]]},
   {id:"biblio",  n:"La bibliothèque",vues:[["bibliotheque","Tous les sons"],["communaute","Proposer un son"]]},
   {id:"aide",    n:"Aide & réglages",vues:[["regles","Règles du jeu"],["reglages","Réglages"],["boutique","Boutique"]]},
@@ -5064,9 +5021,9 @@ function go(v){
   VUE=v;
   document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));
   dessinerMenu(v);
+  if(v==="accueil"){ renderShop(); renderDefiAccueil(); }
   if(v==="etagere") renderShelf();
   if(v==="marche") renderMarche();
-  if(v==="set") startSet();
   if(v==="defi") renderDefi();
   if(v==="bibliotheque") renderBibliotheque();
   if(v==="regles") renderRegles();
@@ -5103,12 +5060,13 @@ function go(v){
   }
   syncMute(); syncFoot(); sync();
   await initServeur();
-  /* Un lien de set partagé s'ouvre directement dessus, sans compte. */
-  const partage=await renderSetPartage();
   /* Sans compte, il n'y a pas de partie : l'écran d'accueil n'est plus une
      invitation, c'est la porte d'entrée. */
-  if(!partage && bienvenueDue()) await ouvrirBienvenue();
-  if(!partage && COMPTE && !onboardingFait()){ await ouvrirOnboarding(); renderShop(); }
+  if(bienvenueDue()) await ouvrirBienvenue();
+  if(COMPTE && !onboardingFait()){ await ouvrirOnboarding(); renderShop(); }
+  /* Le Défi s'affiche sur l'accueil, mais il demande le compte : on ne peut le
+     dessiner qu'une fois la session rétablie. */
+  if(VUE==="accueil") renderDefiAccueil();
 })();
 </script>
 </body>

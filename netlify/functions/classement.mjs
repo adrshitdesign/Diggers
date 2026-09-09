@@ -18,13 +18,13 @@ export default async function (req) {
   const oreille = tout.filter(x => x.taux != null && x.cartes >= MINI_CARTES)
     .sort((a, b) => b.taux - a.taux || b.cartes - a.cartes).slice(0, 50);
   const collection = tout.slice().sort((a, b) => b.cartes - a.cartes).slice(0, 50);
-  const set = tout.filter(x => x.meilleurSet > 0).sort((a, b) => b.meilleurSet - a.meilleurSet).slice(0, 50);
   const defricheurs = tout.filter(x => x.validees > 0).sort((a, b) => b.validees - a.validees).slice(0, 50);
 
   const alleger = l => l.map(x => ({ pseudo: x.pseudo, couleur: x.couleur, titre: x.titre,
-    taux: x.taux, cartes: x.cartes, meilleurSet: x.meilleurSet, serie: x.serie, validees: x.validees }));
+    taux: x.taux, cartes: x.cartes, serie: x.serie, validees: x.validees }));
 
+  /* Le tableau « meilleur set » disparaît avec le mode (v2.7.5). */
   return ok({ joueurs: tout.length, oreille: alleger(oreille), collection: alleger(collection),
-    set: alleger(set), defricheurs: alleger(defricheurs) },
+    defricheurs: alleger(defricheurs) },
     { "cache-control": "public, max-age=30" });
 }
