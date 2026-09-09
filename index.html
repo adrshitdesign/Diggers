@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.7.5</title>
+<title>Diggers — v2.7.6</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -499,7 +499,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.5 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.6 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -2871,6 +2871,7 @@ function dessinerBiblio(garder){
       +'<button class="btn ghost sm" type="button" id="bartistes">Un seul artiste par carte</button>'
       +'<button class="btn ghost sm" type="button" id="bentiers">Noms à garder entiers</button>'
       +'<button class="btn ghost sm" type="button" id="bverif">Vérifier les artistes chez Apple</button>'
+      +'<button class="btn ghost sm" type="button" id="bhomo">Un nom, deux artistes</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
       +listeArtistes().length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
@@ -2917,6 +2918,7 @@ function dessinerBiblio(garder){
     document.getElementById("bartistes").onclick=reparerArtistes;
     document.getElementById("bentiers").onclick=reglerNomsEntiers;
     document.getElementById("bverif").onclick=verifierArtistes;
+    document.getElementById("bhomo").onclick=vueHomonymes;
     document.getElementById("bvider").onclick=viderNoyau;
   }
   if(garder) bdiag(garder);
@@ -4035,7 +4037,7 @@ async function verifierArtistes(){
   const st=document.getElementById("vstop"); if(st) st.onclick=()=>{ STOP_CONSTRUCTION=true; };
   const pp=m=>{ const e=document.getElementById("vprog"); if(e) e.innerHTML=m; };
 
-  let depuis=0, total=0, vus=0, muets=0;
+  let depuis=0, total=0, vus=0, muets=0, graves=0;
   const aCorriger=[];
 
   while(true){
@@ -4067,15 +4069,24 @@ async function verifierArtistes(){
     }
 
     const parId=new Map(rows.filter(r=>r.wrapperType==="track").map(r=>[String(r.trackId),r]));
+    const aGraver=[];
     for(const p of pistes){
       vus++;
       const r=parId.get(String(p.id));
       if(!r||!r.artistName){ muets++; continue; }
+      /* On grave l'identifiant même quand le nom est juste : c'est le seul
+         moyen de repérer ensuite deux artistes qui portent le MÊME nom. */
+      if(r.artistId && String(r.artistId)!==String(p.artistId||""))
+        aGraver.push({id:p.id, artistId:r.artistId});
       const parts=String(r.artistName).split(SEP_ARTISTES_G).map(x=>x.trim()).filter(Boolean);
       const vrai=(parts.length>1)?parts[0]:r.artistName;
       if(norm(vrai)!==norm(p.artist))
         aCorriger.push({ id:p.id, artist:r.artistName, artistId:r.artistId||null,
           avant:p.artist, apres:vrai, titre:p.title });
+    }
+    if(aGraver.length){
+      const g=await apiAppel("/api/moderation",{action:"artistes-identifiants",identifiants:aGraver});
+      if(g&&g.ok) graves+=g.graves||0;
     }
 
     depuis=lot.suivant;
@@ -4084,9 +4095,11 @@ async function verifierArtistes(){
   }
 
   if(!aCorriger.length){
-    bdiag('<b style="color:var(--ok)">Tout est en ordre.</b> '+vus+' morceau(x) vérifiés chez Apple, '
-      +'aucun n\'est rangé sous le mauvais artiste.'
-      +(muets?' ('+muets+' ne sont plus connus d\'Apple — ils gardent leur nom actuel.)':''));
+    bdiag('<b style="color:var(--ok)">Aucun morceau sous le mauvais NOM.</b> '+vus+' morceau(x) vérifiés chez Apple.'
+      +(graves?' <b>'+graves+'</b> identifiant(s) d\'artiste gravé(s) au passage.':'')
+      +(muets?' ('+muets+' ne sont plus connus d\'Apple — ils gardent leur nom actuel.)':'')
+      +'<br>Il reste un cas que le nom ne peut pas attraper : <b>deux artistes qui s\'appellent pareil</b>. '
+      +'Le bouton <b>« Un nom, deux artistes »</b> les liste maintenant.');
     return;
   }
 
@@ -4117,13 +4130,104 @@ async function verifierArtistes(){
   }
   const bilan='<b style="color:var(--ok)">'+corriges+' morceau(x) rangés sous le bon artiste.</b> '
     +(inchanges?inchanges+' étaient déjà justes après application de la règle du premier crédité. ':'')
+    +(graves?graves+' identifiant(s) d\'artiste gravé(s). ':'')
     +(absents?absents+' introuvables. ':'')
     +(muets?muets+' ne sont plus connus d\'Apple. ':'')
-    +'Relance quand tu veux : la vérification converge.';
+    +'Relance quand tu veux : la vérification converge. '
+    +'Ensuite, <b>« Un nom, deux artistes »</b> montre les homonymes — le cas que le nom seul ne peut pas voir.';
   bdiag(bilan);
   await chargerServeur(true); sync();
   vueBiblio(bilan);
 }
+
+/* ============ UN NOM, DEUX ARTISTES ============
+   Le cas que la vérification par NOM ne peut pas voir, et celui qui a donné
+   des cartes du mauvais SDM : deux artistes qui s'appellent vraiment pareil.
+   Chez Apple ils portent le même nom mais deux identifiants différents —
+   c'est la seule chose qui les sépare, et c'est donc là-dessus qu'on tranche.
+
+   On ne devine pas lequel est le bon : le jeu montre les deux, avec des titres
+   en exemple et le lien vers la fiche Apple, et c'est l'humain qui choisit. */
+async function vueHomonymes(){
+  bdiag('<b>Lecture de la bibliothèque…</b>');
+  const r=await apiAppel("/api/moderation",{action:"homonymes"});
+  if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>'); return; }
+
+  const manque=r.sansId||0;
+  const avert=manque
+    ? '<p class="notice"><b style="color:var(--t6)">'+nb(manque)+' morceau(x) n\'ont pas encore d\'identifiant d\'artiste</b> '
+      +'et ne peuvent donc pas être comparés. Lance <b>« Vérifier les artistes chez Apple »</b> : '
+      +'il grave l\'identifiant de chaque morceau au passage. Tant qu\'il reste des morceaux sans identifiant, '
+      +'cette liste est incomplète.</p>'
+    : '';
+
+  if(!r.conflits.length){
+    await modale("Un nom, deux artistes",
+      '<p>Aucun nom ne recouvre deux artistes différents dans ce qui a été vérifié.</p>'+avert,
+      [{v:0,n:"Fermer",g:true}]);
+    bdiag(manque?'Vérifie d\'abord les artistes chez Apple : '+nb(manque)+' morceau(x) sans identifiant.':'Aucun homonyme.');
+    return;
+  }
+
+  const lignes=r.conflits.map((c,i)=>
+    '<div class="lr libre" style="align-items:flex-start">'
+      +'<span class="pos">'+(i+1)+'</span>'
+      +'<span class="who" style="display:block"><b>'+esc(c.nom)+'</b> — '+c.total+' morceau(x), '
+        +'<b style="color:var(--t6)">'+c.groupes.length+' artistes différents</b>'
+        +c.groupes.map(g=>
+          '<span style="display:block;margin:8px 0 0;padding:8px 10px;background:var(--surface-2);border-radius:4px">'
+          +'<b>'+g.nb+' morceau(x)</b> · <a href="https://music.apple.com/fr/artist/'+esc(g.artistId)+'" '
+            +'target="_blank" rel="noopener">voir cet artiste chez Apple</a>'
+          +'<span style="display:block;font-weight:400;opacity:.7;font-size:11px;margin-top:3px">'
+            +g.exemples.map(x=>esc(x.title)+(x.year?" ("+x.year+")":"")).join(" · ")+'</span>'
+          +'<button class="btn ghost sm" type="button" style="margin-top:6px" '
+            +'data-garde="'+esc(c.nom)+'" data-id="'+esc(g.artistId)+'">Garder celui-ci, retirer les autres</button>'
+          +'</span>').join("")
+      +'</span>'
+    +'</div>').join("");
+
+  const v=await modale("Un nom, deux artistes",
+    '<p>Ces noms recouvrent <b>plusieurs artistes différents</b> chez Apple. C\'est ce qui a mis dans le jeu '
+    +'des cartes qui portent le bon nom mais ne sont pas du bon artiste.</p>'
+    +'<p class="notice">Écoute le doute : ouvre la fiche Apple d\'un groupe, regarde les titres donnés en exemple, '
+    +'puis garde celui que tu veux dans le jeu. <b>Les autres morceaux sortent de la bibliothèque</b> — '
+    +'les exemplaires déjà tirés par des joueurs restent sur leurs étagères, comme pour tout retrait.</p>'
+    +avert
+    +'<div class="ladder">'+lignes+'</div>',
+    [{v:0,n:"Fermer",g:true}]);
+  void v;
+}
+
+/* Le bouton « garder celui-ci » vit dans la modale : on l'attrape par
+   délégation, une seule fois, plutôt que de recâbler à chaque redessin. */
+document.addEventListener("click", async e=>{
+  const b=e.target.closest && e.target.closest("[data-garde]");
+  if(!b) return;
+  const nom=b.dataset.garde, id=b.dataset.id;
+  const ap=await apiAppel("/api/moderation",{action:"homonyme-trancher",nom,garder:id,apercu:true});
+  if(!ap||!ap.ok){ flash((ap&&ap.erreur)||"Échec"); return; }
+  if(!ap.nb){ flash("Rien à retirer sous ce nom"); return; }
+  const ok2=await modale("Retirer "+ap.nb+" morceau(x) ?",
+    '<p>Tout ce qui est rangé sous <b>'+esc(nom)+'</b> et qui ne vient pas de l\'artiste choisi '
+    +'sort de la bibliothèque.</p>'
+    +'<div class="scale"><div class="sc head"><span>Titre</span><span>Artiste</span>'
+      +'<span class="odds"></span><span class="val"></span></div>'
+    +ap.exemples.slice(0,20).map(x=>'<div class="sc"><span class="nm">'+esc(x.title)+'</span>'
+      +'<span class="dsc">'+esc(x.artist)+'</span><span class="odds"></span><span class="val"></span></div>').join("")
+    +(ap.nb>20?'<div class="sc"><span class="nm">…</span><span class="dsc">et '+(ap.nb-20)
+      +' autres</span><span class="odds"></span><span class="val"></span></div>':'')
+    +'</div>'
+    +'<p class="notice">Les exemplaires déjà tirés restent sur les étagères des joueurs : '
+    +'une carte pointe vers le morceau, pas vers la bibliothèque. Ils ne ressortiront plus d\'un carton.</p>',
+    [{v:1,n:"Retirer"},{v:0,n:"Annuler",g:true}]);
+  if(!ok2) return;
+  const r=await apiAppel("/api/moderation",{action:"homonyme-trancher",nom,garder:id});
+  if(!r||!r.ok){ flash((r&&r.erreur)||"Échec"); return; }
+  document.querySelectorAll(".onb").forEach(x=>x.remove());
+  await chargerServeur(true); sync();
+  vueBiblio('<b style="color:var(--ok)">'+r.retires+' morceau(x) retirés.</b> '
+    +'Il ne reste sous « '+esc(nom)+' » que l\'artiste que tu as gardé.');
+});
 
 async function viderNoyau(){
   const q=await modale("Vider l'import de départ ?",

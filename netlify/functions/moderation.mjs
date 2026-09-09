@@ -353,6 +353,152 @@ export default async function (req) {
     return ok({ rendues, ligne, proteges: noms.length });
   }
 
+  /* ---------------- vérifier les artistes auprès d'Apple ----------------
+     Le problème de fond : la bibliothèque a été bâtie en cherchant des NOMS.
+     Or un nom n'est pas une identité — « Jul » attrape un autre Jul, « Booba »
+     un dessin animé, et une recherche floue rend des morceaux qui n'ont rien à
+     voir. D'où des centaines de sons rangés sous le mauvais artiste.
+
+     La solution durable tient en une phrase : **on garde l'identifiant Apple
+     du morceau, donc on peut toujours redemander à Apple qui en est
+     l'auteur.** Le navigateur interroge Apple par paquets de 200 identifiants,
+     compare, et envoie ici ce qu'il faut corriger. Le serveur ne fait
+     confiance à rien : il revalide chaque fiche avant de l'écrire.
+
+     Ça se relance quand on veut, et ça converge — une fois passé, il ne reste
+     que les morceaux qu'Apple ne connaît plus. */
+  /* ON GRAVE L'IDENTIFIANT D'ARTISTE, MÊME QUAND LE NOM EST BON (v2.7.6).
+     C'est ce qui manquait pour attraper les homonymes : deux artistes qui
+     s'appellent vraiment pareil (deux « SDM ») passent la vérification par nom
+     sans rien déclencher, puisque le nom EST le bon. Seul l'identifiant les
+     distingue. On profite donc du passage chez Apple pour l'écrire sur chaque
+     morceau, sans rien renommer. */
+  if (b.action === "artistes-identifiants") {
+    if (u.role !== "admin") return ko(403, "Réservé à l'administrateur.");
+    const l = Array.isArray(b.identifiants) ? b.identifiants.slice(0, 2000) : [];
+    if (!l.length) return ko(400, "Rien à graver.");
+    const lib = await biblio.lire();
+    const parId = new Map(lib.tracks.map(t => [String(t.id), t]));
+    let graves = 0, absents = 0;
+    for (const x of l) {
+      const t = parId.get(String(x.id));
+      if (!t) { absents++; continue; }
+      const aid = x.artistId ? String(x.artistId) : null;
+      if (!aid || String(t.artistId || "") === aid) continue;
+      t.artistId = aid;
+      graves++;
+    }
+    if (graves) await biblio.ecrire(lib);
+    return ok({ graves, absents });
+  }
+
+  /* Un nom, plusieurs artistes. On ne devine rien : on regroupe les morceaux
+     par nom d'artiste et on regarde combien d'IDENTIFIANTS Apple différents ce
+     nom recouvre. Deux identifiants sous « SDM » = deux personnes. */
+  if (b.action === "homonymes") {
+    if (u.role !== "admin") return ko(403, "Réservé à l'administrateur.");
+    const lib = await biblio.lire();
+    const parNom = new Map();
+    let sansId = 0;
+    for (const t of lib.tracks) {
+      if (!t.artistId) { sansId++; continue; }
+      const k = norm(t.artist);
+      if (!parNom.has(k)) parNom.set(k, new Map());
+      const g = parNom.get(k);
+      const id = String(t.artistId);
+      if (!g.has(id)) g.set(id, { artistId: id, nb: 0, exemples: [] });
+      const e = g.get(id);
+      e.nb++;
+      if (e.exemples.length < 4) e.exemples.push({ id: t.id, title: t.title, album: t.album || "", year: t.year || null });
+      e.nom = t.artist;
+    }
+    const conflits = [];
+    for (const [, g] of parNom) {
+      if (g.size < 2) continue;
+      const groupes = [...g.values()].sort((x, y) => y.nb - x.nb);
+      conflits.push({ nom: groupes[0].nom, total: groupes.reduce((a, x) => a + x.nb, 0), groupes });
+    }
+    conflits.sort((a, b2) => b2.total - a.total);
+    return ok({ conflits: conflits.slice(0, 60), sansId, total: lib.tracks.length });
+  }
+
+  /* Trancher : on garde un identifiant, les autres sortent du jeu. */
+  if (b.action === "homonyme-trancher") {
+    if (u.role !== "admin") return ko(403, "Réservé à l'administrateur.");
+    const nom = norm(String(b.nom || ""));
+    const garder = String(b.garder || "");
+    if (!nom || !garder) return ko(400, "Il faut un nom et l'identifiant à garder.");
+
+    const lib = await biblio.lire();
+    const vises = lib.tracks.filter(t => norm(t.artist) === nom && t.artistId
+      && String(t.artistId) !== garder);
+    if (b.apercu) {
+      return ok({ apercu: true, nb: vises.length,
+        exemples: vises.slice(0, 40).map(t => ({ id: t.id, title: t.title, artist: t.artist })) });
+    }
+    if (!vises.length) return ok({ retires: 0 });
+    const SIG = await store("signatures");
+    let retires = 0;
+    for (const t of vises) {
+      const r = await biblio.retirer(String(t.id));
+      if (r) { retires++; await SIG.del(signature(r)).catch(() => {}); }
+    }
+    return ok({ retires, total: (await biblio.lire()).tracks.length });
+  }
+
+  if (b.action === "artistes-verifies") {
+    if (u.role !== "admin") return ko(403, "Seul l'administrateur corrige la bibliothèque.");
+    const corr = Array.isArray(b.corrections) ? b.corrections.slice(0, 2000) : [];
+    if (!corr.length) return ko(400, "Rien à corriger.");
+
+    const lib = await biblio.lire();
+    const parId = new Map(lib.tracks.map(t => [String(t.id), t]));
+    const SIG = await store("signatures");
+    const entiers = await biblio.nomsEntiers();
+    const lignes = new Map();
+    for (const t of lib.tracks) {
+      const k = norm(t.artist);
+      lignes.set(k, (lignes.get(k) || 0) + 1);
+    }
+
+    let corriges = 0, absents = 0, inchanges = 0;
+    for (const c of corr) {
+      const t = parId.get(String(c.id));
+      if (!t) { absents++; continue; }
+      const nom = String(c.artist || "").trim().slice(0, 120);
+      if (!nom) { absents++; continue; }
+      // la règle du premier crédité s'applique aussi à ce qu'Apple renvoie
+      const seul = biblio.artistePrincipal(nom, { entiers, lignes });
+      const final = seul || nom;
+      if (norm(final) === norm(t.artist)) { inchanges++; continue; }
+      const avant = signature(t);
+      t.credits = t.credits || (seul ? nom : "");
+      t.artist = final;
+      if (c.artistId) t.artistId = c.artistId;
+      const apres = signature(t);
+      if (avant !== apres) await SIG.del(avant).catch(() => {});
+      corriges++;
+    }
+    if (corriges) await biblio.ecrire(lib);
+    return ok({ corriges, inchanges, absents, total: lib.tracks.length });
+  }
+
+  /* Les identifiants des morceaux à vérifier, par paquets. Le navigateur ne
+     peut pas demander la bibliothèque entière — elle ne lui est plus envoyée
+     depuis la v2.6 — donc c'est le serveur qui découpe. */
+  if (b.action === "a-verifier") {
+    if (u.role !== "admin") return ko(403, "Réservé à l'administrateur.");
+    const lib = await biblio.lire();
+    const depuis = Math.max(0, Number(b.depuis) || 0);
+    const paquet = Math.min(200, Math.max(1, Number(b.paquet) || 200));
+    const tranche = lib.tracks.slice(depuis, depuis + paquet);
+    return ok({
+      total: lib.tracks.length,
+      depuis, suivant: depuis + tranche.length,
+      pistes: tranche.map(t => ({ id: t.id, artist: t.artist, title: t.title, artistId: t.artistId || null }))
+    });
+  }
+
   if (b.action === "vider") {
     if (u.role !== "admin") return ko(403, "Seul l'administrateur vide la bibliothèque.");
     const r = await biblio.vider(b.source === "communaute" ? "communaute" : b.source === "tout" ? null : "noyau");
