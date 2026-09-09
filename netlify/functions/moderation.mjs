@@ -461,6 +461,16 @@ export default async function (req) {
       lignes.set(k, (lignes.get(k) || 0) + 1);
     }
 
+    /* LE JOURNAL DE LA DERNIÈRE CORRECTION (v2.7.8).
+       Une correction en masse qui ne se défait pas est une correction qu'on
+       n'ose pas lancer. On garde donc, pour chaque morceau touché, ce qu'il
+       était AVANT — de quoi tout remettre en place d'un bouton. Un seul niveau :
+       la dernière passe. C'est ce qui manque quand on s'aperçoit après coup que
+       le lot n'était pas bon. */
+    const JOU = await store("corrections");
+    const precedent = b.debut ? null : await JOU.get("derniere");
+    const journal = (precedent && Array.isArray(precedent.lignes)) ? precedent.lignes : [];
+
     let corriges = 0, absents = 0, inchanges = 0;
     for (const c of corr) {
       const t = parId.get(String(c.id));
@@ -472,6 +482,8 @@ export default async function (req) {
       const final = seul || nom;
       if (norm(final) === norm(t.artist)) { inchanges++; continue; }
       const avant = signature(t);
+      journal.push({ id: String(t.id), artist: t.artist,
+        credits: t.credits || "", artistId: t.artistId || null });
       t.credits = t.credits || (seul ? nom : "");
       t.artist = final;
       if (c.artistId) t.artistId = c.artistId;
@@ -480,20 +492,65 @@ export default async function (req) {
       corriges++;
     }
     if (corriges) await biblio.ecrire(lib);
-    return ok({ corriges, inchanges, absents, total: lib.tracks.length });
+    if (corriges || b.debut) {
+      await JOU.set("derniere", { quand: Date.now(), par: u.pseudo,
+        lignes: journal.slice(-8000) });
+    }
+    return ok({ corriges, inchanges, absents, total: lib.tracks.length,
+      annulables: journal.length });
   }
 
   /* Les identifiants des morceaux à vérifier, par paquets. Le navigateur ne
      peut pas demander la bibliothèque entière — elle ne lui est plus envoyée
      depuis la v2.6 — donc c'est le serveur qui découpe. */
+  /* Ce qu'on peut encore défaire, et depuis quand. */
+  if (b.action === "journal-verification") {
+    if (u.role !== "admin") return ko(403, "Réservé à l'administrateur.");
+    const j = await (await store("corrections")).get("derniere");
+    if (!j || !Array.isArray(j.lignes) || !j.lignes.length) return ok({ vide: true });
+    return ok({ vide: false, quand: j.quand, par: j.par || "", nb: j.lignes.length,
+      exemples: j.lignes.slice(0, 30).map(x => ({ id: x.id, artist: x.artist })) });
+  }
+
+  /* Tout remettre comme avant la dernière correction. */
+  if (b.action === "annuler-verification") {
+    if (u.role !== "admin") return ko(403, "Réservé à l'administrateur.");
+    const JOU = await store("corrections");
+    const j = await JOU.get("derniere");
+    if (!j || !Array.isArray(j.lignes) || !j.lignes.length) return ko(404, "Il n'y a rien à annuler.");
+
+    const lib = await biblio.lire();
+    const parId = new Map(lib.tracks.map(t => [String(t.id), t]));
+    const SIG = await store("signatures");
+    let rendus = 0, disparus = 0;
+    for (const l of j.lignes) {
+      const t = parId.get(String(l.id));
+      if (!t) { disparus++; continue; }
+      const sigActuelle = signature(t);
+      t.artist = l.artist;
+      t.credits = l.credits || "";
+      t.artistId = l.artistId || null;
+      if (signature(t) !== sigActuelle) await SIG.del(sigActuelle).catch(() => {});
+      rendus++;
+    }
+    if (rendus) await biblio.ecrire(lib);
+    await JOU.del("derniere").catch(() => {});
+    return ok({ rendus, disparus, quand: j.quand });
+  }
+
   if (b.action === "a-verifier") {
     if (u.role !== "admin") return ko(403, "Réservé à l'administrateur.");
     const lib = await biblio.lire();
+    /* REPRENDRE (v2.7.7). Une vérification interrompue — Apple qui freine sur
+       la fin, un onglet fermé — ne doit pas obliger à tout refaire. Les
+       identifiants déjà gravés servent de marque-page : en mode « manquants »,
+       on ne rend que les morceaux qui n'en ont pas encore. */
+    const source = b.manquants ? lib.tracks.filter(t => !t.artistId) : lib.tracks;
     const depuis = Math.max(0, Number(b.depuis) || 0);
     const paquet = Math.min(200, Math.max(1, Number(b.paquet) || 200));
-    const tranche = lib.tracks.slice(depuis, depuis + paquet);
+    const tranche = source.slice(depuis, depuis + paquet);
     return ok({
-      total: lib.tracks.length,
+      total: source.length,
       depuis, suivant: depuis + tranche.length,
       pistes: tranche.map(t => ({ id: t.id, artist: t.artist, title: t.title, artistId: t.artistId || null }))
     });

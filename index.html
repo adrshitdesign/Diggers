@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.7.6</title>
+<title>Diggers — v2.7.8</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
 <meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
@@ -499,7 +499,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.6 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.8 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -2872,6 +2872,7 @@ function dessinerBiblio(garder){
       +'<button class="btn ghost sm" type="button" id="bentiers">Noms à garder entiers</button>'
       +'<button class="btn ghost sm" type="button" id="bverif">Vérifier les artistes chez Apple</button>'
       +'<button class="btn ghost sm" type="button" id="bhomo">Un nom, deux artistes</button>'
+      +'<button class="btn ghost sm" type="button" id="bannuler">Annuler la dernière correction</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
       +listeArtistes().length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
@@ -2919,6 +2920,7 @@ function dessinerBiblio(garder){
     document.getElementById("bentiers").onclick=reglerNomsEntiers;
     document.getElementById("bverif").onclick=verifierArtistes;
     document.getElementById("bhomo").onclick=vueHomonymes;
+    document.getElementById("bannuler").onclick=annulerVerification;
     document.getElementById("bvider").onclick=viderNoyau;
   }
   if(garder) bdiag(garder);
@@ -4017,6 +4019,87 @@ async function reglerNomsEntiers(){
    vérifient en quatre minutes.
 
    Ça se relance quand on veut, et ça converge. */
+/* ============ REVENIR EN ARRIÈRE ============
+   Une correction en masse qu'on ne peut pas défaire est une correction qu'on
+   n'ose pas lancer — et quand on la lance quand même, on découvre l'erreur
+   trop tard. Le serveur garde donc ce qu'était chaque morceau avant la
+   dernière passe. Un seul niveau, la dernière : c'est celle qu'on regrette. */
+async function annulerVerification(){
+  const j=await apiAppel("/api/moderation",{action:"journal-verification"});
+  if(!j||!j.ok){ bdiag('<b style="color:var(--t6)">'+esc((j&&j.erreur)||"Échec")+'</b>'); return; }
+  if(j.vide){
+    await modale("Rien à annuler",
+      '<p>Aucune correction d\'artistes n\'a été appliquée depuis ce serveur, ou elle a déjà été annulée.</p>'
+      +'<p class="notice">Le journal ne garde que <b>la dernière</b> passe de correction. Les retraits de sons '
+      +'et les découpages de noms composés s\'annulent ailleurs.</p>',
+      [{v:0,n:"Fermer",g:true}]);
+    return;
+  }
+  const quand=new Date(j.quand).toLocaleString("fr-FR");
+  const v=await modale("Annuler la dernière correction ?",
+    '<p><b>'+j.nb+' morceau(x)</b> retrouveraient le nom d\'artiste qu\'ils avaient avant la correction '
+    +'du <b>'+esc(quand)+'</b>'+(j.par?' (par '+esc(j.par)+')':'')+'.</p>'
+    +'<div class="scale"><div class="sc head"><span>Redeviendrait</span><span>Morceau</span>'
+      +'<span class="odds"></span><span class="val"></span></div>'
+    +j.exemples.slice(0,15).map(x=>'<div class="sc"><span class="nm">'+esc(x.artist)+'</span>'
+      +'<span class="dsc">'+esc(x.id)+'</span><span class="odds"></span><span class="val"></span></div>').join("")
+    +(j.nb>15?'<div class="sc"><span class="nm">…</span><span class="dsc">et '+(j.nb-15)
+      +' autres</span><span class="odds"></span><span class="val"></span></div>':'')
+    +'</div>'
+    +'<p class="notice">L\'identifiant d\'artiste revient lui aussi à ce qu\'il était. '
+    +'Après annulation il n\'y a plus rien à défaire : le journal ne garde qu\'une passe.</p>',
+    [{v:1,n:"Tout remettre comme avant"},{v:0,n:"Ne rien faire",g:true}]);
+  if(!v) return;
+
+  bdiag('<b>Annulation…</b>');
+  const r=await apiAppel("/api/moderation",{action:"annuler-verification"});
+  if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>'); return; }
+  const bilan='<b style="color:var(--ok)">'+r.rendus+' morceau(x) ont retrouvé leur nom d\'artiste.</b> '
+    +(r.disparus?r.disparus+' ne sont plus dans la bibliothèque. ':'')
+    +'Il n\'y a plus rien à annuler.';
+  await chargerServeur(true); sync();
+  vueBiblio(bilan);
+}
+
+/* Les commandes de l'écran de relecture des renommages. Elles vivent dans une
+   modale, donc on les attrape par délégation : filtrer, tout cocher, tout
+   décocher, et le compte de ce qui est retenu. */
+document.addEventListener("input", e=>{
+  if(!e.target || e.target.id!=="vfiltre") return;
+  const q=norm(e.target.value);
+  document.querySelectorAll("#vgroupes [data-g]").forEach(l=>{
+    l.hidden = !!q && !String(l.dataset.nom||"").includes(q);
+  });
+});
+function majCompteRenommages(){
+  const e=document.getElementById("vcompte");
+  if(!e) return;
+  const tous=document.querySelectorAll("#vgroupes [data-c]");
+  const n=[...tous].filter(c=>c.checked).length;
+  e.innerHTML='<b>'+n+'</b> / '+tous.length+' renommage(s) retenu(s)';
+}
+document.addEventListener("click", e=>{
+  const b=e.target;
+  if(!b || !b.id) return;
+  if(b.id==="vtous" || b.id==="vrien"){
+    /* on ne coche que ce qui est visible : filtrer puis « tout décocher » doit
+       agir sur ce qu'on regarde, pas sur le reste. */
+    document.querySelectorAll("#vgroupes [data-g]").forEach(l=>{
+      if(l.hidden) return;
+      const c=l.querySelector("[data-c]"); if(c) c.checked=(b.id==="vtous");
+    });
+    majCompteRenommages();
+  }
+});
+document.addEventListener("change", e=>{
+  if(e.target && e.target.matches && e.target.matches("#vgroupes [data-c]")) majCompteRenommages();
+});
+
+/* Ce qu'on laisse à Apple entre deux essais, de plus en plus long. Déclaré ici
+   plutôt qu'enfoui dans la fonction : les tests ont besoin de raccourcir
+   l'attente pour vérifier qu'on finit par rendre la main. */
+let ATTENTES_APPLE=[15,30,45,60,90];
+
 async function verifierArtistes(){
   const q=await modale("Vérifier les artistes chez Apple ?",
     '<p>Chaque morceau du jeu porte son identifiant Apple. On les renvoie à Apple '
@@ -4026,29 +4109,50 @@ async function verifierArtistes(){
     +'recherche floue rend n\'importe quoi. Un identifiant, lui, ne se trompe pas.</p>'
     +'<p class="notice">Compte environ <b>quatre minutes pour quatorze mille morceaux</b>. '
     +'Laisse cet onglet ouvert. Tu verras la liste de ce qui cloche <b>avant</b> que quoi que ce soit '
-    +'ne change.</p>',
-    [{v:1,n:"Vérifier"},{v:0,n:"Annuler",g:true}]);
+    +'ne change.</p>'
+    +'<p class="notice"><b style="color:var(--ink-2)">Reprendre ce qui manque</b> ne repasse que sur les morceaux '
+    +'qui n\'ont pas encore d\'identifiant d\'artiste. C\'est ce qu\'il faut choisir quand une vérification s\'est '
+    +'arrêtée en route — Apple limite le débit et finit par ne plus répondre. Rien n\'est perdu dans ce cas : '
+    +'les identifiants déjà gravés servent de marque-page.</p>',
+    [{v:1,n:"Tout vérifier"},{v:2,n:"Reprendre ce qui manque"},{v:0,n:"Annuler",g:true}]);
   if(!q) return;
+  const manquants = (q===2);
 
   const bar=document.getElementById("bdiag");
   const prog=m=>{ if(bar) bar.innerHTML=m; };
   STOP_CONSTRUCTION=false;
-  prog('<b>Vérification…</b> <button class="btn ghost sm" type="button" id="vstop">Arrêter</button><br><span id="vprog"></span>');
+  prog('<b>Vérification…</b> <button class="btn ghost sm" type="button" id="vstop">Arrêter</button>'
+    +'<br><span id="vprog"></span><br><span id="vpause" style="color:var(--t6)"></span>');
   const st=document.getElementById("vstop"); if(st) st.onclick=()=>{ STOP_CONSTRUCTION=true; };
   const pp=m=>{ const e=document.getElementById("vprog"); if(e) e.innerHTML=m; };
+  /* La ligne d'attente a la sienne : sinon le message d'Apple efface le
+     compteur, et on ne sait plus où on en est. C'est ce qui s'est passé. */
+  const pause=m=>{ const e=document.getElementById("vpause"); if(e) e.innerHTML=m||""; };
 
-  let depuis=0, total=0, vus=0, muets=0, graves=0;
+  /* Une pause qu'on peut interrompre : « Arrêter » ne doit pas attendre la fin
+     des vingt secondes pour être entendu. */
+  const souffler=async (sec,quoi)=>{
+    for(let i=sec;i>0;i--){
+      if(STOP_CONSTRUCTION) return;
+      pause(quoi+' — reprise dans '+i+' s. <i>(« Arrêter » fonctionne pendant l\'attente.)</i>');
+      await new Promise(r=>setTimeout(r,1000));
+    }
+    pause("");
+  };
+
+  let depuis=0, total=0, vus=0, muets=0, graves=0, essais=0, abandon="", bloques=0;
   const aCorriger=[];
 
   while(true){
     if(STOP_CONSTRUCTION) break;
-    const lot=await apiAppel("/api/moderation",{action:"a-verifier",depuis,paquet:200});
+    const lot=await apiAppel("/api/moderation",{action:"a-verifier",depuis,paquet:200,manquants});
     if(!lot||!lot.ok){ prog('<b style="color:var(--t6)">'+esc((lot&&lot.erreur)||"Échec")+'</b>'); return; }
     total=lot.total;
     const pistes=lot.pistes||[];
     if(!pistes.length) break;
 
     pp((depuis+pistes.length)+' / '+total+' vérifiés · <b>'+aCorriger.length+'</b> à corriger'
+      +(graves?' · '+graves+' identifiants gravés':'')
       +(muets?' · '+muets+' inconnus d\'Apple':''));
 
     /* Apple accepte deux cents identifiants d'un coup. C'est ce qui rend la
@@ -4061,19 +4165,28 @@ async function verifierArtistes(){
     }catch(e){ rows=null; }
 
     if(rows===null){
-      /* Apple nous freine : on souffle et on refait ce paquet, plutôt que de
-         le compter comme « inconnu » et de fausser le résultat. */
-      pp('Apple ne répond plus — pause de 20 secondes, puis on reprend ce paquet.');
-      await new Promise(r=>setTimeout(r,20000));
+      /* Apple nous freine. On réessaie le même paquet, en laissant de plus en
+         plus de temps — mais PAS indéfiniment : la boucle d'avant restait
+         bloquée là pour toujours, sur un message qui ne bougeait plus. Au bout
+         de cinq essais on rend la main, en gardant tout ce qui a été trouvé. */
+      if(essais>=ATTENTES_APPLE.length){ abandon="apple"; break; }
+      await souffler(ATTENTES_APPLE[essais],
+        'Apple ne répond plus (essai '+(essais+1)+' sur '+ATTENTES_APPLE.length+')');
+      essais++;
       continue;
     }
+    essais=0; pause("");
 
     const parId=new Map(rows.filter(r=>r.wrapperType==="track").map(r=>[String(r.trackId),r]));
     const aGraver=[];
     for(const p of pistes){
       vus++;
       const r=parId.get(String(p.id));
-      if(!r||!r.artistName){ muets++; continue; }
+      /* Un morceau qu'Apple ne connaît plus ne recevra jamais d'identifiant :
+         en mode « reprendre », il resterait éternellement en tête de la liste
+         des manquants. On les compte pour pouvoir passer par-dessus. */
+      if(!r||!r.artistName){ muets++; bloques++; continue; }
+      if(!r.artistId) bloques++;
       /* On grave l'identifiant même quand le nom est juste : c'est le seul
          moyen de repérer ensuite deux artistes qui portent le MÊME nom. */
       if(r.artistId && String(r.artistId)!==String(p.artistId||""))
@@ -4089,42 +4202,96 @@ async function verifierArtistes(){
       if(g&&g.ok) graves+=g.graves||0;
     }
 
-    depuis=lot.suivant;
-    if(depuis>=total) break;
+    /* EN MODE « REPRENDRE », LE CURSEUR NE PEUT PAS AVANCER COMME D'HABITUDE.
+       La liste des morceaux sans identifiant RÉTRÉCIT à mesure qu'on en grave :
+       les deux cents qu'on vient de traiter n'y sont plus, et un curseur à 200
+       sauterait donc les deux cents suivants. Ce qui reste en tête, ce sont
+       exactement les morceaux qu'on a traités sans pouvoir les identifier. */
+    depuis = manquants ? bloques : lot.suivant;
+    if(!manquants && depuis>=total) break;
+    if(manquants && depuis>=lot.total) break;
     await new Promise(r=>setTimeout(r,APPLE_PAUSE));
   }
+
+  const interrompu = abandon==="apple"
+    ? '<br><b style="color:var(--t6)">Apple a cessé de répondre</b> après cinq essais — la vérification s\'est '
+      +'arrêtée à <b>'+vus+'</b> morceau(x) sur '+total+'. <b>Rien n\'est perdu :</b> les identifiants déjà gravés '
+      +'servent de marque-page. Relance et choisis <b>« Reprendre ce qui manque »</b> — c\'est court. '
+      +'Si Apple refuse encore, attends une dizaine de minutes : c\'est une limite de débit, pas une panne.'
+    : (STOP_CONSTRUCTION
+      ? '<br><b style="color:var(--t6)">Arrêté à ta demande</b> après '+vus+' morceau(x) sur '+total+'. '
+        +'« Reprendre ce qui manque » repartira d\'ici.'
+      : '');
 
   if(!aCorriger.length){
     bdiag('<b style="color:var(--ok)">Aucun morceau sous le mauvais NOM.</b> '+vus+' morceau(x) vérifiés chez Apple.'
       +(graves?' <b>'+graves+'</b> identifiant(s) d\'artiste gravé(s) au passage.':'')
       +(muets?' ('+muets+' ne sont plus connus d\'Apple — ils gardent leur nom actuel.)':'')
       +'<br>Il reste un cas que le nom ne peut pas attraper : <b>deux artistes qui s\'appellent pareil</b>. '
-      +'Le bouton <b>« Un nom, deux artistes »</b> les liste maintenant.');
+      +'Le bouton <b>« Un nom, deux artistes »</b> les liste maintenant.'
+      +interrompu);
     return;
   }
 
-  const ok2=await modale(aCorriger.length+" morceau(x) sous le mauvais artiste",
-    '<p>Apple les attribue à quelqu\'un d\'autre que ce qui est écrit chez nous. '
-    +'La règle du <b>premier artiste crédité</b> s\'appliquera à la correction, comme partout ailleurs.</p>'
-    +'<div class="scale"><div class="sc head"><span>Chez nous</span><span>Chez Apple</span>'
-    +'<span class="odds"></span><span class="val"></span></div>'
-    +aCorriger.slice(0,40).map(x=>'<div class="sc"><span class="nm">'+esc(x.avant)+'</span>'
-      +'<span class="dsc">'+esc(x.apres)+' — <i>'+esc(x.titre)+'</i></span>'
-      +'<span class="odds"></span><span class="val"></span></div>').join("")
-    +(aCorriger.length>40?'<div class="sc"><span class="nm">…</span><span class="dsc">et '
-      +(aCorriger.length-40)+' autres</span><span class="odds"></span><span class="val"></span></div>':'')
-    +'</div>'
+  /* LE TRI SE FAIT PAR ARTISTE, PAS PAR MORCEAU (v2.7.8).
+     Une passe complète rend des centaines de corrections : les relire une par
+     une est impossible, et tout accepter en bloc est exactement ce dont tu te
+     méfies. Or ce ne sont pas des centaines de DÉCISIONS — c'est toujours le
+     même petit nombre de « ce nom-là devient celui-là ». On regroupe donc, une
+     ligne par décision, cochée d'avance, et tu décoches ce qui te paraît faux.
+     Ce qui est décoché n'est pas perdu : la prochaine vérification le
+     reproposera. */
+  const groupes=new Map();
+  for(const x of aCorriger){
+    const cle=norm(x.avant)+"→"+norm(x.apres);
+    if(!groupes.has(cle)) groupes.set(cle,{avant:x.avant, apres:x.apres, lignes:[]});
+    groupes.get(cle).lignes.push(x);
+  }
+  const listeG=[...groupes.values()].sort((a,b2)=>b2.lignes.length-a.lignes.length);
+
+  const corps=
+    '<p><b>'+aCorriger.length+' morceau(x)</b> sont attribués par Apple à quelqu\'un d\'autre que ce qui est '
+    +'écrit chez nous, soit <b>'+listeG.length+' décision(s)</b> — le même renommage revient souvent.</p>'
+    +'<p class="notice">Tout est coché. <b>Décoche ce qui te paraît faux</b> : rien de décoché ne sera touché, '
+    +'et la prochaine vérification te le represésentera. La règle du <b>premier artiste crédité</b> s\'applique '
+    +'à ce qui est corrigé, comme partout ailleurs.</p>'
+    +'<div class="bar"><input id="vfiltre" placeholder="Filtrer par nom" style="flex:1;min-width:160px">'
+      +'<button class="btn ghost sm" type="button" id="vtous">Tout cocher</button>'
+      +'<button class="btn ghost sm" type="button" id="vrien">Tout décocher</button>'
+      +'<span class="hint" id="vcompte"></span></div>'
+    +'<div class="ladder" id="vgroupes">'+listeG.map((g,i2)=>
+      '<div class="lr libre" data-g="'+i2+'" data-nom="'+esc(norm(g.avant)+" "+norm(g.apres))+'">'
+        +'<span class="pos"><input type="checkbox" checked data-c="'+i2+'" aria-label="appliquer"></span>'
+        +'<span class="who"><b>'+esc(g.avant)+'</b> → <b style="color:var(--ok)">'+esc(g.apres)+'</b>'
+          +'<br><span style="font-weight:400;opacity:.65;font-size:11px">'+g.lignes.length+' morceau(x) · '
+          +g.lignes.slice(0,3).map(x=>esc(x.titre)).join(" · ")
+          +(g.lignes.length>3?' …':'')+'</span></span>'
+      +'</div>').join("")+'</div>'
     +'<p class="notice">Les exemplaires déjà tirés par les joueurs ne bougent pas : ils pointent vers le '
     +'morceau, pas vers son nom d\'artiste.</p>'
-    +(muets?'<p class="notice">'+muets+' morceau(x) ne sont plus connus d\'Apple : on n\'y touche pas.</p>':''),
-    [{v:1,n:"Corriger"},{v:0,n:"Annuler",g:true}]);
-  if(!ok2){ bdiag("Vérification annulée — rien n'a changé."); return; }
+    +(muets?'<p class="notice">'+muets+' morceau(x) ne sont plus connus d\'Apple : on n\'y touche pas.</p>':'')
+    +'<p class="notice">Et si le résultat ne te plaît pas : <b>« Annuler la dernière correction »</b>, '
+    +'dans les outils de la bibliothèque, remet tout comme avant.</p>';
+
+  setTimeout(majCompteRenommages,0);
+  const ok2=await modale(listeG.length+" renommage(s) à valider", corps,
+    [{v:1,n:"Appliquer ce qui est coché",avant:ov=>{
+        const gardes=new Set();
+        ov.querySelectorAll("[data-c]").forEach(c=>{ if(c.checked) gardes.add(+c.dataset.c); });
+        return {gardes};
+      }},
+     {v:0,n:"Ne rien changer",g:true}]);
+
+  if(!ok2||!ok2.gardes){ bdiag("Vérification terminée — <b>rien n\'a été changé</b>."); return; }
+  const retenus=[];
+  ok2.gardes.forEach(i2=>{ if(listeG[i2]) retenus.push(...listeG[i2].lignes); });
+  if(!retenus.length){ bdiag("Tout était décoché — <b>rien n\'a été changé</b>."); return; }
 
   let corriges=0, inchanges=0, absents=0;
-  for(let i=0;i<aCorriger.length;i+=500){
-    prog('<b>Correction…</b> '+Math.min(i+500,aCorriger.length)+' / '+aCorriger.length);
-    const r=await apiAppel("/api/moderation",{action:"artistes-verifies",
-      corrections:aCorriger.slice(i,i+500).map(x=>({id:x.id,artist:x.artist,artistId:x.artistId}))});
+  for(let i=0;i<retenus.length;i+=500){
+    prog('<b>Correction…</b> '+Math.min(i+500,retenus.length)+' / '+retenus.length);
+    const r=await apiAppel("/api/moderation",{action:"artistes-verifies", debut:(i===0),
+      corrections:retenus.slice(i,i+500).map(x=>({id:x.id,artist:x.artist,artistId:x.artistId}))});
     if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>'); return; }
     corriges+=r.corriges; inchanges+=r.inchanges; absents+=r.absents;
   }
@@ -4133,8 +4300,11 @@ async function verifierArtistes(){
     +(graves?graves+' identifiant(s) d\'artiste gravé(s). ':'')
     +(absents?absents+' introuvables. ':'')
     +(muets?muets+' ne sont plus connus d\'Apple. ':'')
+    +((aCorriger.length-retenus.length)?(aCorriger.length-retenus.length)+' morceau(x) laissés de côté par ton choix. ':'')
     +'Relance quand tu veux : la vérification converge. '
-    +'Ensuite, <b>« Un nom, deux artistes »</b> montre les homonymes — le cas que le nom seul ne peut pas voir.';
+    +'Ensuite, <b>« Un nom, deux artistes »</b> montre les homonymes — le cas que le nom seul ne peut pas voir. '
+    +'<b>« Annuler la dernière correction »</b> remet tout comme avant si le résultat ne te plaît pas.'
+    +interrompu;
   bdiag(bilan);
   await chargerServeur(true); sync();
   vueBiblio(bilan);
