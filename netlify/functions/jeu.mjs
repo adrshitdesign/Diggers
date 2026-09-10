@@ -82,7 +82,11 @@ export const CLUES = {
       jour, et des paliers récompensent le nombre d'artistes différents
       reconnus — des objectifs de collectionneur, atteints une seule fois. */
 
-const LADDER = [26, 13, 7, 4];
+/* L'échelle de valeur d'une carte, essai après essai. Elle monte de 26 à 32
+   avec le passage à six propositions : deviner au hasard ne rapporte plus une
+   fois sur quatre mais une fois sur six, et reconnaître pour de bon mérite
+   d'être mieux payé. */
+const LADDER = [32, 16, 9, 5];
 const GAIN_DOUBLON = 3, PLANCHER = 4;
 const REMISE_CONNU = 0.55;              // artiste déjà sur l'étagère
 
@@ -120,8 +124,19 @@ const APRES_QUOTA = 0.4;
    d'abord vocation à être vendu ou échangé ; fondre, c'est ce qu'on fait
    quand personne n'en veut. */
 const DIVISEUR_FONTE = 8;
-const CARTES_PAR_CARTON = 5;
-export const PACKS = { jour: 0, std: 170, scene: 320 };
+/* SEPT CARTES, PAS CINQ (v2.8).
+   Cinq cartes, c'était une ouverture qui se terminait avant d'avoir commencé —
+   surtout maintenant qu'une carte demande de vraiment reconnaître un artiste
+   parmi six voisins du même genre. Sept donne une séance, et laisse la place
+   à une vraie surprise dans le lot.
+
+   Le prix suit, et garde la règle qui tient toute l'économie : UN CARTON NE SE
+   REMBOURSE PAS. Sept cartes reconnues du premier coup rapportent au mieux
+   7 × 32 = 224 crédits, pour un carton à 250. Le meilleur joueur du monde perd
+   encore de l'argent à ouvrir — les crédits viennent du jeu, les cartons les
+   dépensent. */
+const CARTES_PAR_CARTON = 7;
+export const PACKS = { jour: 0, std: 250, scene: 430 };
 
 /* La prime de régularité : 12 crédits le premier jour, +8 par jour consécutif,
    plafonnée au septième. Manquer un jour ne fait pas repartir de zéro les
@@ -171,7 +186,9 @@ const pickTier = () => {
 
 export function jeuNeuf() {
   return {
-    credits: 400,
+    /* De quoi ouvrir deux cartons standards le premier jour, ou un carton de
+       scène : on entre dans le jeu par une ouverture, pas par une attente. */
+    credits: 500,
     coffre: [], enq: {},
     idLog: "",
     gouts: null, premier: true,
@@ -283,6 +300,10 @@ export function carteVue(c, lib) {
     reveals: c.reveals == null ? null : c.reveals,
     aSec: !!c.aSec, achete: !!c.achete, presse: !!c.presse, tries: c.tries || 0,
     heard: !!c.heard, origine: c.origine || null,
+    /* D'où viennent les fausses réponses de cette carte. Le joueur a le droit
+       de savoir si les six noms sont du même monde ou pas : c'est la promesse
+       du jeu, et ça se dit. */
+    dur: c.dur || "large",
     cote: coteDe(c)
   };
   if (!t) return { ...base, perdue: true };
@@ -345,22 +366,87 @@ export function etatVu(g, lib) {
 /* Les fausses réponses sont tirées parmi les artistes qui ont, eux aussi, un
    titre du même palier. Sans ça, il suffisait de croiser la rareté affichée
    avec le catalogue public pour éliminer trois propositions sur quatre. */
-function distracteurs(lib, bon, n, palier) {
-  const memePalier = [...new Set(lib.tracks.filter(t => tierOf(t.pop) === palier).map(t => t.artist))]
-    .filter(a => a !== bon);
-  const tous = [...new Set(lib.tracks.map(t => t.artist))].filter(a => a !== bon);
-  const out = [];
-  const piocher = source => {
-    while (out.length < n && source.length) {
-      const i = Math.floor(Math.random() * source.length);
-      const a = source.splice(i, 1)[0];
-      if (!out.includes(a)) out.push(a);
-    }
+/* ============ LES PROPOSITIONS ============
+   C'était le vrai défaut du jeu, et il ne se voyait pas dans le code : les
+   distracteurs étaient tirés SUR LA SEULE RARETÉ. Un rap français pouvait donc
+   se retrouver entouré de trois artistes de jazz, d'électro et de variété. Il
+   suffisait alors d'écouter trois secondes d'extrait — ou même de lire le
+   genre affiché — pour éliminer les trois autres sans rien connaître.
+   « Reconnaître » n'était plus reconnaître : c'était trier par style.
+
+   Les fausses réponses viennent maintenant du MÊME MONDE que la bonne :
+     1. même genre ET même décennie — le cas le plus dur, et le plus juste ;
+     2. à défaut, même genre ;
+     3. à défaut, même palier de rareté ;
+     4. à défaut, n'importe qui — une bibliothèque trop petite sur un genre ne
+        doit jamais empêcher de jouer.
+   On descend d'un cran seulement quand le cran du dessus est épuisé, et le
+   niveau réellement atteint est renvoyé au client : c'est ce qui permet
+   d'annoncer honnêtement la difficulté sur la carte. */
+/* L'INDEX. Sans lui, chaque carte relisait la bibliothèque entière quatre
+   fois pour composer ses six noms : à cinquante mille morceaux, un carton de
+   sept cartes coûtait une centaine de millisecondes de calcul pur, pour rien.
+   On range donc les noms d'artistes une fois par version de la bibliothèque —
+   par genre, par genre et décennie, par palier — et chaque tirage n'a plus
+   qu'à piocher dans une liste toute faite.
+
+   La clé est le compteur de version de la bibliothèque : il change à chaque
+   écriture, donc l'index ne peut pas servir des données périmées. */
+let IDX = null, IDX_CLE = "";
+
+function indexArtistes(lib) {
+  const cle = String((lib.meta && lib.meta.rev) || 0) + ":" + lib.tracks.length;
+  if (IDX && IDX_CLE === cle) return IDX;
+  const parGenreDec = new Map(), parGenre = new Map(), parPalier = new Map(), tous = new Set();
+  const pousser = (m, k, nom) => {
+    let e = m.get(k);
+    if (!e) { e = new Set(); m.set(k, e); }
+    e.add(nom);
   };
-  piocher(memePalier);
-  piocher(tous);
-  return out;
+  for (const t of lib.tracks) {
+    const nom = t.artist;
+    if (!nom) continue;
+    tous.add(nom);
+    const g = t.genre || "Non classé";
+    pousser(parGenre, g, nom);
+    if (t.year) pousser(parGenreDec, g + "|" + (Math.floor(t.year / 10) * 10), nom);
+    pousser(parPalier, tierOf(t.pop), nom);
+  }
+  const fige = m => new Map([...m].map(([k, v]) => [k, [...v]]));
+  IDX = { parGenreDec: fige(parGenreDec), parGenre: fige(parGenre),
+          parPalier: fige(parPalier), tous: [...tous] };
+  IDX_CLE = cle;
+  return IDX;
 }
+
+export function distracteurs(lib, bon, n, palier, genre, annee) {
+  const idx = indexArtistes(lib);
+  const dec = annee ? Math.floor(annee / 10) * 10 : null;
+  const sans = l => (l || []).filter(a => a !== bon);
+  const paliers = [
+    sans(genre && dec ? idx.parGenreDec.get(genre + "|" + dec) : []),
+    sans(genre ? idx.parGenre.get(genre) : []),
+    sans(idx.parPalier.get(palier)),
+    sans(idx.tous)
+  ].map(l => l.slice());
+
+  const out = [];
+  let niveau = 0;
+  for (let i = 0; i < paliers.length && out.length < n; i++) {
+    const source = paliers[i];
+    while (out.length < n && source.length) {
+      const j = Math.floor(Math.random() * source.length);
+      const a = source.splice(j, 1)[0];
+      if (!out.includes(a)) { out.push(a); if (i > niveau) niveau = i; }
+    }
+  }
+  return { noms: out, niveau };
+}
+
+/* Combien de propositions. Six, et non quatre : avec quatre, un joueur qui ne
+   connaît rien tombe juste une fois sur quatre. Avec six, une fois sur six —
+   et surtout, six noms du même genre obligent à écouter vraiment. */
+export const NB_CHOIX = 6;
 
 /* Un carton de cinq cartes, tiré SANS REMISE.
    Avant la v2.7, les cinq cartes étaient tirées indépendamment : sur un
@@ -383,6 +469,7 @@ function tirerUne(lib, filtre, dejaVus) {
   if (!pool.length) return null;
   const t = pool[Math.floor(Math.random() * pool.length)];
   if (dejaVus) dejaVus.add(String(t.id));
+  const faux = distracteurs(lib, t.artist, NB_CHOIX - 1, tierOf(t.pop), t.genre, t.year);
   return {
     uid: t.id + "-" + uuid().slice(0, 6),
     id: t.id,
@@ -390,7 +477,8 @@ function tirerUne(lib, filtre, dejaVus) {
     press: pickW(PRESS).n,
     known: false, reveals: null, aSec: false, achete: false,
     tries: 0, heard: false, indices: [],
-    choices: melanger([t.artist, ...distracteurs(lib, t.artist, 3, tierOf(t.pop))]),
+    choices: melanger([t.artist, ...faux.noms]),
+    dur: faux.niveau === 0 ? "genre-epoque" : faux.niveau === 1 ? "genre" : "large",
     ouverte: Date.now()
   };
 }

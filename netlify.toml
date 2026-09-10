@@ -5,6 +5,12 @@
 [functions]
   node_bundler = "esbuild"
 
+# La moissonneuse tourne toute seule. Le calendrier est déclaré dans le fichier
+# de la fonction (`export const config = { schedule: "* * * * *" }`) : Netlify
+# le lit au déploiement, il n'y a rien à régler dans l'interface. Elle ne fait
+# rien tant que l'administrateur ne l'a pas lancée depuis l'écran — l'état
+# « actif » est le seul interrupteur.
+
 # ---------------------------------------------------------------------------
 # Sécurité du transport.
 #

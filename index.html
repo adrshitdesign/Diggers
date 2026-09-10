@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0D0D14">
-<title>Diggers — v2.7.8</title>
+<title>Diggers — v2.9</title>
 <meta name="description" content="Un jeu de collection où chaque carte est un morceau, et où la carte s'obtient en la reconnaissant, pas en la tirant.">
 <meta property="og:title" content="Diggers">
-<meta property="og:description" content="Cinq disques sortent pochette blanche. À toi de dire qui joue.">
+<meta property="og:description" content="Sept disques sortent pochette blanche. À toi de dire qui joue.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230D0D14'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23FF3D7F' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FF3D7F'/%3E%3C/svg%3E">
@@ -37,6 +37,19 @@ button{font:inherit;color:inherit;cursor:pointer}
 .top{position:sticky;top:0;z-index:40;background:rgba(13,13,20,.94);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
 .top-in{max-width:1080px;margin:0 auto;padding:10px clamp(12px,3vw,28px) 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Sur téléphone, l'en-tête occupait trois rangées — logo, compteurs, compte,
+   puis le menu — soit près d'un quart de la hauteur utile, en permanence. Les
+   compteurs tiennent maintenant sur une seule ligne qui défile, et rien ne
+   passe plus à la ligne. */
+@media(max-width:620px){
+  .top-in{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-top:8px;gap:6px;
+    -webkit-mask-image:linear-gradient(to right,#000 90%,transparent);
+    mask-image:linear-gradient(to right,#000 90%,transparent)}
+  .top-in::-webkit-scrollbar{display:none}
+  .logo{font-size:17px}
+  .wallet{font-size:9.5px;padding:4px 7px}
+  .tabs{padding-top:6px;padding-bottom:6px}
+}
 .logo{font-family:"Archivo";font-variation-settings:"wdth" 125;font-weight:900;font-size:20px;letter-spacing:-.02em;line-height:1;margin-right:4px}
 .logo em{font-style:normal;color:var(--accent)}
 .wallet{font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:700;letter-spacing:.09em;
@@ -120,6 +133,21 @@ h3.sect{font-weight:800;font-size:17px;margin:26px 0 10px}
 
 /* ---------- ACCUEIL : les cartons ---------- */
 .shop{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin:0 0 8px}
+/* Sur téléphone, chaque carton prenait un écran entier : il en fallait trois
+   pour voir la boutique, et le Défi du jour se retrouvait à quatre écrans du
+   haut. En bandeau, la pochette garde sa présence et tout tient sous les
+   yeux. */
+@media(max-width:620px){
+  .shop{gap:10px}
+  .pack{display:grid;grid-template-columns:84px minmax(0,1fr);
+    grid-template-rows:auto auto auto;column-gap:14px;row-gap:2px;
+    align-items:center;text-align:left;padding:12px}
+  .pack .sleeve3d{grid-column:1;grid-row:1/4;width:84px;margin:0}
+  .pack h3{grid-column:2;grid-row:1;margin:0;font-size:16px;align-self:end;text-align:left}
+  .pack p{grid-column:2;grid-row:2;min-height:0;font-size:12.5px;text-align:left}
+  .pack .price{grid-column:2;grid-row:3;margin-top:6px;justify-self:start;align-self:start}
+  .pack .mark{font-size:7px}
+}
 .pack{position:relative;background:var(--surface);border:1px solid var(--line-strong);border-radius:6px;
   padding:20px 18px 18px;text-align:center;overflow:hidden;transition:transform .35s cubic-bezier(.2,.8,.3,1),border-color .25s}
 .pack:hover:not([disabled]){transform:translateY(-6px);border-color:var(--pc)}
@@ -151,18 +179,76 @@ h3.sect{font-weight:800;font-size:17px;margin:26px 0 10px}
 
 .opening{position:fixed;inset:0;z-index:80;background:rgba(6,6,11,.92);backdrop-filter:blur(6px);
   display:grid;place-items:center;animation:fade .25s ease}
-.opening .stagepack{width:150px;height:198px;position:relative}
-.opening .stagepack .body{animation:shake .5s ease 2}
-@keyframes shake{0%,100%{transform:translate(0,0) rotate(0)}20%{transform:translate(-5px,2px) rotate(-3deg)}
-  40%{transform:translate(5px,-2px) rotate(3deg)}60%{transform:translate(-4px,-3px) rotate(-2deg)}80%{transform:translate(4px,3px) rotate(2deg)}}
+.ouv{display:grid;place-items:center;gap:18px;padding:20px;text-align:center}
+.ouv-pack{width:150px;height:198px;position:relative}
+.ouv-pack .body{animation:respire 1.6s ease-in-out infinite}
+@keyframes respire{0%,100%{transform:scale(1) rotate(-.6deg)}50%{transform:scale(1.035) rotate(.6deg)}}
+/* la fente : la lumière qui sort de la déchirure */
+.ouv-pack .fente{position:absolute;left:6%;right:6%;top:50%;height:2px;margin-top:-1px;z-index:4;
+  background:#fff;box-shadow:0 0 18px 6px var(--pc);opacity:0;transform:scaleX(.2)}
+.ouv-pack.ouvert .fente{animation:fente .5s cubic-bezier(.2,.8,.3,1) forwards}
+@keyframes fente{0%{opacity:0;transform:scaleX(.2)}40%{opacity:1;transform:scaleX(1)}100%{opacity:.15;transform:scaleX(1)}}
+/* la pochette se déchire : la moitié haute part en haut, la basse en bas */
+.ouv-pack.ouvert .body{animation:none;clip-path:inset(0 0 50% 0);
+  transform:translateY(-10px) rotate(-2.4deg);transition:transform .5s cubic-bezier(.2,.8,.3,1);opacity:.8}
+.ouv-pack.ouvert .hole,.ouv-pack.ouvert .mark{opacity:0;transition:opacity .3s}
+/* la moitié basse porte les mêmes sillons que la haute : sans la texture, on
+   voyait un rectangle plat au lieu d'une pochette déchirée en deux. */
+.ouv-pack.ouvert::after{content:"";position:absolute;inset:0;border-radius:4px;
+  background:repeating-radial-gradient(circle at 50% 28%,rgba(255,255,255,.045) 0 2px,transparent 2px 7px),
+    linear-gradient(160deg,color-mix(in srgb,var(--pc) 55%,#000),#101019);
+  clip-path:inset(50% 0 0 0);transform:translateY(10px) rotate(1.6deg);opacity:.8;
+  transition:transform .5s cubic-bezier(.2,.8,.3,1)}
+/* les disques qui sortent, à la couleur de leur rareté */
+.ouv-disques{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;max-width:340px;min-height:74px}
+.ouv-d{display:grid;justify-items:center;gap:5px;opacity:0;transform:translateY(-26px) scale(.7)}
+.ouv-disques.go .ouv-d{animation:sort .5s cubic-bezier(.2,.9,.3,1) forwards;animation-delay:calc(var(--i)*110ms)}
+@keyframes sort{to{opacity:1;transform:translateY(0) scale(1)}}
+.ouv-d i{width:34px;height:34px;border-radius:50%;display:block;
+  background:repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.09) 0 1px,transparent 1px 3px),
+    radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--tier) 60%,#000) 0 24%,#0F0F18 24.5%);
+  box-shadow:0 0 0 1px var(--tier)}
+.ouv-d b{font-family:"JetBrains Mono",monospace;font-size:8px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--tier);opacity:.85}
+.ouv-d.rare i{animation:pepite 1s ease-out}
+@keyframes pepite{0%{box-shadow:0 0 0 1px var(--tier)}
+  40%{box-shadow:0 0 34px 10px var(--tier),0 0 0 2px var(--tier);transform:scale(1.25)}
+  100%{box-shadow:0 0 0 1px var(--tier);transform:scale(1)}}
+.ouv-nom{margin:0;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--ink-3)}
+.ouv-passer{margin:0;font-size:11px;color:var(--ink-3);opacity:.55}
+@media(prefers-reduced-motion:reduce){
+  .ouv-pack .body,.ouv-disques.go .ouv-d,.ouv-d.rare i{animation:none}
+  .ouv-d{opacity:1;transform:none}
+}
 .burst{position:absolute;top:50%;left:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;
   background:#fff;box-shadow:0 0 60px 24px var(--pc);opacity:0;z-index:3}
 .burst.go{animation:burst .75s cubic-bezier(.2,.8,.3,1) forwards}
 @keyframes burst{0%{opacity:0;transform:scale(.2)}35%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(11)}}
-.tear.go .body{animation:tearup .55s cubic-bezier(.5,0,.75,0) .3s forwards}
-@keyframes tearup{to{transform:translateY(-130%) rotate(-16deg);opacity:0}}
-.opencount{position:absolute;bottom:-46px;left:0;right:0;text-align:center;
-  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+
+/* ---------- le bilan d'un carton ---------- */
+.bilan{background:var(--surface);border:1px solid var(--line-strong);border-radius:6px;
+  padding:clamp(16px,3vw,26px);margin:0 0 22px;scroll-margin-top:110px;
+  animation:monte .5s cubic-bezier(.2,.8,.3,1)}
+@keyframes monte{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.bilan-h{font-size:clamp(20px,3.4vw,28px);font-weight:800;margin:2px 0 16px}
+.bilan-kpis{margin-top:0}
+.bilan-star{display:grid;grid-template-columns:76px minmax(0,1fr);gap:14px;align-items:center;
+  background:var(--surface-2);border-radius:5px;padding:12px 14px;margin:16px 0 0}
+.bilan-star img{width:76px;height:76px;object-fit:cover;border-radius:3px;display:block;background:var(--surface-3)}
+.bilan-star b{display:block;font-size:17px;font-weight:700;margin:3px 0 1px}
+.bilan-star .t{display:block;color:var(--ink-2);font-size:14px;margin-bottom:4px}
+.bilan-palier{margin:14px 0 0}
+.bilan-reste{margin:14px 0 0}
+.bilan-sous{font-size:11px;font-family:"JetBrains Mono",monospace;font-weight:700;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);margin:22px 0 10px}
+.bilan .sharebox{margin-top:16px}
+.bilan-suite{margin-top:18px;flex-wrap:wrap}
+@media(max-width:620px){
+  .bilan-star{grid-template-columns:60px minmax(0,1fr)}
+  .bilan-star img{width:60px;height:60px}
+  .bilan-suite .btn{flex:1 1 100%}
+}
 
 /* ---------- carte ---------- */
 .card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:4px;
@@ -215,16 +301,52 @@ button.card:hover{transform:translateY(-5px)}
 
 /* ---------- enquête ---------- */
 .stage{display:grid;gap:20px;align-items:start;background:var(--surface);
-  border:1px solid var(--line-strong);border-radius:5px;padding:clamp(14px,3vw,22px);margin-bottom:22px}
+  border:1px solid var(--line-strong);border-radius:5px;padding:clamp(14px,3vw,22px);margin-bottom:22px;
+  /* l'en-tête est collant : sans cette marge, « amener la scène à l'écran »
+     la glisse DERRIÈRE l'en-tête et on croit la carte coupée. */
+  scroll-margin-top:110px}
 @media(min-width:680px){.stage{grid-template-columns:180px minmax(0,1fr)}}
+/* SUR TÉLÉPHONE, LA CARTE MANGEAIT TOUT L'ÉCRAN.
+   Une pochette carrée dans une colonne de 390 px, c'est 390 px de haut, plus
+   l'en-tête collant : la question « Qui joue ça ? » et les six propositions
+   tombaient sous la ligne de flottaison. On jouait donc en faisant défiler à
+   l'aveugle. La carte est ramenée à une vignette : elle reste là pour le
+   plaisir de l'objet, mais elle ne masque plus le jeu. */
+@media(max-width:679px){
+  /* LE POUCE. Les six réponses descendent vers la main, les révélateurs et le
+     rappel des règles passent dessous. Deux colonnes : six noms tiennent alors
+     dans la moitié basse de l'écran, là où le pouce arrive. */
+  .stage-q{display:flex;flex-direction:column}
+  .stage-q .counter{order:1;margin-bottom:4px}
+  .stage-q .q-kick{order:2;margin:0}
+  .stage-q .q-titre{order:3;margin:0 0 6px}
+  .stage-q .q-durete{order:4;margin:0 0 4px}
+  .stage-q .q-tries{order:5;margin:0 0 4px}
+  .stage-q .found{order:6}
+  .stage-q .choices{order:7;grid-template-columns:1fr 1fr;margin-top:10px}
+  .stage-q .choices .choice{padding:13px 11px;font-size:14px;min-height:52px;display:flex;align-items:center}
+  .stage-q>.btn{order:8;margin-top:10px}
+  .stage-q .clues{order:9;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .stage-q .q-regle{order:10;margin-top:10px;font-size:12.5px;opacity:.7}
+  .stage-q #vd{order:11}
+  .stage{gap:12px;grid-template-columns:118px minmax(0,1fr);align-items:start}
+  .stage .card{padding:6px 6px 8px}
+  .stage .card .c-t{font-size:11px}
+  .stage .st{font-size:8.5px}
+  .stage-q h3{font-size:17px}
+  .stage-q>p{font-size:13.5px}
+}
 .stage-q{min-width:0}
 .stage-q h3{font-weight:800;font-size:19px;margin-bottom:4px}
 .counter{font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.14em;
   text-transform:uppercase;color:var(--ink-3);margin:0 0 10px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .counter .val{color:var(--accent)}
-.clues{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
-.clue{background:var(--surface-2);border:1px solid var(--line-strong);border-radius:3px;padding:8px 11px;
-  font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.06em;
+.clues{display:flex;flex-wrap:wrap;gap:5px;margin:14px 0 0}
+/* Les révélateurs occupaient deux rangées de gros boutons, juste au-dessus des
+   réponses : l'aide criait plus fort que le geste du jeu. Ils sont ramenés à
+   ce qu'ils sont — des options discrètes qu'on prend si on cale. */
+.clue{background:transparent;border:1px solid var(--line);border-radius:3px;padding:6px 9px;
+  font-family:"JetBrains Mono",monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;
   text-transform:uppercase;color:var(--ink-2);transition:.15s;display:inline-flex;gap:6px;align-items:center}
 .clue:hover:not([disabled]){border-color:var(--accent);color:var(--ink)}
 .clue[disabled]{opacity:.5;cursor:default}
@@ -233,11 +355,19 @@ button.card:hover{transform:translateY(-5px)}
 .found{display:grid;gap:6px;margin:14px 0 0;padding:12px 14px;background:var(--surface-2);
   border-left:2px solid var(--accent);border-radius:0 3px 3px 0}
 .found:empty{display:none}
+/* l'état vide : un titre, une raison, un geste */
+.vide-t{display:block;color:var(--ink);font-size:15px;font-weight:600;margin-bottom:6px}
+.vide-a{display:block;font-size:13.5px;max-width:46ch;margin:0 auto 14px}
+.empty .btn{margin-top:2px}
 .fl{display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px;font-size:14px;align-items:baseline}
 .fl span{font-family:"JetBrains Mono",monospace;font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3)}
 .fl b{font-weight:600;color:var(--ink);word-break:break-word}
 .fl b.mask{font-family:"JetBrains Mono",monospace;letter-spacing:.16em;font-size:15px}
+/* Six propositions, pas quatre : à quatre, celui qui ne connaît rien tombe
+   juste une fois sur quatre. Deux colonnes dès qu'il y a la place, pour que la
+   liste reste embrassable d'un coup d'œil au lieu de dérouler. */
 .choices{display:grid;gap:8px;margin-top:15px}
+@media(min-width:560px){.choices{grid-template-columns:1fr 1fr}}
 .choice{text-align:left;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:3px;
   padding:12px 15px;font-size:14.5px;transition:.15s}
 .choice:hover:not([disabled]){border-color:var(--accent);background:var(--surface-3)}
@@ -252,6 +382,16 @@ button.card:hover{transform:translateY(-5px)}
 .epreuve .lbl{font-family:"JetBrains Mono",monospace;font-size:9.5px;font-weight:700;letter-spacing:.16em;
   text-transform:uppercase;color:var(--accent);display:block;margin-bottom:4px}
 .epreuve p{margin:0;font-size:15px}
+
+/* Le pavé d'explication replié, sur téléphone seulement. */
+.repli{border:1px solid var(--line);border-radius:4px;margin:0 0 14px;background:var(--surface-2)}
+.repli>summary{cursor:pointer;list-style:none;padding:10px 13px;
+  font-family:"JetBrains Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink-2)}
+.repli>summary::-webkit-details-marker{display:none}
+.repli>summary::after{content:" ▾";color:var(--accent)}
+.repli[open]>summary::after{content:" ▴"}
+.repli .rule{margin:0;border:0;border-radius:0 0 4px 4px}
 
 /* ---------- marché ---------- */
 /* Sept onglets ne tiennent pas sur une ligne : sans retour à la ligne, les
@@ -499,7 +639,7 @@ a.src:hover{color:var(--accent)}
 
 <div id="loader" class="load">
   <p class="disp">DIG<em>GERS</em></p>
-  <p class="lstat" style="margin-top:16px">Catalogue France · v2.7.8 · bibliothèque partagée</p>
+  <p class="lstat" style="margin-top:16px">Catalogue France · v2.9 · bibliothèque partagée</p>
   <div class="track"><i id="prog"></i></div>
   <p class="lstat" id="lstat">Ouverture des bacs…</p>
   <div id="lerr"></div>
@@ -529,8 +669,7 @@ a.src:hover{color:var(--accent)}
   <div id="progres"></div>
   <div class="bar" style="margin-top:20px"><span class="hint" id="chint"></span></div>
   <div id="stage"></div>
-  <div class="grid" id="pull"></div>
-  <div id="pullshare"></div>
+  <div id="pull"></div>
   <div id="defiaccueil"></div>
 </section>
 
@@ -693,7 +832,19 @@ const CLUES=[
   {k:"mask",lbl:"Titre masqué",cost:4},{k:"flou",lbl:"Pochette floutée",cost:4},
   {k:"crop",lbl:"Pochette recadrée",cost:7}];
 /* 26 pour une carte trouvée du premier coup, puis dégressif : rater coûte. */
-const LADDER=[26,13,7,4], GAIN_DOUBLON=3;
+const LADDER=[32,16,9,5], GAIN_DOUBLON=3, CARTES_PAR_CARTON=7;
+
+/* Ce que valent vraiment les six noms proposés. Le joueur doit pouvoir le
+   lire : une carte où les six artistes sont du même genre et de la même
+   décennie ne se devine pas, elle se reconnaît. */
+const DURETE={
+  "genre-epoque":"<b style=\"color:var(--t6)\">Les six noms sont du même genre et de la même décennie.</b> "
+    +"Écouter le style ne suffira pas.",
+  "genre":"<b style=\"color:var(--ink-2)\">Les six noms sont du même genre.</b> "
+    +"L'époque, elle, peut trancher.",
+  "large":"Le jeu n'a pas encore assez de morceaux de ce genre pour proposer six voisins : "
+    +"les fausses réponses viennent d'ailleurs."
+};
 const COUT_REFRESH=20, SET_CAP=5;
 /* Ces chiffres ne sont qu'un miroir de ceux du serveur, qui seul décide.
    Ils servent à écrire les règles à l'écran ; s'ils divergent, c'est le
@@ -704,8 +855,8 @@ const GAIN_WIN=22, GAIN_LOSS=6, GAIN_TIE=10;
    vitrine. Ces chiffres ne sont qu'un miroir de ceux du serveur, qui décide. */
 const PACKS=[
   {id:"jour",n:"Carton du jour",c:"var(--t6)",p:0,d:"Un par jour, offert. Remis à zéro à minuit."},
-  {id:"std",n:"Carton standard",c:"var(--accent)",p:170,d:"Cinq disques différents, au hasard dans tout le bac, à toute heure."},
-  {id:"scene",n:"Carton de scène",c:"var(--t3)",p:320,d:"Cinq disques différents d'un même genre, tiré au sort à l'ouverture."}];
+  {id:"std",n:"Carton standard",c:"var(--accent)",p:250,d:"Sept disques différents, au hasard dans tout le bac, à toute heure."},
+  {id:"scene",n:"Carton de scène",c:"var(--t3)",p:430,d:"Sept disques différents d'un même genre, tiré au sort à l'ouverture."}];
 const RANGS=[{min:0,n:"Curieux"},{min:20,n:"Chineur"},{min:35,n:"Digger"},
   {min:50,n:"Fouineur"},{min:65,n:"Oreille d'or"},{min:80,n:"Conservateur"}];
 
@@ -830,7 +981,7 @@ function popDe(rang,total,poids){
 let ARTISTES_CAT=[], CATMETA=null, CATSOURCE="", CATTEST=null, CATN=0, CATNA=0;
 
 /* ============ UN SEUL ARTISTE PAR CARTE ============
-   Le jeu demande « c'est qui ? » et propose quatre noms. Si la carte est
+   Le jeu demande « c'est qui ? » et propose six noms. Si la carte est
    signée « GIMS & Dadju », aucune des quatre réponses n'est juste : la bonne
    réponse n'existe pas. Une carte porte donc UN artiste, et la ligne complète
    part dans les crédits, affichée une fois la carte retournée.
@@ -876,7 +1027,7 @@ function nettoyer(artiste,poids,rows){
   for(const r of rows){
     if(!r.previewUrl||!r.artworkUrl100||!r.trackName||!r.artistName) continue;
     /* L'artiste renvoyé doit être celui qu'on cherchait, seul ou nommé dans un
-       featuring — sinon la bonne réponse est absente des quatre propositions. */
+       featuring — sinon la bonne réponse est absente des six propositions. */
     const v=unSeulArtiste(artiste,r.artistName);
     if(!v.ok) continue;
     if(REJET.test(r.artistName)||REJET.test(r.trackName)||REJET.test(r.collectionName||"")) continue;
@@ -1038,7 +1189,7 @@ function cardEl(c,o){
   return el;
 }
 /* newCard() et distractors() ont disparu : c'est le serveur qui tire les
-   cartes et qui compose les quatre propositions. Rien dans cette page ne
+   cartes et qui compose les six propositions. Rien dans cette page ne
    connaît la bonne réponse avant que le joueur ait cliqué. */
 function flash(msg){
   const d=document.createElement("div"); d.className="flash"; d.textContent=msg;
@@ -1047,7 +1198,7 @@ function flash(msg){
 
 /* ============ ACCUEIL : cartons et ouverture ============ */
 function sleeveHTML(){ return '<div class="sleeve3d"><div class="body"></div><div class="hole"></div>'
-  +'<div class="mark">DIGGERS · 5 DISQUES</div></div>'; }
+  +'<div class="mark">DIGGERS · '+CARTES_PAR_CARTON+' DISQUES</div></div>'; }
 let busy=false;
 function renderShop(){
   const shop=document.getElementById("shop"); if(!shop)return;
@@ -1062,20 +1213,64 @@ function renderShop(){
     shop.appendChild(b);
   });
 }
-function animOuverture(pack){
+/* ============ L'OUVERTURE D'UN CARTON ============
+   C'est le moment le plus important du jeu, et il durait une seconde et demie
+   sans rien raconter : une pochette qui tremble, un éclair, on passe à la
+   suite. Or ouvrir un carton, c'est la seule promesse que le jeu tient à tous
+   les coups — il fallait lui donner le temps qu'elle mérite.
+
+   Quatre temps :
+     1. la pochette scellée respire, on lit ce qu'on a acheté ;
+     2. elle se DÉCHIRE en deux, la lumière sort de la fente ;
+     3. les sept disques en sortent un par un, chacun à la couleur de sa
+        rareté — c'est là qu'on voit passer une Pépite, et c'est tout le
+        frisson : on le sait avant de savoir ce que c'est ;
+     4. ils se rangent, l'enquête commence.
+
+   Deux règles non négociables : ça se saute d'un clic (on ouvre des dizaines
+   de cartons), et ça ne bouge pas du tout si le système demande moins
+   d'animations. */
+function animOuverture(pack, cartes){
+  const lot=(cartes||[]).slice(0, CARTES_PAR_CARTON);
+  const doux=window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   return new Promise(res=>{
     const ov=document.createElement("div");
     ov.className="opening"; ov.style.setProperty("--pc",pack.c);
-    ov.innerHTML='<div class="stagepack" id="tp">'+sleeveHTML()
-      +'<div class="burst" id="bu"></div><div class="opencount">'+pack.n+'</div></div>';
+    ov.innerHTML='<div class="ouv">'
+      +'<div class="ouv-pack" id="op">'+sleeveHTML()
+        +'<div class="fente"></div>'
+        +'<div class="burst" id="bu"></div></div>'
+      +'<div class="ouv-disques" id="od">'+lot.map((c,k)=>{
+          const t=TIERS[c.rarity]||TIERS[1];
+          return '<span class="ouv-d" style="--tier:'+t.c+';--i:'+k+'" data-k="'+k+'">'
+            +'<i></i><b>'+esc(t.n)+'</b></span>';
+        }).join("")+'</div>'
+      +'<p class="ouv-nom">'+esc(pack.n)+' · '+lot.length+' disques</p>'
+      +'<p class="ouv-passer">Touche pour passer</p>'
+    +'</div>';
     document.body.appendChild(ov);
-    const sl=ov.querySelector(".sleeve3d");
-    sl.style.width="150px"; sl.style.height="198px";
-    setTimeout(()=>{ const bu=ov.querySelector("#bu"), tp=ov.querySelector("#tp");
-      if(bu)bu.classList.add("go"); if(tp)tp.classList.add("tear","go"); },600);
-    setTimeout(()=>{ ov.remove(); res(); },1500);
+
+    let fini=false;
+    const finir=()=>{ if(fini) return; fini=true; ov.remove(); res(); };
+    ov.addEventListener("click",finir);
+
+    if(doux){ setTimeout(finir,400); return; }
+
+    const op=ov.querySelector("#op"), od=ov.querySelector("#od"), bu=ov.querySelector("#bu");
+    /* le rythme : on ouvre, puis les disques tombent l'un après l'autre */
+    setTimeout(()=>{ op.classList.add("ouvert"); if(bu) bu.classList.add("go"); },700);
+    setTimeout(()=>{ od.classList.add("go"); }, 1050);
+    /* le meilleur du lot brille une dernière fois : on l'a vu passer, on ne
+       sait pas encore lequel c'est. */
+    const meilleur=lot.reduce((m,c,k)=>(!m||c.rarity>lot[m].rarity)?k:m, null);
+    if(meilleur!=null && (lot[meilleur].rarity||0)>=4){
+      setTimeout(()=>{ const d=od.querySelector('[data-k="'+meilleur+'"]');
+        if(d) d.classList.add("rare"); }, 1050+meilleur*110+250);
+    }
+    setTimeout(finir, 1500+lot.length*110);
   });
 }
+
 async function openPack(pack){
   if(busy)return;
   if(!COMPTE){ flash("Il faut un compte pour ouvrir un carton"); go("profil"); return; }
@@ -1092,34 +1287,107 @@ async function openPack(pack){
   const r=await apiJeu("carton",{type:pack.id});
   if(!r||!r.ok){ busy=false; renderShop(); return; }
 
-  await animOuverture(pack);
+  await animOuverture(pack, r.cartes||[]);
   /* Un carton à thème dit sur quoi il est tombé : sans ça, le joueur ne
      comprend pas pourquoi ses cinq cartes se ressemblent. */
   if(r.theme) flash("Thème du carton : "+r.theme);
   const tirees=r.cartes||[];
-  let found=0;
-  for(let i=0;i<tirees.length;i++){ if(await enquete(tirees[i],i+1)) found++; }
+  const journal=[];
+  const artistesAvant=new Set(S.shelf.filter(c=>c.known&&c.artist).map(c=>c.artist));
+  const creditsAvant=S.credits;
+  for(let i=0;i<tirees.length;i++){
+    const v=await enquete(tirees[i],i+1,tirees.length);
+    journal.push(v&&typeof v==="object"?v:{bon:!!v});
+  }
 
   document.getElementById("stage").innerHTML="";
-  document.getElementById("chint").textContent=found+" reconnue(s) sur "+tirees.length+".";
-  /* Le résultat d'un carton est partageable en carrés, comme un Wordle. */
-  const etat=u=>S.shelf.find(x=>x.uid===u)||{};
-  const carres=tirees.map(c=>{const e=etat(c.uid); return e.aSec?"■":(e.known?"▨":"□");}).join(" ");
-  const aSec=tirees.filter(c=>etat(c.uid).aSec).length;
-  document.getElementById("pullshare").innerHTML=
-    '<div class="sharebox"><span class="sq">'+carres+'</span>'
-    +'<span class="hint">'+found+'/'+tirees.length+' · '+aSec+' sans aide</span>'
-    +'<button class="btn ghost sm" id="shcart">Copier le résultat</button></div>';
-  document.getElementById("shcart").onclick=async()=>{
-    const t="Diggers "+todayKey()+"\n"+carres+"\n"+found+"/"+tirees.length+" reconnues\n"+location.origin+location.pathname;
-    try{ await navigator.clipboard.writeText(t); flash("Résultat copié"); }
-    catch(e){ prompt("Copie :",t); }
-  };
+  document.getElementById("chint").textContent="";
+  bilanCarton(pack, tirees, journal, artistesAvant, creditsAvant);
   busy=false; renderShop();
 }
 
+/* ============ LE BILAN D'UN CARTON ============
+   Avant, la fin d'un carton alignait sept pochettes et une ligne de carrés.
+   C'était un inventaire, pas un récit : on ne savait pas ce qu'on venait de
+   gagner, ce qu'on avait découvert, ni ce qu'il restait à faire. Un carton est
+   pourtant une SÉANCE — elle a une meilleure trouvaille, un coût, des noms
+   qu'on n'avait pas, et des cartes qui restent face cachée sur l'étagère.
+   C'est ça qu'on raconte, dans cet ordre. */
+function bilanCarton(pack, tirees, journal, artistesAvant, creditsAvant){
+  const etat=u=>S.shelf.find(x=>x.uid===u)||{};
+  const trouvees=journal.filter(x=>x.bon).length;
+  const aSec=journal.filter(x=>x.aSec).length;
+  const gagne=journal.reduce((a,x)=>a+(x.gain||0),0);
+  const net=S.credits-creditsAvant;
+  const paliers=journal.flatMap(x=>x.paliers||[]);
+  const cachees=tirees.filter(c=>!etat(c.uid).known);
+
+  /* la meilleure carte du lot : la plus cotée parmi celles qu'on a reconnues */
+  const reconnues=journal.filter(x=>x.bon&&x.carte).map(x=>x.carte);
+  const meilleure=reconnues.slice().sort((a,b)=>(b.cote||0)-(a.cote||0))[0];
+  /* les noms qu'on n'avait pas : c'est ce que le jeu récompense vraiment */
+  const neufs=[...new Set(reconnues.map(c=>c.artist).filter(a=>a&&!artistesAvant.has(a)))];
+
+  const carres=tirees.map(c=>{const e=etat(c.uid); return e.aSec?"■":(e.known?"▨":"□");}).join(" ");
+
+  const tuile=(t,v,p)=>'<div class="kpi"><span>'+t+'</span><b>'+v+'</b>'+(p?'<p>'+p+'</p>':'')+'</div>';
+
+  document.getElementById("pull").innerHTML=
+    '<section class="bilan">'
+      +'<p class="kick" style="color:var(--accent)">'+esc(pack.n)+' · séance terminée</p>'
+      +'<h3 class="disp bilan-h">'+(trouvees===tirees.length
+          ? "Sans faute — "+trouvees+" sur "+tirees.length+"."
+          : trouvees===0 ? "Aucune reconnue cette fois."
+          : trouvees+" reconnues sur "+tirees.length+".")+'</h3>'
+      +'<div class="kpis bilan-kpis">'
+        +tuile("Sans aide", aSec+'<em>/'+tirees.length+'</em>',
+            aSec?"c'est le seul chiffre qui te classe.":"un révélateur ou un essai raté suffit à l'annuler.")
+        +tuile("Gagné", '+'+gagne, net<0?"soit "+net+" une fois le carton payé.":"le carton du jour ne coûte rien.")
+        +tuile("Artistes nouveaux", neufs.length,
+            neufs.length?esc(neufs.slice(0,3).join(", "))+(neufs.length>3?"…":""):"rien de neuf dans ce lot.")
+        +tuile("Trouvailles du jour", (JEU&&JEU.trouvesToday!=null?JEU.trouvesToday:0)+'<em>/'+((JEU&&JEU.quota)||10)+'</em>',
+            (JEU&&JEU.trouvesToday>=((JEU&&JEU.quota)||10))?"au-delà, une trouvaille paie 40 %.":"à plein tarif.")
+      +'</div>'
+      +(meilleure?'<div class="bilan-star">'
+        +'<img src="'+esc(meilleure.art||"")+'" alt="" loading="lazy">'
+        +'<div><span class="kick" style="color:'+((TIERS[meilleure.rarity]||TIERS[1]).c)+'">Meilleure trouvaille · '
+          +esc((TIERS[meilleure.rarity]||TIERS[1]).n)+'</span>'
+        +'<b>'+esc(meilleure.artist||"")+'</b><span class="t">'+esc(meilleure.title||"")+'</span>'
+        +'<span class="hint">Cote '+(meilleure.cote||0)+' crédits'+(meilleure.press&&meilleure.press!=="Standard"?" · pressage "+esc(meilleure.press):"")+'</span></div>'
+      +'</div>':'')
+      +(paliers.length?'<p class="verdict ok bilan-palier">Palier franchi — <b>'
+        +paliers.map(p=>esc(p.titre)+" (+"+p.prime+")").join(", ")+'</b></p>':'')
+      +(cachees.length?'<p class="notice bilan-reste"><b style="color:var(--ink-2)">'+cachees.length
+        +' carte(s) restent face cachée</b> sur ton étagère. Elles ne se vendent pas et ne se jouent pas '
+        +'tant qu\'elles ne sont pas reconnues — mais tu peux rouvrir l\'enquête quand tu veux.</p>':'')
+      +'<h4 class="bilan-sous">Le lot, dans l\'ordre</h4>'
+      +'<div class="grid" id="bilangrid"></div>'
+      +'<div class="sharebox"><span class="sq">'+carres+'</span>'
+        +'<span class="hint">'+trouvees+'/'+tirees.length+' · '+aSec+' sans aide</span>'
+        +'<button class="btn ghost sm" type="button" id="shcart">Copier le résultat</button></div>'
+      +'<div class="bar bilan-suite">'
+        +(cachees.length?'<button class="btn sm" type="button" data-go="etagere">Reprendre les cartes cachées</button>':'')
+        +'<button class="btn'+(cachees.length?" ghost":"")+' sm" type="button" id="bencore">Ouvrir un autre carton</button>'
+        +'<button class="btn ghost sm" type="button" data-go="marche">Vendre mes doublons</button>'
+      +'</div>'
+    +'</section>';
+
+  const g=document.getElementById("bilangrid");
+  tirees.forEach((c,i)=>g.appendChild(cardEl(etat(c.uid)||c,{cote:true,delay:i*60})));
+
+  document.getElementById("shcart").onclick=async()=>{
+    const t="Diggers "+todayKey()+"\n"+carres+"\n"+trouvees+"/"+tirees.length+" reconnues\n"+location.origin+location.pathname;
+    try{ await navigator.clipboard.writeText(t); flash("Résultat copié"); }
+    catch(e){ prompt("Copie :",t); }
+  };
+  const encore=document.getElementById("bencore");
+  if(encore) encore.onclick=()=>{ document.getElementById("pull").innerHTML="";
+    document.getElementById("shop").scrollIntoView({behavior:"smooth",block:"start"}); };
+  try{ document.querySelector(".bilan").scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){}
+}
+
 /* ============ L'ENQUÊTE ============ */
-function enquete(c,nth){
+function enquete(c,nth,surCombien){
   return new Promise(resolve=>{
     /* `carte` est la carte telle que le serveur la montre : elle s'enrichit à
        chaque révélateur payé, et ne se retourne qu'au moment de la réponse. */
@@ -1136,22 +1404,27 @@ function enquete(c,nth){
       left.appendChild(cardEl(carte,{hot:carte.rarity>=5&&carte.known})); };
     const drawHead=()=>{
       const el=right.querySelector("#cnt"); if(!el) return;
-      el.innerHTML='<span>'+(nth?"Disque "+nth+" sur 5":"Reprise")+' · '+(TIERS[carte.rarity]||TIERS[1]).n
+      el.innerHTML='<span>'+(nth?"Disque "+nth+" sur "+(surCombien||CARTES_PAR_CARTON):"Reprise")+' · '+(TIERS[carte.rarity]||TIERS[1]).n
         +(carte.tries?' · tentative '+(carte.tries+1):'')+'</span>'
         +'<span class="val">Valeur : '+(carte.valeur!=null?carte.valeur:LADDER[0])+' crédits</span>';
     };
 
     right.innerHTML='<p class="counter" id="cnt"></p>'
-      +'<p class="kick" style="color:var(--accent)">Enquête</p><h3 class="disp">Qui joue ça ?</h3>'
-      +'<p style="color:var(--ink-2);font-size:14px;margin:0">Chaque révélateur se paie sur la valeur de la carte, '
+      +'<p class="kick q-kick" style="color:var(--accent)">Enquête</p>'
+      +'<h3 class="disp q-titre">Qui joue ça ?</h3>'
+      +'<p class="q-regle" style="color:var(--ink-2);font-size:14px;margin:0">Chaque révélateur se paie sur la valeur de la carte, '
       +'jamais sur ta cagnotte. Se tromper la fait tomber à '+LADDER.slice(1).join(', puis ')+'.</p>'
-      +(carte.tries?'<p style="color:var(--bad);font-size:13px;margin:8px 0 0">Déjà tenté '+carte.tries
+      +'<p class="hint q-durete" style="margin:8px 0 0">'+DURETE[carte.dur||"large"]+'</p>'
+      +(carte.tries?'<p class="q-tries" style="color:var(--bad);font-size:13px;margin:8px 0 0">Déjà tenté '+carte.tries
         +' fois — cette carte ne comptera plus comme trouvée sans aide.</p>':'')
       +'<div class="clues" id="cl"></div><div class="found" id="fd"></div>'
       +'<div class="choices" id="ch"></div><div id="vd"></div>';
 
     drawCard(); drawHead();
-    try{ sg.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){}
+    /* On amène la QUESTION à l'écran, pas la pochette : c'est là qu'on joue.
+       Sur téléphone, viser le centre de la scène plaçait la carte au milieu de
+       l'écran et les réponses en dessous, hors de vue. */
+    try{ sg.scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){}
 
     const cl=right.querySelector("#cl"), fd=right.querySelector("#fd");
     const ch=right.querySelector("#ch"), vd=right.querySelector("#vd");
@@ -1166,7 +1439,9 @@ function enquete(c,nth){
       if(cd.audio&&S.silent)return;
       const b=document.createElement("button");
       b.className="clue"+(cd.cost===0?" free":""); b.type="button"; b.dataset.k=cd.k;
-      b.innerHTML=cd.lbl+'<i>'+(cd.cost===0?(heard?"écouté":"ne coûte rien, mais la carte ne comptera plus sans aide"):"−"+cd.cost)+'</i>';
+      /* La phrase entière tenait sur trois lignes au téléphone et faisait de
+         l'aide le plus gros bloc de l'écran. Le sens y est, en cinq mots. */
+      b.innerHTML=cd.lbl+'<i>'+(cd.cost===0?(heard?"écouté":"gratuit · plus « sans aide »"):"−"+cd.cost)+'</i>';
       b.onclick=async()=>{
         if(fini||b.disabled)return;
         b.disabled=true;
@@ -1221,8 +1496,11 @@ function enquete(c,nth){
       }
       drawHead();
       setTimeout(()=>{
-        document.getElementById("pull").appendChild(cardEl(S.shelf.find(x=>x.uid===carte.uid)||carte,{cote:true}));
-        resolve(!!r.bon);
+        /* Ce que la carte a rapporté part au bilan de fin de carton : sans ça,
+           l'écran de résultat ne pourrait que compter des cartes. */
+        resolve({ bon:!!r.bon, passe:!!r.passe, gain:r.gain||0, aSec:!!r.aSec,
+          doublon:!!r.doublon, dejaVu:!!r.dejaVu, horsQuota:!!r.horsQuota,
+          paliers:r.paliers||[], carte:S.shelf.find(x=>x.uid===carte.uid)||carte });
       },(r.bon||r.passe)?1300:1600);
     };
 
@@ -1244,7 +1522,11 @@ function enquete(c,nth){
 function renderShelf(){
   const box=document.getElementById("shelf"); box.innerHTML="";
   if(!S.shelf.length){
-    box.innerHTML='<div class="empty" style="grid-column:1/-1">Rien sur l\'étagère. Ouvre un carton.</div>';
+    box.innerHTML='<div style="grid-column:1/-1">'+vide(
+      "Ton étagère est vide.",
+      "Les cartes viennent des cartons — sept disques face cachée, à reconnaître un par un. "
+      +"Le premier de la journée est offert.",
+      ["accueil","Ouvrir un carton"])+'</div>';
     document.getElementById("legend").innerHTML=""; document.getElementById("shelfnote").textContent=""; return;
   }
   const counts={}; S.shelf.forEach(c=>counts[c.rarity]=(counts[c.rarity]||0)+1);
@@ -1360,7 +1642,9 @@ function choisirCarte(titre,intro){
       +(mes.length?mes.map(c=>'<button type="button" class="lr" data-v="'+esc(c.uid)+'" style="width:100%;text-align:left;background:none;border:0;cursor:pointer">'
         +'<span class="who"><b>'+esc(c.artist)+'</b> · '+esc(c.title)+'</span>'
         +'<span class="hint">'+esc(c.press)+' · cote '+(c.cote||0)+'</span></button>').join("")
-        :'<div class="empty">Tu n\'as encore aucune carte reconnue à proposer.</div>')
+        :vide("Aucune carte à proposer.",
+            "Un échange se fait carte contre carte : il faut au moins une carte reconnue sur ton étagère.",
+            ["accueil","Ouvrir un carton"]))
       +'</div></div><div class="onb-bar"><button class="btn ghost sm" id="mkno">Annuler</button></div></div>';
     document.body.appendChild(ov);
     const fin=v=>{ ov.remove(); res(v); };
@@ -1390,7 +1674,10 @@ async function vueVendre(box){
   const dbl=new Set(doublons().map(c=>c.uid));
 
   let html='<h3 class="sect" style="margin-top:0">Tes annonces en cours <span class="exp">'+r.posees+' / '+r.max+'</span></h3>';
-  if(!r.annonces.length) html+='<div class="empty">Rien en vitrine pour le moment.</div>';
+  if(!r.annonces.length) html+=vide(
+    "Tu n'as rien en vitrine.",
+    "Poser un doublon, c'est le proposer aux autres joueurs à ton prix — et récupérer des crédits "
+    +"sans rien fondre.", null);
   else html+='<div class="ladder">'+r.annonces.map(a=>
     '<div class="lr libre"><span class="who"><b>'+esc(a.carte.artist)+'</b> · '+esc(a.carte.title)+'</span>'
     +'<span class="hint">'+esc(a.carte.press)+' · '+a.prix+' cr · '+a.offres+' offre(s)</span>'
@@ -1426,7 +1713,11 @@ async function vueVendre(box){
     await apiMarche("repondre-offre",{id:id,offre:offre,oui:false}); renderMarche(); });
 
   const g=document.getElementById("vgrid");
-  if(!posables.length){ g.innerHTML='<div class="empty" style="grid-column:1/-1">Rien de reconnu à vendre pour l\'instant.</div>'; return; }
+  if(!posables.length){ g.innerHTML='<div style="grid-column:1/-1">'+vide(
+    "Rien à vendre pour l'instant.",
+    "On ne vend que des cartes reconnues : le marché affiche l'artiste, le titre et la cote, "
+    +"et une carte face cachée n'a rien de tout ça. Retourne-en une, elle deviendra vendable.",
+    ["etagere","Voir mon étagère"])+'</div>'; return; }
   posables.slice().sort((a,b)=>(dbl.has(b.uid)-dbl.has(a.uid))||((b.cote||0)-(a.cote||0))).slice(0,60).forEach((c,i)=>{
     const wrap=document.createElement("div"); wrap.className="offer";
     wrap.appendChild(cardEl(c,{delay:i*15,cote:true}));
@@ -1510,10 +1801,10 @@ function renderRegles(){
 
   document.getElementById("reglesbox").innerHTML =
 
-  '<div class="resume"><p><b>En une minute.</b> Tu ouvres des cartons de cinq disques. Chaque disque sort '
+  '<div class="resume"><p><b>En une minute.</b> Tu ouvres des cartons de sept disques. Chaque disque sort '
   +'pochette blanche : à toi de dire qui joue. Ce que tu reconnais entre dans ta collection et devient jouable ; '
-  +'ce que tu rates y reste face cachée jusqu\'à ce que tu le trouves. Avec ce que tu as reconnu, tu composes '
-  +'des sets de cinq morceaux pour affronter d\'autres joueurs. Ce que tu as en double, tu le vends ou tu l\'échanges '
+  +'ce que tu rates y reste face cachée jusqu\'à ce que tu le trouves. Chaque jour, un thème commun : tu poses une '
+  +'carte au Défi et tu votes à l\'aveugle sur celles des autres. Ce que tu as en double, tu le vends ou tu l\'échanges '
   +'avec d\'autres joueurs ; ce qui te manque, tu le leur achètes. Et le classement ne mesure qu\'une chose : ce que tu reconnais sans aide.</p></div>'
 
   +'<div class="toc">'+toc.map(t=>'<a href="#'+t[0]+'">'+t[1]+'</a>').join("")+'</div>'
@@ -1521,8 +1812,8 @@ function renderRegles(){
   /* 1 */
   +'<section class="rsec" id="r1"><h3><em>01</em>Le but du jeu</h3>'
   +'<p class="lede">Constituer le bac de disques qui te ressemble, et prouver que tu sais ce qu\'il y a dedans.</p>'
-  +'<p><b>Une journée, un tirage.</b> Le carton offert revient chaque jour à minuit, et la contrainte du Set est la '
-  +'même pour tout le monde pendant 24 h — deux joueurs qui comparent leurs sets comparent bien la même chose.</p>'
+  +'<p><b>Une journée, un tirage.</b> Le carton offert revient chaque jour à minuit, et le thème du Défi est le '
+  +'même pour tout le monde pendant 24 h — deux joueurs qui votent tranchent bien la même question.</p>'
   +'<p>Diggers est un jeu de collection, mais la carte ne s\'obtient pas en la tirant : elle s\'obtient en la '
   +'<b>reconnaissant</b>. C\'est toute la différence avec un jeu de cartes classique, et c\'est ce qui fait qu\'une '
   +'collection ici raconte quelque chose de son propriétaire.</p>'
@@ -1534,12 +1825,12 @@ function renderRegles(){
   +'<section class="rsec" id="r2"><h3><em>02</em>Les cartons</h3>'
   +'<p class="lede">Trois pochettes scellées. Elles ne changent pas les chances de rareté — elles changent ce qu\'il y a dedans.</p>'
   +'<div class="scale"><div class="sc head"><span>Carton</span><span>Contenu</span><span class="odds">Prix</span><span class="val">Limite</span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--t6)">Du jour</span><span class="dsc">Cinq disques au hasard. Remis à zéro à minuit, pour de vrai.</span>'
+  +'<div class="sc"><span class="nm" style="color:var(--t6)">Du jour</span><span class="dsc">Sept disques au hasard. Remis à zéro à minuit, pour de vrai.</span>'
     +'<span class="odds">Offert</span><span class="val">1 / jour</span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--accent)">Standard</span><span class="dsc">Cinq disques au hasard dans tout le bac.</span>'
-    +'<span class="odds">100</span><span class="val">Aucune</span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--t3)">De scène</span><span class="dsc">Cinq disques d\'un seul genre, tiré au sort à l\'ouverture.</span>'
-    +'<span class="odds">220</span><span class="val">Aucune</span></div></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--accent)">Standard</span><span class="dsc">Sept disques au hasard dans tout le bac.</span>'
+    +'<span class="odds">250</span><span class="val">Aucune</span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--t3)">De scène</span><span class="dsc">Sept disques d\'un seul genre, tiré au sort à l\'ouverture.</span>'
+    +'<span class="odds">430</span><span class="val">Aucune</span></div></div>'
   +'<p>Le carton de scène coûte plus cher non pas parce qu\'il est plus généreux, mais parce qu\'il est '
   +'<b>ciblé</b> : c\'est l\'outil de celui qui complète une collection précise, ou qui alimente le bac de son crew.</p></section>'
 
@@ -1656,17 +1947,17 @@ function renderRegles(){
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Vente au marché</span><span class="dsc">Le prix que tu as demandé, payé par un autre joueur.</span><span class="odds">ton prix</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--ok)">Fondre un doublon</span><span class="dsc">Peu, exprès : un doublon se vend mieux qu\'il ne se fond.</span><span class="odds">cote / 8</span><span class="val"></span></div></div>'
   +'<div class="scale"><div class="sc head"><span>Tu dépenses</span><span>Pour quoi</span><span class="odds">Montant</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton standard</span><span class="dsc">Cinq disques différents, au hasard.</span><span class="odds">170</span><span class="val"></span></div>'
-  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton de scène</span><span class="dsc">Cinq disques différents d\'un même genre.</span><span class="odds">320</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton standard</span><span class="dsc">Sept disques différents, au hasard.</span><span class="odds">250</span><span class="val"></span></div>'
+  +'<div class="sc"><span class="nm" style="color:var(--bad)">Carton de scène</span><span class="dsc">Sept disques différents d\'un même genre.</span><span class="odds">430</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Révélateurs</span><span class="dsc">Retirés de la valeur de la carte : on ne paie pas, on renonce à gagner.</span><span class="odds">2 à 7</span><span class="val"></span></div>'
   +'<div class="sc"><span class="nm" style="color:var(--bad)">Achat au marché</span><span class="dsc">Le prix demandé par le joueur qui vend.</span><span class="odds">variable</span><span class="val"></span></div>'
   +'</div>'
   +'<p class="notice">Il n\'y a rien d\'autre à acheter. Les crédits ne servent qu\'à ouvrir des cartons '
   +'et à traiter avec d\'autres joueurs — <b>on ne peut pas se procurer une carte auprès du jeu lui-même</b>.</p>'
-  +'<p>Le carton du jour est offert. Un carton payant coûte <b>170</b> et rapporte au mieux <b>130</b> — '
-  +'et encore, seulement si les cinq disques sont reconnus du premier coup et signés d\'artistes que tu n\'avais '
+  +'<p>Le carton du jour est offert. Un carton payant coûte <b>250</b> et rapporte au mieux <b>224</b> — '
+  +'et encore, seulement si les sept disques sont reconnus du premier coup et signés d\'artistes que tu n\'avais '
   +'jamais eus. <b>Un carton ne se rembourse jamais tout seul.</b> C\'est voulu : les crédits viennent de ce que '
-  +'tu joues — reconnaître, gagner des sets, voter au défi, revenir, franchir des paliers — et les cartons '
+  +'tu joues — reconnaître, voter au défi, revenir, franchir des paliers — et les cartons '
   +'les dépensent. Sinon, ouvrir des cartons en boucle serait la meilleure façon de s\'enrichir, et le jeu '
   +'n\'aurait plus de fin.</p>'
   +'<p>La même logique gouverne les reconnaissances : un artiste que tu as déjà sur ton étagère rapporte '
@@ -1710,8 +2001,9 @@ function renderRegles(){
   +'son oreille, pas pour son temps de jeu.</p>'
   +'<ul><li><b>Le bac collectif</b> — chaque palier de complétion franchi verse à tous les membres.</li>'
   +'<li><b>Le contrat hebdomadaire</b> — un objectif commun, un pot redistribué au prorata de la contribution réelle.</li>'
-  +'<li><b>Le Clash</b> — saison de sept jours, un thème imposé, <b>trois sets classés par membre au maximum</b>, '
-  +'et seuls les cinq meilleurs sets du crew comptent. Huit bons joueurs battent vingt joueurs moyens.</li></ul></section>'
+  +'<li><b>L\'oreille du crew</b> — un crew se classe sur la <b>moyenne</b> de ce que ses membres reconnaissent '
+  +'sans aide, pas sur leur nombre. Huit bonnes oreilles battent vingt joueurs moyens, et recruter large ne fait '
+  +'pas monter.</li></ul></section>'
 
   /* ce qui manque encore, dit au joueur, pas au développeur */
   +'<div class="todo-list"><h4>Ce qui n\'existe pas encore</h4>'
@@ -1741,7 +2033,11 @@ function rangDe(t){ let r=RANGS[0]; for(const x of RANGS) if(t>=x.min) r=x; retu
 function pseudo(){ return (COMPTE&&COMPTE.pseudo)||"Toi"; }
 function renderProfil(){
   const known=S.shelf.filter(c=>c.known), t=tauxSec(), box=document.getElementById("profilbox");
-  if(!known.length){ box.innerHTML='<div class="empty">Ton profil se remplit quand tu reconnais des cartes.</div>'; return; }
+  if(!known.length){ box.innerHTML=vide(
+    "Ton profil est encore vide.",
+    "Il se remplit tout seul dès que tu reconnais une carte : ton taux sans aide, ton rang, "
+    +"la valeur de ton bac et tes dernières trouvailles.",
+    ["accueil","Ouvrir un carton"]); return; }
   /* Le chiffre affiché sous le taux doit compter EXACTEMENT ce que le taux
      compte, sinon il le contredit : c'est le drapeau aSec que le serveur pose
      sur la carte, pas une reconstitution locale à partir des révélateurs. */
@@ -2629,7 +2925,7 @@ function dessinerTraitees(){
         return '<option value="'+v+'"'+(TFILTRE===v?' selected':'')+'>'+n+'</option>';}).join("")
       +'</select></div>'
     +(l.length?'<div class="ladder">'+l.map(ligneTraitee).join("")+'</div>'
-      :'<div class="empty">Rien sous ce filtre.</div>');
+      :vide("Rien sous ce filtre.","Change de filtre ou vide le champ de recherche.",null));
 
   const qi=document.getElementById("tq");
   qi.oninput=()=>{ TQ=qi.value; dessinerTraitees(); };
@@ -2873,6 +3169,7 @@ function dessinerBiblio(garder){
       +'<button class="btn ghost sm" type="button" id="bverif">Vérifier les artistes chez Apple</button>'
       +'<button class="btn ghost sm" type="button" id="bhomo">Un nom, deux artistes</button>'
       +'<button class="btn ghost sm" type="button" id="bannuler">Annuler la dernière correction</button>'
+      +'<button class="btn sm" type="button" id="bmoisson">La moissonneuse</button>'
       +'<button class="btn ghost sm" type="button" id="bvider">Vider l\'import de départ</button></div>'
       +'<p class="notice" id="bdiag"><b style="color:var(--ink-2)">Construire depuis Apple</b> interroge '
       +listeArtistes().length+' artistes depuis <i>ton</i> navigateur et remplit la bibliothèque — '
@@ -2887,7 +3184,7 @@ function dessinerBiblio(garder){
       +'ceux qui ne te parlent pas, puis relance la construction — les sons d&eacute;j&agrave; en '
       +'biblioth&egrave;que ne bougent pas, on ne fait qu\'en ajouter.<br><br>'
       +'<b style="color:var(--ink-2)">Un seul artiste par carte</b> répare les sons entrés avant la v2.2. '
-      +'Le jeu demande &laquo; c\'est qui ? &raquo; et propose quatre noms : une carte sign&eacute;e '
+      +'Le jeu demande &laquo; c\'est qui ? &raquo; et propose six noms : une carte sign&eacute;e '
       +'&laquo; GIMS &amp; Dadju &raquo; n\'a aucune bonne r&eacute;ponse dans la liste. Le bouton ram&egrave;ne '
       +'chaque carte au plus connu des artistes cit&eacute;s, garde la ligne compl&egrave;te en cr&eacute;dits, '
       +'et fusionne les doublons que &ccedil;a cr&eacute;e. Il montre d\'abord ce qu\'il ferait.<br><br>'
@@ -2921,6 +3218,7 @@ function dessinerBiblio(garder){
     document.getElementById("bverif").onclick=verifierArtistes;
     document.getElementById("bhomo").onclick=vueHomonymes;
     document.getElementById("bannuler").onclick=annulerVerification;
+    document.getElementById("bmoisson").onclick=vueMoisson;
     document.getElementById("bvider").onclick=viderNoyau;
   }
   if(garder) bdiag(garder);
@@ -2936,7 +3234,11 @@ function listeBiblio(){
   const pages=Math.max(1,Math.ceil(tout.length/PAR_PAGE));
   if(BPAGE>=pages) BPAGE=0;
   const vue=tout.slice(BPAGE*PAR_PAGE,(BPAGE+1)*PAR_PAGE);
-  if(!tout.length){ l.innerHTML='<div class="empty">Aucun son ne correspond.</div>'; return; }
+  if(!tout.length){ l.innerHTML=vide(
+    "Aucun son ne correspond.",
+    "Essaie un nom d'artiste, un titre ou un genre — la recherche regarde les trois. "
+    +"Et si le morceau manque vraiment au jeu, propose-le.",
+    ["communaute","Proposer un son"]); return; }
   l.innerHTML='<p class="notice">'+tout.length+' son(s)'+(BQ?' pour « '+esc(BQ)+' »':'')+'.</p>'
     +'<div class="lad">'
     +'<div class="lr head"><span>Palier</span><span>Son</span><span class="num">Pop.</span><span class="num">Source</span></div>'
@@ -3534,7 +3836,7 @@ async function annulerDecoupage(x){
     +'<p class="notice">La ligne sera ajoutée à <b>Noms à garder entiers</b> dans la foulée : '
     +'sans ça, la prochaine réparation la redécouperait. Les deux vont ensemble.</p>'
     +'<p class="notice">À faire si c\'est un <b>nom de groupe</b> — « Earth, Wind &amp; Fire », '
-    +'« Simon &amp; Garfunkel ». À ne pas faire pour un vrai featuring : le jeu propose quatre noms '
+    +'« Simon &amp; Garfunkel ». À ne pas faire pour un vrai featuring : le jeu propose six noms '
     +'et une carte signée de deux artistes n\'a aucune bonne réponse.</p>',
     [{v:1,n:"Rendre le nom entier"},{v:0,n:"Annuler",g:true}]);
   if(!q) return;
@@ -3945,7 +4247,7 @@ async function reparerArtistes(){
     return;
   }
   const q=await modale("Ramener "+a.aCorriger+" carte(s) à un seul artiste ?",
-    '<p>Le jeu propose quatre noms et demande lequel est le bon. Une carte signée '
+    '<p>Le jeu propose six noms et demande lequel est le bon. Une carte signée '
     +'&laquo; GIMS &amp; Dadju &raquo; n\'a aucune bonne réponse dans la liste : c\'est injouable.</p>'
     +'<p><b>'+a.aCorriger+'</b> carte(s) seront attribuées au <b>premier artiste crédité</b> — '
     +'&laquo; A &amp; B &raquo;, &laquo; A feat. B &raquo;, &laquo; A, B &raquo; : c\'est A, toujours. '
@@ -4019,6 +4321,98 @@ async function reglerNomsEntiers(){
    vérifient en quatre minutes.
 
    Ça se relance quand on veut, et ça converge. */
+/* ============ LA MOISSONNEUSE ============
+   Tout ce qui entrait dans la bibliothèque passait par CE navigateur : Apple
+   n'accepte pas les requêtes croisées, il fallait donc du JSONP, un onglet
+   ouvert, et quelqu'un devant l'écran. Quinze mille morceaux ont coûté des
+   semaines à ce régime.
+
+   Le serveur, lui, appelle Apple sans rien demander à personne. La moisson
+   tourne donc toute seule, une minute après l'autre, et cet écran ne sert plus
+   qu'à la lancer, la regarder avancer, et l'arrêter. Il peut aussi la pousser
+   plus vite tant qu'il reste ouvert — mais elle n'en a pas besoin. */
+let MOISSON_BOUCLE=null;
+
+async function vueMoisson(){
+  if(MOISSON_BOUCLE){ clearTimeout(MOISSON_BOUCLE); MOISSON_BOUCLE=null; }
+  const r=await apiAppel("/api/moisson",{action:"etat"});
+  if(!r||!r.ok){ bdiag('<b style="color:var(--t6)">'+esc((r&&r.erreur)||"Échec")+'</b>'); return; }
+  dessinerMoisson(r);
+}
+
+function dessinerMoisson(r){
+  const e=r.etat||{}, place=e.total?Math.round(e.fait/e.total*100):0;
+  const box=document.getElementById("modbox");
+  if(!box) return;
+  box.innerHTML=
+    '<div class="rule"><p style="margin:0"><b>La moissonneuse remplit la bibliothèque toute seule.</b> '
+      +'Elle demande à Apple la <b>discographie complète</b> de chaque artiste déjà présent dans le jeu, '
+      +'puis élargit avec des recherches par genre et par année. Elle tourne côté serveur, '
+      +'<b>une minute après l\'autre</b> : tu peux fermer cet onglet, éteindre l\'ordinateur, elle continue.</p>'
+      +'<p style="margin:0">Trois appels par minute, exprès : Apple limite le débit, et se faire jeter coûte '
+      +'plus cher que d\'attendre. Compte environ <b>180 artistes par heure</b>.</p>'
+      +'<p style="margin:0">La récolte patiente dans un panier et ne rejoint la bibliothèque que par gros lots : '
+      +'réécrire le catalogue entier à chaque minute coûterait cher pour rien. Mettre en pause verse '
+      +'immédiatement ce qui attend.</p></div>'
+    +'<div class="kpis" style="margin-top:0">'
+      +'<div class="kpi"><span>Sons dans le jeu</span><b>'+nb(r.titres||0)+'</b>'
+        +'<p>sur un plafond de '+nb(r.plafond||0)+'.</p></div>'
+      +'<div class="kpi"><span>Entrés par la moisson</span><b>'+nb(e.ajoutes||0)+'</b>'
+        +'<p>'+nb(e.vus||0)+' examinés chez Apple'
+        +((e.enAttente||0)?', '+nb(e.enAttente)+' en attente d\'être versés':'')+'.</p></div>'
+      +'<div class="kpi"><span>Avancement</span><b>'+place+'<em>%</em></b>'
+        +'<p>'+(e.phase==="artistes"?"discographies":"élargissement")+' · '+nb(e.fait||0)+' / '+nb(e.total||0)+'.</p></div>'
+      +'<div class="kpi"><span>État</span><b style="font-size:22px">'+(e.actif?"En marche":"En pause")+'</b>'
+        +'<p>'+(e.dernier?"dernier tour "+new Date(e.dernier).toLocaleTimeString("fr-FR"):"jamais lancée")+'.</p></div></div>'
+    +'<div class="pbar" style="height:6px;margin:14px 0"><i style="display:block;height:100%;width:'+place+'%;background:var(--accent)"></i></div>'
+    +'<p class="notice" id="mdiag">'+esc(e.message||"")
+      +(e.dernierEchec?'<br><span style="color:var(--t6)">Dernier ennui : '+esc(e.dernierEchec)+'</span>':'')+'</p>'
+    +'<div class="onb-bar" style="position:static;background:none;margin:14px 0 0;padding:0">'
+      +(e.actif
+        ?'<button class="btn sm" type="button" id="mstop">Mettre en pause</button>'
+        :'<button class="btn sm" type="button" id="mgo">Lancer la moisson</button>')
+      +'<button class="btn ghost sm" type="button" id="mvite">'
+        +(MOISSON_BOUCLE?"Arrêter d\'accélérer":"Accélérer tant que cet onglet est ouvert")+'</button>'
+      +'<button class="btn ghost sm" type="button" id="mneuf">Tout reprendre depuis le début</button>'
+      +'<button class="btn ghost sm" type="button" id="mretour">Retour à la bibliothèque</button></div>'
+    +'<p class="notice"><b style="color:var(--ink-2)">Avant de lancer</b>, fais un passage de '
+      +'<b>« Vérifier les artistes chez Apple »</b> : la moisson part des identifiants d\'artistes, et un morceau '
+      +'sans identifiant ne mène nulle part. Plus il y en a, plus la récolte est grosse.</p>';
+
+  const bind=(id,f)=>{ const b=document.getElementById(id); if(b) b.onclick=f; };
+  bind("mgo",async()=>{ await apiAppel("/api/moisson",{action:"demarrer"}); vueMoisson(); });
+  bind("mstop",async()=>{ if(MOISSON_BOUCLE){clearTimeout(MOISSON_BOUCLE);MOISSON_BOUCLE=null;}
+    await apiAppel("/api/moisson",{action:"arreter"}); vueMoisson(); });
+  bind("mneuf",async()=>{
+    const q=await modale("Tout reprendre depuis le début ?",
+      '<p>Les compteurs repartent à zéro et la liste des artistes est reconstruite à partir de la bibliothèque '
+      +'d\'aujourd\'hui.</p><p class="notice">Aucun morceau n\'est retiré : ce qui est entré reste. '
+      +'Repasser sur un artiste déjà moissonné ne crée pas de doublon.</p>',
+      [{v:1,n:"Repartir de zéro"},{v:0,n:"Annuler",g:true}]);
+    if(!q) return;
+    await apiAppel("/api/moisson",{action:"demarrer",refaire:true}); vueMoisson();
+  });
+  bind("mretour",()=>{ if(MOISSON_BOUCLE){clearTimeout(MOISSON_BOUCLE);MOISSON_BOUCLE=null;} vueBiblio(); });
+  bind("mvite",()=>{
+    if(MOISSON_BOUCLE){ clearTimeout(MOISSON_BOUCLE); MOISSON_BOUCLE=null; vueMoisson(); return; }
+    accelererMoisson();
+  });
+}
+
+/* Accélérer : on appelle le serveur en boucle depuis cet onglet. Trois
+   requêtes toutes les dix secondes, soit dix-huit par minute — juste sous ce
+   qu'Apple tolère. Fermer l'onglet ne casse rien : la tâche planifiée reprend
+   le relais à son rythme. */
+async function accelererMoisson(){
+  const r=await apiAppel("/api/moisson",{action:"tour",n:3});
+  if(!r||!r.ok){ MOISSON_BOUCLE=null; vueMoisson(); return; }
+  dessinerMoisson({etat:r.etat, titres:r.titres, plafond:BIB.plafond, graines:0});
+  const d=document.getElementById("mdiag");
+  if(d) d.innerHTML+=' <b style="color:var(--accent)">· accélération en cours depuis cet onglet</b>';
+  if(!r.etat.actif){ MOISSON_BOUCLE=null; return; }
+  MOISSON_BOUCLE=setTimeout(accelererMoisson,10000);
+}
+
 /* ============ REVENIR EN ARRIÈRE ============
    Une correction en masse qu'on ne peut pas défaire est une correction qu'on
    n'ose pas lancer — et quand on la lance quand même, on découvre l'erreur
@@ -4687,7 +5081,9 @@ async function renderLadderServeur(){
         +l.map((x,i)=>'<div class="lr'+(COMPTE&&x.pseudo===COMPTE.pseudo?" me":"")+'"><span class="pos">'+(i+1)+'</span>'
           +'<span class="who" style="color:'+(PALETTE[x.couleur]||PALETTE.ambre)+'">'+esc(x.pseudo)+'<small>'+esc(titreNom(x.titre))+'</small></span>'
           +'<span class="num hi">'+t2[3](x)+'</span><span class="num">'+x.cartes+'</span></div>').join("")+'</div>'
-      : '<div class="empty">Personne dans ce tableau pour l\'instant.</div>';
+      : vide("Personne dans ce tableau.",
+          "Il faut au moins dix cartes reconnues pour y entrer. Tu peux être le premier.",
+          ["accueil","Ouvrir un carton"]);
     document.querySelectorAll("#ladderbox .mktab").forEach(b=>b.setAttribute("aria-selected",b.dataset.l===cle));
   };
   box.querySelectorAll(".mktab").forEach(b=>b.onclick=()=>dessine(b.dataset.l));
@@ -5290,6 +5686,44 @@ function dessinerMenu(v){
 }
 
 let VUE="accueil";
+/* LES PAVÉS D'EXPLICATION, REPLIÉS SUR TÉLÉPHONE.
+   Chaque écran s'ouvre sur un encadré de règles — utile la première fois,
+   encombrant les cinquante suivantes. Sur un écran de téléphone, c'était un
+   mur de texte à faire défiler avant d'atteindre le marché, la bibliothèque ou
+   les annonces. On le replie derrière une ligne : rien n'est perdu, tout est à
+   un doigt. Sur grand écran, il reste ouvert — la place ne manque pas. */
+function replierRegles(){
+  if(window.innerWidth>620) return;
+  document.querySelectorAll(".view.on .rule:not([data-repli])").forEach(r=>{
+    if(!r.parentNode) return;
+    r.dataset.repli="1";
+    const d=document.createElement("details");
+    d.className="repli";
+    const t=document.createElement("summary");
+    t.textContent="Comment ça marche ?";
+    r.parentNode.insertBefore(d,r);
+    d.appendChild(t); d.appendChild(r);
+  });
+}
+
+/* ============ LES ÉCRANS VIDES ============
+   Un écran vide est un écran où le joueur est arrivé par curiosité : c'est le
+   meilleur moment pour lui dire quoi faire, et le pire pour lui répondre
+   « rien ici ». Chaque état vide dit maintenant trois choses : ce qui manque,
+   pourquoi, et le geste qui le remplit — avec le bouton qui y mène. */
+function vide(titre, aide, bouton){
+  return '<div class="empty"><b class="vide-t">'+titre+'</b>'
+    +(aide?'<span class="vide-a">'+aide+'</span>':'')
+    +(bouton?'<button class="btn sm" type="button" data-go="'+bouton[0]+'">'+bouton[1]+'</button>':'')
+    +'</div>';
+}
+/* Les boutons des écrans vides sont recréés à chaque redessin : on les attrape
+   par délégation, une fois pour toutes. */
+document.addEventListener("click", e=>{
+  const b=e.target.closest && e.target.closest("[data-go]");
+  if(b) go(b.dataset.go);
+});
+
 function go(v){
   hush();
   VUE=v;
@@ -5307,6 +5741,9 @@ function go(v){
   if(v==="boutique") renderBoutique();
   if(v==="reglages") renderReglages();
   track("onglet",{v});
+  /* Les écrans se dessinent souvent après un aller-retour serveur : on replie
+     tout de suite ce qui est déjà là, puis une fois le reste arrivé. */
+  replierRegles(); setTimeout(replierRegles,500); setTimeout(replierRegles,1500);
 }
 
 (async function(){

@@ -16,6 +16,18 @@ import { signature, validerTrack, norm } from "./_lib.mjs";
    plafond peut monter. À 50 000 sons l'enregistrement pèse ~28 Mo et se lit en
    130 ms : c'est encore raisonnable. Au-delà, il faudra le découper — et ce
    jour-là ce commentaire sera à réécrire, pas le chiffre à augmenter. */
+/* LE PLAFOND, ET CE QU'IL Y A DERRIÈRE (mesuré, pas deviné — v2.8).
+   La bibliothèque tient dans un seul objet. À cinquante mille morceaux elle
+   pèse 27 Mo : le serveur la lit en ~250 ms et l'analyse en ~120 ms, ce qui
+   reste tenable parce que la lecture est mémorisée dix secondes et que les
+   tirages passent maintenant par un index. C'est la limite raisonnable de
+   cette forme de rangement.
+
+   Le prochain mur n'est pas le nombre de morceaux : c'est l'objet unique.
+   Pour aller au-delà, il faudra le découper en tranches — par première lettre
+   d'artiste, ou par paquets — et ne lire que la tranche utile. Ce jour-là,
+   `lire()` et `ecrire()` sont les deux seules fonctions à reprendre : tout le
+   reste du jeu passe par elles. */
 export const PLAFOND = 50000;
 
 const vide = () => ({ meta: { version: 2, maj: 0, titres: 0 }, tracks: [] });
@@ -203,6 +215,10 @@ function normaliserImport(t) {
     id: t.id,
     title: String(t.title || "").trim().slice(0, 160),
     artist: seul || signe,
+    /* L'identifiant de l'artiste chez Apple. C'est lui qui permet de vérifier,
+       à tout moment et sans ambiguïté, que le morceau est rangé sous le bon
+       nom — un nom se ressemble, un identifiant non. */
+    artistId: t.artistId || null,
     // la ligne complète ne se perd pas : elle s'affiche sous la carte retournée
     credits: t.credits ? String(t.credits).slice(0, 160) : (seul ? signe : ""),
     album: t.album ? String(t.album).slice(0, 160) : "",
