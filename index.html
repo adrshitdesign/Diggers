@@ -923,7 +923,7 @@ function jsonp(url){
 /* Les tirages ont quitté cette page : ils se font au serveur, hors de portée
    de la console. */
 function mmss(ms){const s=Math.round(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
-function esc(s){return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
 function nb(n){ if(n>=1e6) return (n/1e6).toFixed(n>=1e7?0:1).replace(".",",")+" M";
   if(n>=1e3) return Math.round(n/1e3)+" k"; return String(n); }
 function maskTitle(t){ return t.split(/(\s+)/).map(w=>/^\s+$/.test(w)?w
@@ -1166,7 +1166,7 @@ function cardEl(c,o){
   const coin = c.source==="communaute" ? "COMMU" : (known&&c.rank?"#"+c.rank:"·");
   el.innerHTML=
     '<div class="art'+cls+'" style="--cx:'+cx+'%;--cy:'+cy+'%">'
-      +((!art)?'<div class="blind"><span>?</span></div>':'<img src="'+art+'" alt="" loading="lazy">')
+      +((!art)?'<div class="blind"><span>?</span></div>':'<img src="'+esc(art)+'" alt="" loading="lazy">')
       +'<span class="tag-tl">'+coin+'</span>'
       +'<span class="tag-tr">'+esc(c.press||"")+'</span>'
       +(known?'':'<span class="todo-tag">À reconnaître</span>')
@@ -1185,7 +1185,7 @@ function cardEl(c,o){
     +(o.cote&&c.cote?'<span class="cote">Cote <b>'+c.cote+'</b></span>':'')
     /* Lien retour vers la fiche du morceau : exigé par les conditions d'usage
        de l'API iTunes. Uniquement hors bouton, pour ne pas imbriquer les liens. */
-    +((known&&c.url&&!o.button)?'<a class="src" href="'+c.url+'" target="_blank" rel="noopener">Écouter sur Apple Music ↗</a>':'');
+    +((known&&c.url&&!o.button)?'<a class="src" href="'+esc(c.url)+'" target="_blank" rel="noopener">Écouter sur Apple Music ↗</a>':'');
   return el;
 }
 /* newCard() et distractors() ont disparu : c'est le serveur qui tire les
@@ -2111,7 +2111,7 @@ function ouvrirOnboarding(){
     arts.forEach(a=>{
       const b=document.createElement("button");
       b.className="onb-a"+(choisis.has(a.artist)?" on":""); b.type="button";
-      b.innerHTML='<span class="onb-art"><img src="'+a.art+'" alt="" loading="lazy"></span>'
+      b.innerHTML='<span class="onb-art"><img src="'+esc(a.art)+'" alt="" loading="lazy"></span>'
         +'<span class="onb-n">'+esc(a.artist)+'</span>';
       b.onclick=()=>{
         if(choisis.has(a.artist)) choisis.delete(a.artist); else choisis.add(a.artist);
@@ -2950,7 +2950,7 @@ function ficheModeration(p){
   const t=p.track;
   const d=document.createElement("div"); d.className="modq";
   d.innerHTML='<div class="modq-h">'
-      +'<img src="'+t.art+'" alt="" loading="lazy">'
+      +'<img src="'+esc(t.art)+'" alt="" loading="lazy">'
       +'<div><b>'+esc(t.title)+'</b><br><span>'+esc(t.artist)+' · '+(t.year||"—")+' · '+esc(t.genre)+' · '+mmss(t.ms)+'</span>'
       +'<br><span class="par">proposé par '+esc(p.par.pseudo)+'</span></div>'
       +'<button class="btn ghost sm" type="button" data-ec="1">▶ Écouter</button></div>'
@@ -2965,7 +2965,7 @@ function ficheModeration(p){
     +'</div>'
     +'<div class="modq-b"><button class="btn sm" type="button" data-ok="1">Valider</button>'
       +'<button class="btn ghost sm" type="button" data-no="1">Refuser</button>'
-      +'<a class="src" href="'+t.url+'" target="_blank" rel="noopener">Fiche Apple ↗</a></div>'
+      +'<a class="src" href="'+esc(t.url)+'" target="_blank" rel="noopener">Fiche Apple ↗</a></div>'
     +'<p class="notice" data-diag></p>';
 
   const pv=d.querySelector("[data-pv]"), pt=d.querySelector("[data-pt]"), rg=d.querySelector('[data-f="pop"]');
@@ -3267,7 +3267,7 @@ async function editerSon(id){
   const t=BIB.tracks.find(x=>String(x.id)===String(id));
   if(!t) return;
   const v=await modale("Éditer « "+esc(t.title)+" »",
-     '<div class="modq-h"><img src="'+t.art+'" alt="" loading="lazy">'
+     '<div class="modq-h"><img src="'+esc(t.art)+'" alt="" loading="lazy">'
     +'<div><span>'+esc(t.artist)+' · '+(t.year||"—")+' · '+mmss(t.ms||0)+'</span><br>'
     +'<span class="par">'+(t.source==="communaute"?"apporté par "+esc(t.proposePar||"un joueur"):"import de départ")+'</span></div>'
     +'<button class="btn ghost sm" type="button" id="becoute" data-son="'+esc(String(t.id))+'">▶ Écouter</button></div>'
@@ -4837,7 +4837,7 @@ function blocProfilServeur(){
   const cartes=S.shelf.filter(c=>c.known);
   return '<div class="compte" style="--pcol:'+(PALETTE[p.couleur]||PALETTE.ambre)+'">'
     +'<div class="banniere b-'+(p.banniere||"nuit")+'">'
-      +'<span class="av">'+(p.avatar&&p.avatar.art?'<img src="'+p.avatar.art+'" alt="">':'<i>?</i>')+'</span>'
+      +'<span class="av">'+(p.avatar&&p.avatar.art?'<img src="'+esc(p.avatar.art)+'" alt="">':'<i>?</i>')+'</span>'
       +'<div><b>'+esc(COMPTE.pseudo)+'</b><small>'+esc(titreNom(p.titre))+'</small></div>'
       +'<button class="btn ghost sm" type="button" id="cout">Se déconnecter</button></div>'
     +(p.bio?'<p class="bio">'+esc(p.bio)+'</p>':'')
@@ -4862,11 +4862,11 @@ function blocProfilServeur(){
         +(t.acquis?"":' disabled title="Pas encore débloqué"')+'>'+esc(t.n)+'</button>').join("")+'</div>'
     +'<label class="lbl">Avatar — une pochette de ton étagère</label><div class="pal avpal">'
       +(cartes.length?cartes.slice(-14).reverse().map(c=>'<button type="button" class="avb'+(p.avatar&&p.avatar.id===String(c.id)?" on":"")+'" '
-        +'data-av="'+esc(String(c.id))+'" data-art="'+esc(c.art)+'"><img src="'+c.art+'" alt="'+esc(c.title)+'"></button>').join("")
+        +'data-av="'+esc(String(c.id))+'" data-art="'+esc(c.art)+'"><img src="'+esc(c.art)+'" alt="'+esc(c.title)+'"></button>').join("")
         :'<span class="notice">Reconnais une carte pour pouvoir choisir un avatar.</span>')+'</div>'
     +'<label class="lbl">Vitrine — jusqu\'à trois cartes mises en avant</label><div class="pal avpal">'
       +(cartes.length?cartes.slice(-20).reverse().map(c=>'<button type="button" class="avb'+(estEnVitrine(c)?" on":"")+'" '
-        +'data-vt="'+esc(String(c.id))+'"><img src="'+c.art+'" alt="'+esc(c.title)+'"></button>').join("")
+        +'data-vt="'+esc(String(c.id))+'"><img src="'+esc(c.art)+'" alt="'+esc(c.title)+'"></button>').join("")
         :'<span class="notice">Rien à mettre en vitrine pour l\'instant.</span>')+'</div>'
     +'<p class="notice" id="pdiag"></p>'
     +'<div class="onb-bar" style="position:static;background:none;padding:16px 0 0;margin:0">'

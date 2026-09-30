@@ -8,7 +8,7 @@ import {
   utilisateur, ecrireUtilisateur, parPseudo, authentifier, profilPublic, uuid,
   ipDe, verrouActif, echec, relacher, attends,
   EMAIL_OK, normEmail, secretUsageUnique, empreinteDe, empreinteEgale,
-  COULEURS, BANNIERES
+  COULEURS, BANNIERES, urlPropre
 } from "./_lib.mjs";
 import { cosmetiquesDe } from "./boutique.mjs";
 import { envoyer, envoiConfigure, adresseDuSite, lettre } from "./_mail.mjs";
@@ -231,7 +231,7 @@ export default async function (req) {
     if (patch.avatar !== undefined) {
       if (patch.avatar === null) p.avatar = null;
       else if (!artOk(patch.avatar.art)) return ko(400, "Pochette invalide.");
-      else p.avatar = { id: String(patch.avatar.id || "").slice(0, 32), art: patch.avatar.art };
+      else p.avatar = { id: String(patch.avatar.id || "").slice(0, 32), art: urlPropre(patch.avatar.art) };
     }
     if (patch.vitrine !== undefined) {
       if (!Array.isArray(patch.vitrine)) return ko(400, "Vitrine invalide.");
@@ -250,7 +250,7 @@ export default async function (req) {
           uid: ex.uid, id: String(t.id).slice(0, 32),
           title: String(t.title).slice(0, 160),
           artist: String(t.artist).slice(0, 120),
-          art: t.art,
+          art: urlPropre(t.art),
           rarity: Math.max(1, Math.min(6, Number(ex.rarity) || 1)),
           press: String(ex.press || "Standard").slice(0, 24)
         });

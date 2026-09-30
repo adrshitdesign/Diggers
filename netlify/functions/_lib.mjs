@@ -86,14 +86,105 @@ export const PSEUDO_OK = /^[\p{L}\p{N}][\p{L}\p{N} _.'\-]{1,17}$/u;
 export const RESERVES = new Set(["admin", "moderateur", "moderation", "diggers", "systeme", "system",
   "root", "support", "equipe", "staff", "null", "undefined", "anonyme"]);
 
+/* ============================================================
+   RÉÉCRIRE UNE FICHE SANS EFFACER CE QUE D'AUTRES Y ONT MIS
+   ------------------------------------------------------------
+   Le trou : une douzaine d'endroits lisaient la fiche entière, la
+   modifiaient, puis la réécrivaient telle quelle. Pendant ce temps, une
+   vente au marché avait pu créditer le vendeur, Stripe ajouter des jetons,
+   un autre joueur envoyer une carte. La réécriture repartait de la photo
+   d'avant, et tout ça disparaissait sans bruit.
+
+   Maintenant, chaque fiche lue garde une copie de ce qu'elle était au moment
+   de la lecture. À l'écriture, on compare trois versions — celle qu'on a lue,
+   celle qu'on a modifiée, celle qui est en base à cet instant — et on
+   n'applique QUE ce qu'on a changé, par-dessus ce que les autres ont changé :
+     · un nombre modifié des deux côtés additionne les deux écarts (le
+       vendeur a gagné 250 pendant qu'il en dépensait 100 : +150) ;
+     · une liste de cartes se fusionne carte par carte (par uid) ;
+     · le reste suit la dernière écriture, comme avant.
+   L'écriture elle-même est conditionnelle (majAtomique) : si la base bouge
+   encore entre-temps, on refusionne.
+   ============================================================ */
+const LUES = new WeakMap();   // fiche -> son texte au moment de la lecture
+
 export async function utilisateur(uid) {
   if (!uid) return null;
-  return await (await store("utilisateurs")).get(uid);
+  const u = await (await store("utilisateurs")).get(uid);
+  if (u && typeof u === "object") LUES.set(u, JSON.stringify(u));
+  return u;
+}
+
+const pareil = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const objetSimple = v => !!v && typeof v === "object" && !Array.isArray(v);
+const cleDe = x => objetSimple(x) ? (x.uid ?? x.id) : undefined;
+const HORODATAGE = 1e12;      // au-delà, un nombre est une date, pas un compteur
+
+export function fusionner(base, mien, leur) {
+  if (pareil(mien, base)) return leur;       // je n'y ai pas touché
+  if (pareil(leur, base)) return mien;       // personne d'autre n'y a touché
+  if (typeof mien === "number" && typeof leur === "number" && typeof base === "number") {
+    if (Math.abs(mien) >= HORODATAGE || Math.abs(leur) >= HORODATAGE) return Math.max(mien, leur);
+    return leur + (mien - base);
+  }
+  if (objetSimple(mien) && objetSimple(leur)) {
+    const b = objetSimple(base) ? base : {};
+    const r = {};
+    for (const k of new Set([...Object.keys(leur), ...Object.keys(mien), ...Object.keys(b)])) {
+      const v = fusionner(b[k], mien[k], leur[k]);
+      if (v !== undefined) r[k] = v;
+    }
+    return r;
+  }
+  if (Array.isArray(mien) && Array.isArray(leur)) {
+    const b = Array.isArray(base) ? base : [];
+    const tous = [...b, ...mien, ...leur];
+    // Liste d'objets identifiés (cartes, récompenses) : fusion élément par élément.
+    if (tous.length && tous.every(x => cleDe(x) !== undefined)) {
+      const parCle = l => new Map(l.map(x => [String(cleDe(x)), x]));
+      const B = parCle(b), M = parCle(mien);
+      const r = [];
+      for (const x of leur) {
+        const k = String(cleDe(x));
+        if (B.has(k) && !M.has(k)) continue;              // je l'ai retiré
+        r.push(M.has(k) ? fusionner(B.get(k), M.get(k), x) : x);
+      }
+      const L = parCle(leur);
+      for (const x of mien) {
+        const k = String(cleDe(x));
+        if (!B.has(k) && !L.has(k)) r.push(x);            // je l'ai ajouté
+      }
+      return r;
+    }
+    // Liste de valeurs simples (décors achetés…) : ajouts et retraits de chacun.
+    if (tous.every(x => x === null || typeof x !== "object")) {
+      const r = leur.filter(x => !(b.includes(x) && !mien.includes(x)));
+      for (const x of mien) if (!b.includes(x) && !r.includes(x)) r.push(x);
+      return r;
+    }
+  }
+  return mien;
 }
 
 export async function ecrireUtilisateur(u) {
-  u.maj = Date.now();
-  await (await store("utilisateurs")).set(u.uid, u);
+  const lue = LUES.get(u);
+  // Sans copie de lecture (une création, en pratique), on fusionne quand
+  // même : si la fiche existe déjà, rien de ce qu'elle contient ne se perd.
+  const base = lue ? JSON.parse(lue) : undefined;
+  const r = await majAtomique("utilisateurs", u.uid, (leur) => {
+    if (!leur) return lue ? null : { ...u, maj: Date.now() };   // effacée entre-temps : pas de résurrection
+    const f = fusionner(base, u, leur);
+    f.maj = Date.now();
+    return f;
+  });
+  if (r.ecrit) {
+    // La fiche de l'appelant reflète ce qui est réellement en base.
+    for (const k of Object.keys(u)) if (!(k in r.val)) delete u[k];
+    Object.assign(u, r.val);
+    LUES.set(u, JSON.stringify(r.val));
+  } else if (r.raison !== "abandon") {
+    throw new Error("Fiche joueur trop disputée, écriture abandonnée.");
+  }
   return u;
 }
 
@@ -182,10 +273,20 @@ export function nettoyerTrack(t) {
     genre: t.genre ? coupe(t.genre, 60) : "Autre",
     year: Number(t.year),
     ms: Number(t.ms),
-    art: String(t.art),
-    preview: String(t.preview),
-    url: String(t.url)
+    art: urlPropre(t.art),
+    preview: urlPropre(t.preview),
+    url: urlPropre(t.url)
   };
+}
+
+/* Une adresse relue par le parseur d'URL, jamais recopiée telle quelle.
+   `new URL()` accepte « https://a.mzstatic.com/x"onerror="… » et vérifie
+   bien l'hôte, mais la chaîne brute garde son guillemet : posée dans un
+   <img src="…">, elle sortait de l'attribut et exécutait du code chez le
+   modérateur qui ouvrait la file. `.href` rend la forme normalisée, où
+   guillemets, chevrons et espaces sont encodés. */
+export function urlPropre(v) {
+  try { return new URL(String(v)).href; } catch { return ""; }
 }
 
 export const signature = t => norm(t.artist) + "|" + norm(t.title);
@@ -272,13 +373,15 @@ import { majAtomique } from "./_store.mjs";
 export { majAtomique };
 
 export async function majJoueur(uid, transformer) {
-  return await majAtomique("utilisateurs", uid, (u) => {
+  const r = await majAtomique("utilisateurs", uid, (u) => {
     if (!u) return null;
     const sortie = transformer(u);
     if (sortie === null || sortie === undefined) return null;
     sortie.maj = Date.now();
     return sortie;
   });
+  if (r.ecrit && r.val) LUES.set(r.val, JSON.stringify(r.val));
+  return r;
 }
 
 /* Un bail court, posé par écriture conditionnelle : celui qui l'obtient

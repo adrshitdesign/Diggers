@@ -4,7 +4,7 @@
 // entier : c'est ce qui rend la recherche, la correction et l'export immédiats.
 
 import { store } from "./_store.mjs";
-import { signature, validerTrack, norm } from "./_lib.mjs";
+import { signature, validerTrack, norm, urlPropre } from "./_lib.mjs";
 
 /* Combien de sons le jeu peut porter.
    Ce n'est pas un chiffre rond posé au hasard : la bibliothèque est un seul
@@ -225,9 +225,11 @@ function normaliserImport(t) {
     genre: t.genre ? String(t.genre).slice(0, 60) : "Autre",
     year: Number(t.year) || null,
     ms: Number(t.ms) || 0,
-    art: String(t.art || ""),
-    preview: String(t.preview || ""),
-    url: String(t.url || ""),
+    // relues par le parseur d'URL : un guillemet glissé dans une adresse
+    // n'arrive jamais jusqu'à un attribut HTML (voir urlPropre)
+    art: urlPropre(t.art || ""),
+    preview: urlPropre(t.preview || ""),
+    url: urlPropre(t.url || ""),
     poids: Number(t.poids) || 2,
     rank: Number(t.rank) || 0,
     /* Quand ce son est entré dans le jeu. Sans cette date, tout ce qu'on

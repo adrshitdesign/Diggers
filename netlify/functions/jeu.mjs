@@ -65,7 +65,9 @@ export const CLUES = {
 
    Trois leviers, et aucun n'est un minuteur :
 
-   1. UN CARTON NE SE REMBOURSE PLUS. 170 crédits pour cinq cartes qui, même
+   1. UN CARTON NE SE REMBOURSE PLUS. (Chiffres de la v2.7 ; depuis la v2.8
+      c'est 250 crédits pour sept cartes, voir CARTES_PAR_CARTON plus bas.)
+      170 crédits pour cinq cartes qui, même
       reconnues toutes les cinq du premier coup et toutes d'artistes inconnus
       — le meilleur cas possible — en rendent 130. Les crédits viennent
       désormais du jeu (sets, défi, régularité, paliers) et les cartons les
@@ -135,7 +137,7 @@ const DIVISEUR_FONTE = 8;
    7 × 32 = 224 crédits, pour un carton à 250. Le meilleur joueur du monde perd
    encore de l'argent à ouvrir — les crédits viennent du jeu, les cartons les
    dépensent. */
-const CARTES_PAR_CARTON = 7;
+export const CARTES_PAR_CARTON = 7;
 export const PACKS = { jour: 0, std: 250, scene: 430 };
 
 /* La prime de régularité : 12 crédits le premier jour, +8 par jour consécutif,
@@ -518,7 +520,8 @@ async function traiter(req, u, b) {
     u.resume = resumeDe(g);
     await ecrireUtilisateur(u);
     await majClassement(u);
-    return ok({ ...(extra || {}), etat: etatVu(g, lib) });
+    // u.jeu, pas g : l'écriture a pu fusionner une vente ou une carte reçue
+    return ok({ ...(extra || {}), etat: etatVu(jeuDe(u), lib) });
   };
   // Ce que la journée vient de rapporter, remonté une fois, à la première
   // action du jour — de quoi l'annoncer à l'écran.
@@ -534,6 +537,10 @@ async function traiter(req, u, b) {
 
     /* ---------- l'onboarding : les artistes que le joueur dit reconnaître ---------- */
     case "gouts": {
+      /* Une seule fois, à l'arrivée. Tant qu'on pouvait rappeler cette action,
+         on déclarait un artiste avant chaque carton : le carton ne tirait
+         alors que lui, et on reconnaissait tout du premier coup. */
+      if (Array.isArray(g.gouts)) return ko(409, "Tes goûts de départ sont déjà notés.");
       const l = Array.isArray(b.artistes) ? b.artistes.slice(0, 60).map(x => String(x).slice(0, 120)) : [];
       g.gouts = l;
       g.premier = l.length > 0;

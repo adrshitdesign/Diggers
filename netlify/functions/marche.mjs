@@ -95,7 +95,7 @@ async function traiter(req, u, b, lib, S) {
     u.resume = resumeDe(g);
     await ecrireUtilisateur(u);
     await majClassement(u);
-    return ok({ ...(extra || {}), etat: etatVu(g, lib) });
+    return ok({ ...(extra || {}), etat: etatVu(jeuDe(u), lib) });
   };
 
   switch (b.action) {

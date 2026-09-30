@@ -676,8 +676,7 @@ export default async function (req) {
 
   if (b.action === "joueur-role") {
     if (u.role !== "admin") return ko(403, "Seul l'administrateur change les rôles.");
-    const U = await store("utilisateurs");
-    const cible = await U.get(String(b.uid || ""));
+    const cible = await utilisateur(String(b.uid || ""));
     if (!cible) return ko(404, "Compte introuvable.");
     if (cible.uid === u.uid) return ko(409, "On ne change pas son propre rôle.");
     const role = String(b.role || "joueur");
