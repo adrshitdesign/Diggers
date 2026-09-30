@@ -32,14 +32,20 @@ export const config = { path: "/api/jeu" };
    Une Pépite pèse maintenant 0,3 : une chance sur trois cent trente par
    carte, et **une chance sur soixante-sept par carton**. Elle redevient ce
    qu'elle prétend être. Le reste de l'échelle a été resserré dans le même
-   mouvement, en gardant les mêmes six paliers et les mêmes seuils. */
+   mouvement, en gardant les mêmes six paliers et les mêmes seuils. 
+
+   v2.9.1 : le passage à sept cartes par carton (v2.8) avait remonté la
+   Pépite à une chance sur quarante-huit par carton, sans que personne ne
+   l'ait décidé. Elle pèse maintenant 0,2 — une carte sur cinq cents, soit
+   **un carton sur soixante-douze**, l'intention d'origine. Le dixième retiré
+   passe à la Rareté (1,8), pour que l'échelle fasse toujours cent. */
 export const TIERS = [null,
   { n: "Tube",           w: 60,  min: 88, base: 20 },
   { n: "Classique",      w: 25,  min: 72, base: 35 },
   { n: "Titre d'album",  w: 9,   min: 55, base: 60 },
   { n: "Face B",         w: 4,   min: 35, base: 110 },
-  { n: "Rareté",         w: 1.7, min: 15, base: 240 },
-  { n: "Pépite",         w: 0.3, min: 0,  base: 600 }];
+  { n: "Rareté",         w: 1.8, min: 15, base: 240 },
+  { n: "Pépite",         w: 0.2, min: 0,  base: 600 }];
 
 export const PRESS = [
   { n: "Standard",   w: 78,  mult: 1 },

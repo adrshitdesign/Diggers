@@ -316,23 +316,42 @@ button.card:hover{transform:translateY(-5px)}
   /* LE POUCE. Les six réponses descendent vers la main, les révélateurs et le
      rappel des règles passent dessous. Deux colonnes : six noms tiennent alors
      dans la moitié basse de l'écran, là où le pouce arrive. */
-  .stage-q{display:flex;flex-direction:column}
-  .stage-q .counter{order:1;margin-bottom:4px}
-  .stage-q .q-kick{order:2;margin:0}
-  .stage-q .q-titre{order:3;margin:0 0 6px}
-  .stage-q .q-durete{order:4;margin:0 0 4px}
-  .stage-q .q-tries{order:5;margin:0 0 4px}
-  .stage-q .found{order:6}
-  .stage-q .choices{order:7;grid-template-columns:1fr 1fr;margin-top:10px}
-  .stage-q .choices .choice{padding:13px 11px;font-size:14px;min-height:52px;display:flex;align-items:center}
+  /* LES RÉPONSES PRENNENT TOUTE LA LARGEUR (v2.9.1).
+     Elles vivaient dans la colonne de droite, à côté de la vignette : 200 px
+     à peine sur un iPhone, coupés en deux colonnes de 95 px. « Christine and
+     the Queens » tenait sur trois lignes, « Jean-Jacques Goldman » se cassait
+     au trait d'union, et les six boutons n'avaient plus la même hauteur.
+     Maintenant, seul l'en-tête reste à côté de la carte ; tout le reste
+     passe dessous, sur toute la largeur du cadre. La colonne de droite se
+     « dissout » dans la grille (display:contents) pour que chaque bloc y
+     soit placé directement. La sixième rangée, flexible, absorbe la hauteur
+     de la carte quand l'en-tête est plus court qu'elle. */
+  .stage{column-gap:12px;row-gap:0;grid-template-columns:118px minmax(0,1fr);
+    grid-template-rows:auto auto auto auto auto 1fr;align-items:start}
+  .stage-carte{grid-column:1;grid-row:1 / 7}
+  .stage-q{display:contents}
+  .stage-q .counter{grid-column:2;grid-row:1;margin-bottom:4px}
+  .stage-q .q-kick{grid-column:2;grid-row:2;margin:0}
+  .stage-q .q-titre{grid-column:2;grid-row:3;margin:0 0 6px}
+  .stage-q .q-durete{grid-column:2;grid-row:4;margin:0 0 4px}
+  .stage-q .q-tries{grid-column:2;grid-row:5;margin:0 0 4px}
+  .stage-q .found,.stage-q .choices,.stage-q>.btn,.stage-q .clues,
+  .stage-q .q-regle,.stage-q #vd{grid-column:1 / -1}
+  .stage-q .found{order:6;margin-top:12px}
+  .stage-q .choices{order:7;grid-template-columns:1fr 1fr;margin-top:12px}
+  .stage-q .choices .choice{padding:12px 12px;font-size:14px;min-height:52px;display:flex;align-items:center;
+    line-height:1.25;overflow-wrap:anywhere;hyphens:auto}
   .stage-q>.btn{order:8;margin-top:10px}
   .stage-q .clues{order:9;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
   .stage-q .q-regle{order:10;margin-top:10px;font-size:12.5px;opacity:.7}
   .stage-q #vd{order:11}
-  .stage{gap:12px;grid-template-columns:118px minmax(0,1fr);align-items:start}
   .stage .card{padding:6px 6px 8px}
   .stage .card .c-t{font-size:11px}
-  .stage .st{font-size:8.5px}
+  /* 64 px de libellé + la barre + 42 px de valeur ne tiennent pas dans une
+     vignette de 118 px : « 40 » et « 3:20 » sortaient du cadre. La barre
+     saute, le libellé et la valeur restent. */
+  .stage .st{font-size:8.5px;grid-template-columns:minmax(0,1fr) auto;gap:4px}
+  .stage .st .pbar{display:none}
   .stage-q h3{font-size:17px}
   .stage-q>p{font-size:13.5px}
 }
@@ -814,8 +833,8 @@ const TIERS=[null,
   {n:"Classique",c:"var(--t2)",w:25,min:72,odds:"1 sur 4",base:35,d:"Un titre installé, mais pas le single évident."},
   {n:"Titre d'album",c:"var(--t3)",w:9,min:55,odds:"1 sur 11",base:60,d:"On l'a entendu si on a écouté l'album en entier."},
   {n:"Face B",c:"var(--t4)",w:4,min:35,odds:"1 sur 25",base:110,d:"Le morceau que seuls les fans citent."},
-  {n:"Rareté",c:"var(--t5)",w:1.7,min:15,odds:"1 sur 59",base:240,d:"Presque personne ne l'a écouté. Presque personne ne l'aura."},
-  {n:"Pépite",c:"var(--t6)",w:0.3,min:0,odds:"1 sur 333",base:600,d:"Le fond du bac. Une par carton tous les deux mois."}];
+  {n:"Rareté",c:"var(--t5)",w:1.8,min:15,odds:"1 sur 56",base:240,d:"Presque personne ne l'a écouté. Presque personne ne l'aura."},
+  {n:"Pépite",c:"var(--t6)",w:0.2,min:0,odds:"1 sur 500",base:600,d:"Le fond du bac. Une par carton tous les deux mois."}];
 /* Le pressage est tiré séparément : c'est la vraie chasse. */
 const PRESS=[
   {n:"Standard",w:78,mult:1,d:"Le tirage courant."},
@@ -1396,7 +1415,7 @@ function enquete(c,nth,surCombien){
     stage.innerHTML='<div class="stage" id="sg"></div>';
     const sg=stage.firstChild;
     const left=document.createElement("div"), right=document.createElement("div");
-    right.className="stage-q"; sg.appendChild(left); sg.appendChild(right);
+    left.className="stage-carte"; right.className="stage-q"; sg.appendChild(left); sg.appendChild(right);
 
     let heard=!!carte.heard, fini=false;
     const dejaConnu=()=>S.shelf.some(x=>x.uid!==carte.uid&&x.known&&x.id&&carte.id&&x.id===carte.id);
@@ -1621,7 +1640,7 @@ async function vueAnnonces(box){
         +'<span class="deal '+(a.ecart>0?"up":"down")+'">'+(a.ecart>0?"+":"")+a.ecart+' % vs cote · '+esc(a.vendeur)+'</span>';
       act.querySelector("button").onclick=async()=>{
         const r2=await apiMarche("acheter",{id:a.id});
-        if(r2&&r2.ok) flash("Achetée à "+esc(a.vendeur)+" — "+r2.achetee.artist);
+        if(r2&&r2.ok) flash("Achetée à "+a.vendeur+" — "+r2.achetee.artist);
         renderMarche();
       };
       act.querySelector('[data-t]').onclick=()=>proposerEchange(a);
@@ -1706,7 +1725,7 @@ async function vueVendre(box){
   box.querySelectorAll("[data-oui]").forEach(b=>b.onclick=async()=>{
     const [id,offre]=b.dataset.oui.split("|");
     const r2=await apiMarche("repondre-offre",{id:id,offre:offre,oui:true});
-    if(r2&&r2.ok) flash("Échange conclu avec "+esc(r2.avec));
+    if(r2&&r2.ok) flash("Échange conclu avec "+r2.avec);
     renderMarche(); });
   box.querySelectorAll("[data-non]").forEach(b=>b.onclick=async()=>{
     const [id,offre]=b.dataset.non.split("|");
@@ -1744,7 +1763,7 @@ async function vueVendre(box){
       const prix=Math.round(Number(champ.value));
       if(!(prix>0)){ flash("Mets un prix d'au moins 1 crédit"); champ.focus(); return; }
       const r2=await apiMarche("poser",{uid:c.uid,prix:prix});
-      if(r2&&r2.ok) flash("En vitrine : "+esc(c.artist)+" · "+prix+" crédits");
+      if(r2&&r2.ok) flash("En vitrine : "+c.artist+" · "+prix+" crédits");
       else if(r2) flash(r2.erreur||"Refusé");
       renderMarche();
     };
