@@ -160,6 +160,113 @@ console.log("\n=== LES GOÛTS DE DÉPART ===");
   R("passer l'étape compte aussi comme une déclaration", r.code === 409);
 }
 
+/* ============================================================ */
+console.log("\n=== LA BIBLIOTHÈQUE : UN SEUL ÉCRIVAIN À LA FOIS ===");
+{
+  const avant = (await biblio.lire()).tracks.length;
+  const son = i => ({ ...tracks[0], id: "simul" + i, title: "Simultané " + i, artist: "Artiste simultané " + i });
+  // cinq imports lancés ensemble : avant, chacun repartait de sa lecture et effaçait les autres
+  await Promise.all([0, 1, 2, 3, 4].map(i => biblio.importer([son(i)])));
+  const lib = await biblio.lire();
+  R("cinq imports simultanés entrent tous les cinq", lib.tracks.length === avant + 5);
+  // un retrait et un ajout croisés
+  await Promise.all([biblio.retirer("simul0"), biblio.importer([son(9)])]);
+  const lib2 = await biblio.lire();
+  R("un retrait et un ajout croisés passent tous les deux",
+    !lib2.tracks.some(t => t.id === "simul0") && lib2.tracks.some(t => t.id === "simul9"));
+}
+
+/* ============================================================ */
+console.log("\n=== LA MOISSONNEUSE ===");
+{
+  const M = await import("./netlify/functions/_moisson.mjs");
+  M.reglerSeuil(1);   // on verse à chaque tour, pour voir la récolte arriver
+  // Apple, simulé : chaque appel rend un morceau neuf, après un temps de réponse.
+  let appels = 0, delai = 300;
+  const vraiFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (!String(url).includes("itunes.apple.com")) return vraiFetch(url);
+    const k = ++appels;
+    await new Promise(r => setTimeout(r, delai));
+    return new Response(JSON.stringify({ results: [{
+      wrapperType: "track", kind: "song", trackId: 900000 + k, artistId: 700000 + k,
+      trackName: "Moisson " + k, artistName: "Artiste moissonné " + k, collectionName: "Album",
+      primaryGenreName: "Pop", releaseDate: "2020-01-01T00:00:00Z", trackTimeMillis: 200000,
+      artworkUrl100: "https://is1-ssl.mzstatic.com/image/thumb/m" + k + "/100x100bb.jpg",
+      previewUrl: "https://audio-ssl.itunes.apple.com/itunes-assets/m" + k + ".m4a",
+      trackViewUrl: "https://music.apple.com/fr/album/m/" + k }] }), { status: 200 });
+  };
+
+  await M.demarrer(true);
+  const [t1, t2] = await Promise.all([M.unTour(1), M.unTour(1)]);
+  R("deux tours lancés ensemble : un seul interroge Apple", appels === 1);
+  R("l'autre le dit et rend la main", [t1, t2].some(t => t.note === "un tour est déjà en cours"));
+  const lib = await biblio.lire();
+  R("la récolte du tour entre dans la bibliothèque", lib.tracks.some(t => t.title === "Moisson 1"));
+
+  // « Arrêter » pendant qu'un tour est en vol : c'est l'arrêt qui gagne.
+  delai = 500;
+  const enVol = M.unTour(1);
+  await new Promise(r => setTimeout(r, 150));
+  await M.arreter();
+  await enVol;
+  const e = await M.lireEtat();
+  R("« Arrêter » pendant un tour arrête vraiment", e.actif === false);
+  R("et la récolte de ce tour n'est pas perdue",
+    (await biblio.lire()).tracks.some(t => t.title === "Moisson 2"));
+  const apres = appels;
+  await M.unTour(1);
+  R("un tour après l'arrêt ne fait rien", appels === apres);
+
+  globalThis.fetch = vraiFetch;
+  M.reglerSeuil(2500);
+}
+
+/* ============================================================ */
+console.log("\n=== UN PSEUDO, UN SEUL COMPTE ===");
+{
+  let nIp2 = 0;
+  const essai = p => post(compte, { action: "inscription", pseudo: p, mdp: "motdepasse1" }, null, "10.9." + (++nIp2) + ".1");
+  const rs = await Promise.all(Array.from({ length: 5 }, () => essai("Doublon")));
+  R("cinq inscriptions simultanées du même pseudo : une seule passe",
+    rs.filter(r => r.code === 200).length === 1 && rs.filter(r => r.code === 409).length === 4);
+  const gagnant = rs.find(r => r.code === 200);
+  const idx = await (await store("pseudos")).get("doublon");
+  R("et l'index pointe bien vers ce compte-là", idx && idx.uid === gagnant.moi.uid);
+  const co = await post(compte, { action: "connexion", pseudo: "Doublon", mdp: "motdepasse1" }, null, "10.9.99.1");
+  R("qui peut se connecter sous son nom", co.code === 200 && co.moi.uid === gagnant.moi.uid);
+
+  // deux joueurs qui prennent le même nouveau pseudo au même moment
+  const a = (await essai("Premiere")).jeton, b2 = (await essai("Seconde")).jeton;
+  const rn = await Promise.all([
+    post(compte, { action: "profil", profil: { pseudo: "Convoité" } }, a),
+    post(compte, { action: "profil", profil: { pseudo: "Convoité" } }, b2)]);
+  R("deux renommages vers le même pseudo : un seul passe",
+    rn.filter(r => r.code === 200).length === 1 && rn.filter(r => r.code === 409).length === 1);
+
+  // une inscription coupée en route ne bloque pas un pseudo pour toujours
+  await (await store("pseudos")).set("fantome2", { uid: "personne", depuis: Date.now() - 120000 });
+  R("un pseudo réservé par une inscription avortée se libère", (await essai("Fantome2")).code === 200);
+  await (await store("pseudos")).set("recent", { uid: "personne", depuis: Date.now() });
+  R("mais pas pendant qu'une inscription est peut-être en cours", (await essai("Recent")).code === 409);
+}
+
+/* ============================================================ */
+console.log("\n=== UN SEUL FONDATEUR ===");
+{
+  // un site neuf : plus aucun compte
+  for (const d of ["utilisateurs", "pseudos", "config"])
+    await rm(".data-integrite/" + d, { recursive: true, force: true });
+  let nIp3 = 0;
+  const rs = await Promise.all(["Alpha", "Bravo", "Charlie", "Delta"].map(p =>
+    post(compte, { action: "inscription", pseudo: p, mdp: "motdepasse1" }, null, "10.8." + (++nIp3) + ".1")));
+  R("quatre inscriptions simultanées sur un site neuf réussissent", rs.every(r => r.code === 200));
+  R("mais une seule devient administratrice", rs.filter(r => r.fondateur).length === 1);
+  const U = await store("utilisateurs");
+  const admins = (await Promise.all((await U.list("")).map(k => U.get(k)))).filter(u => u && u.role === "admin");
+  R("et un seul compte porte le rôle", admins.length === 1);
+}
+
 console.log("\n" + (ko ? ko + " ÉCHEC(S) sur " + n : n + " vérifications, aucune erreur"));
 await rm(".data-integrite", { recursive: true, force: true });
 process.exit(ko ? 1 : 0);

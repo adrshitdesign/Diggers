@@ -19,6 +19,24 @@ export default async function (req) {
   if (!estModerateur(u)) return ko(403, "Réservé à la modération.");
 
   const b = await corps(req);
+  /* Les actions qui lisent la bibliothèque, la changent et la réécrivent se
+     font sous son verrou, de la lecture à l'écriture : sinon deux d'entre
+     elles — ou l'une et la moissonneuse — s'effaçaient mutuellement. */
+  if (ECRIVENT_BIBLIO.has(b.action)) {
+    try { return await biblio.sousBiblio(() => traiter(req, u, b)); }
+    catch (e) {
+      if (e && e.occupe) return ko(429, "La bibliothèque est en cours d'écriture. Réessaie dans quelques secondes.");
+      throw e;
+    }
+  }
+  return await traiter(req, u, b);
+}
+
+const ECRIVENT_BIBLIO = new Set(["trancher", "ecoutes", "modifier", "retirer", "importer", "artistes",
+  "retablir", "artistes-identifiants", "homonyme-trancher", "artistes-verifies",
+  "annuler-verification", "vider", "retirer-liste"]);
+
+async function traiter(req, u, b) {
   const P = await store("propositions");
   const F = await store("file");
 

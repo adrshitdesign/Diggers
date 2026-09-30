@@ -29,7 +29,8 @@
 // Elle ne se presse jamais : Apple limite le débit, et se faire jeter coûte
 // plus cher que d'attendre.
 
-import { store } from "./_store.mjs";
+import { store, majAtomique } from "./_store.mjs";
+import { sousVerrou } from "./_lib.mjs";
 import * as biblio from "./_biblio.mjs";
 
 const CLE = "etat";
@@ -72,7 +73,11 @@ const neuf = () => ({
   graine: 0,
   ajoutes: 0, vus: 0, requetes: 0, refuses: 0, enAttente: 0,
   erreurs: 0, dernierEchec: "",
-  demarre: 0, dernier: 0, message: "Jamais lancée."
+  demarre: 0, dernier: 0, message: "Jamais lancée.",
+  /* Avance à chaque Démarrer / Arrêter. Un tour qui voit la génération
+     changer pendant qu'il travaillait sait qu'on a repris la main derrière
+     lui : il n'écrase pas l'état (voir unTour). */
+  gen: 0
 });
 
 export async function lireEtat() {
@@ -154,16 +159,33 @@ function popParRang(i, n) {
 /* ---------------------------------------------------------------- un tour */
 /* Un tour fait quelques requêtes, puis rend la main. Court exprès : une
    fonction Netlify a dix secondes, et une moisson qui dépasse est une moisson
-   qui perd tout son lot. On revient aussi souvent qu'on veut. */
+   qui perd tout son lot. On revient aussi souvent qu'on veut.
+
+   UN SEUL TOUR À LA FOIS. La tâche planifiée tourne chaque minute, et l'écran
+   d'administration peut enchaîner les tours en parallèle : deux tours
+   repartaient du même curseur, interrogeaient Apple deux fois pour rien et
+   s'écrasaient l'un l'autre. Un tour qui trouve la place prise n'attend pas :
+   il rend l'état tel quel, le suivant passera. Le bail (40 s) survit à une
+   fonction coupée au bout de dix secondes sans bloquer plus d'un réveil. */
 export async function unTour(n = 3) {
+  try {
+    return await sousVerrou("moisson", () => tourSeul(n), { attente: 50, bail: 40000 });
+  } catch (err) {
+    if (err && err.occupe) return { ...(await lireEtat()), fait: 0, recoltes: 0, note: "un tour est déjà en cours" };
+    throw err;
+  }
+}
+
+async function tourSeul(n) {
   const e = await lireEtat();
+  const genDepart = e.gen || 0;
   if (!e.actif) return { ...e, fait: 0, note: "en pause" };
 
   const lib = await biblio.lire();
   if (lib.tracks.length >= biblio.PLAFOND) {
     e.actif = false;
     e.message = "Bibliothèque pleine (" + biblio.PLAFOND + ") — moisson arrêtée.";
-    return await ecrireEtat(e);
+    return await ecrireSiInchange(e, genDepart);
   }
 
   let fait = 0;
@@ -227,11 +249,9 @@ export async function unTour(n = 3) {
   }
 
   if (recolte.length) {
-    const s = await store("moisson");
-    const panier = (await s.get(PANIER)) || { tracks: [] };
-    panier.tracks = panier.tracks.concat(recolte);
-    await s.set(PANIER, panier);
-    e.enAttente = panier.tracks.length;
+    // Ajout au panier sous condition : un « Arrêter » peut le verser au même moment.
+    const r = await majAtomique("moisson", PANIER, (p) => ({ tracks: ((p && p.tracks) || []).concat(recolte) }));
+    e.enAttente = r.ecrit ? r.val.tracks.length : (e.enAttente || 0);
     if (e.actif) {
       e.message = e.phase === "artistes"
         ? "Discographies : " + e.curseur + " / " + e.file.length + " artistes."
@@ -242,18 +262,54 @@ export async function unTour(n = 3) {
      sinon la récolte de la dernière heure resterait en rade. */
   if ((e.enAttente || 0) >= SEUIL_PANIER || !e.actif) Object.assign(e, await verser(e));
   e.dernier = Date.now();
-  await ecrireEtat(e);
-  return { ...e, fait, recoltes: recolte.length };
+  const ecrit = await ecrireSiInchange(e, genDepart);
+  return { ...ecrit, fait, recoltes: recolte.length };
+}
+
+/* L'état n'est réécrit que si personne n'a démarré ni arrêté la moisson
+   pendant le tour. Avant, un tour lancé juste avant « Arrêter » terminait
+   son travail et réécrivait « actif » par-dessus : le bouton ne faisait rien.
+   Si la main a changé, on garde l'état de celui qui l'a prise ; la récolte du
+   tour, elle, est déjà à l'abri dans le panier. */
+async function ecrireSiInchange(e, genDepart) {
+  const r = await majAtomique("moisson", CLE, (cur) => {
+    const actuel = cur && typeof cur === "object" ? { ...neuf(), ...cur } : neuf();
+    if ((actuel.gen || 0) !== genDepart) return null;
+    return e;
+  });
+  return r.ecrit ? r.val : await lireEtat();
+}
+
+/* Démarrer et Arrêter : une écriture conditionnelle qui fait avancer la
+   génération, pour qu'aucun tour en vol ne passe par-dessus. */
+async function reprendreLaMain(transformer) {
+  const r = await majAtomique("moisson", CLE, (cur) => {
+    const actuel = cur && typeof cur === "object" ? { ...neuf(), ...cur } : neuf();
+    return { ...transformer(actuel), gen: (actuel.gen || 0) + 1 };
+  });
+  if (!r.ecrit) throw new Error("La moisson n'a pas pu être mise à jour, réessaie.");
+  return r.val;
 }
 
 /* Verser le panier dans la bibliothèque. C'est le seul moment où l'on paie
    une écriture complète. */
 export async function verser(e) {
-  const s = await store("moisson");
-  const panier = (await s.get(PANIER)) || { tracks: [] };
-  if (!panier.tracks.length) return { enAttente: 0 };
-  const r = await biblio.importer(panier.tracks);
-  await s.set(PANIER, { tracks: [] });
+  /* On vide le panier ET on récupère son contenu en une seule écriture
+     conditionnelle : deux versements simultanés se partagent la récolte au
+     lieu de la verser deux fois, et rien de ce qui arrive entre-temps ne se
+     perd. Si l'import échoue, la récolte retourne au panier. */
+  let pris = [];
+  const vide = await majAtomique("moisson", PANIER, (p) => {
+    pris = (p && p.tracks) || [];
+    return pris.length ? { tracks: [] } : null;
+  });
+  if (!vide.ecrit || !pris.length) return { enAttente: 0 };
+  let r;
+  try { r = await biblio.importer(pris); }
+  catch (err) {
+    await majAtomique("moisson", PANIER, (p) => ({ tracks: pris.concat((p && p.tracks) || []) }));
+    throw err;
+  }
   return {
     enAttente: 0,
     ajoutes: (e.ajoutes || 0) + r.ajoutes,
@@ -262,28 +318,34 @@ export async function verser(e) {
 }
 
 export async function demarrer(refaire) {
-  const e = await lireEtat();
   const file = await construireFile();
-  const suite = {
-    ...neuf(),
-    actif: true,
-    file,
-    phase: file.length ? "artistes" : "graines",
-    demarre: Date.now(),
-    message: file.length
-      ? file.length + " artistes à moissonner."
-      : "Aucun artiste identifié : on commence par élargir. Lance d'abord « Vérifier les artistes chez Apple » pour de meilleurs résultats."
-  };
-  /* Reprendre garde les compteurs et la place ; refaire repart de zéro. */
-  if (!refaire && e.file.length && e.curseur < e.file.length) {
-    return await ecrireEtat({ ...e, actif: true, message: "Reprise là où on s'était arrêté." });
-  }
-  return await ecrireEtat(suite);
+  return await reprendreLaMain((e) => {
+    const suite = {
+      ...neuf(),
+      actif: true,
+      file,
+      phase: file.length ? "artistes" : "graines",
+      demarre: Date.now(),
+      message: file.length
+        ? file.length + " artistes à moissonner."
+        : "Aucun artiste identifié : on commence par élargir. Lance d'abord « Vérifier les artistes chez Apple » pour de meilleurs résultats."
+    };
+    /* Reprendre garde les compteurs et la place ; refaire repart de zéro. */
+    if (!refaire && e.file.length && e.curseur < e.file.length) {
+      return { ...e, actif: true, message: "Reprise là où on s'était arrêté." };
+    }
+    return suite;
+  });
 }
 
 export async function arreter() {
-  const e = await lireEtat();
+  // D'abord couper : dès cette écriture, aucun tour en vol ne peut remettre « actif ».
+  const e = await reprendreLaMain((cur) => ({ ...cur, actif: false, message: "En pause." }));
   const verse = await verser(e);
-  return await ecrireEtat({ ...e, ...verse, actif: false,
-    message: "En pause." + (verse.ajoutes != null ? " Récolte en attente versée." : "") });
+  if (verse.ajoutes == null) return e;
+  const r = await majAtomique("moisson", CLE, (cur) => ({ ...neuf(), ...(cur || {}),
+    enAttente: 0, ajoutes: ((cur && cur.ajoutes) || 0) + (verse.ajoutes - (e.ajoutes || 0)),
+    refuses: ((cur && cur.refuses) || 0) + (verse.refuses - (e.refuses || 0)),
+    message: "En pause. Récolte en attente versée." }));
+  return r.ecrit ? r.val : await lireEtat();
 }

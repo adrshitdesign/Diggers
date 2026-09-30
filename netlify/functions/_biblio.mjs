@@ -3,8 +3,9 @@
 // communauté fait entrer ensuite. Un seul enregistrement, lu et réécrit en
 // entier : c'est ce qui rend la recherche, la correction et l'export immédiats.
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { store } from "./_store.mjs";
-import { signature, validerTrack, norm, urlPropre } from "./_lib.mjs";
+import { signature, validerTrack, norm, urlPropre, sousVerrou } from "./_lib.mjs";
 
 /* Combien de sons le jeu peut porter.
    Ce n'est pas un chiffre rond posé au hasard : la bibliothèque est un seul
@@ -76,6 +77,27 @@ export function ajoutsDepuis(tracks, jours) {
   return tracks.filter(t => Number(t.ajouteLe) > seuil).length;
 }
 
+/* ---------------- un seul écrivain à la fois ----------------
+   Toute modification de la bibliothèque suit le même schéma : lire l'objet
+   entier, le changer, le réécrire. Deux écrivains qui se croisaient — la
+   moissonneuse qui verse son panier pendant qu'un modérateur valide un son,
+   deux onglets de modération — repartaient chacun de leur propre lecture, et
+   le second effaçait le travail du premier : un son validé disparaissait, un
+   retrait revenait.
+
+   Chaque écriture passe maintenant sous un même verrou, et la lecture se fait
+   APRÈS l'avoir obtenu. Le verrou est réentrant : une action de modération
+   déjà sous verrou peut appeler retirer() ou ajouter() sans s'attendre
+   elle-même. */
+const DANS_VERROU = new AsyncLocalStorage();
+
+export async function sousBiblio(travail) {
+  if (DANS_VERROU.getStore()) return await travail();
+  return await sousVerrou("bibliotheque",
+    () => DANS_VERROU.run(true, travail),
+    { attente: 8000, bail: 30000 });
+}
+
 export async function ecrire(b) {
   /* Un numéro de version qui ne recule jamais. La date ne suffit pas : deux
      écritures dans la même milliseconde portent la même, et tout ce qui se
@@ -100,53 +122,59 @@ export function signatures(b) {
 }
 
 export async function ajouter(track) {
-  const b = await lire();
-  ENTIERS_IMPORT = await nomsEntiers();
-  LIGNES_IMPORT = contexteImport(b, [track]);
-  if (b.tracks.length >= PLAFOND) throw new Error("Bibliothèque pleine.");
-  /* Même porte que l'import : une proposition validée ne peut pas entrer
-     signée de deux noms. On rend la fiche telle qu'elle est rangée — c'est
-     elle, et pas la version envoyée, qui part en récompense au trouveur. */
-  const n = normaliserImport(track);
-  /* normaliserImport range une fiche d'import : elle la marque « noyau » et
-     ne connaît pas les champs d'une entrée communautaire. On lui emprunte ses
-     garde-fous, pas son étiquette. */
-  const propre = n
-    ? { ...n, source: track.source || n.source, proposePar: track.proposePar,
-        valideLe: track.valideLe, indice: track.indice || "" }
-    : { ...track };
-  const sig = signature(propre);
-  const deja = b.tracks.find(t => signature(t) === sig);
-  if (deja) return { b, ajoute: false, track: deja };
-  b.tracks.push(propre);
-  await ecrire(b);
-  return { b, ajoute: true, track: propre };
+  return await sousBiblio(async () => {
+    const b = await lire();
+    ENTIERS_IMPORT = await nomsEntiers();
+    LIGNES_IMPORT = contexteImport(b, [track]);
+    if (b.tracks.length >= PLAFOND) throw new Error("Bibliothèque pleine.");
+    /* Même porte que l'import : une proposition validée ne peut pas entrer
+       signée de deux noms. On rend la fiche telle qu'elle est rangée — c'est
+       elle, et pas la version envoyée, qui part en récompense au trouveur. */
+    const n = normaliserImport(track);
+    /* normaliserImport range une fiche d'import : elle la marque « noyau » et
+       ne connaît pas les champs d'une entrée communautaire. On lui emprunte ses
+       garde-fous, pas son étiquette. */
+    const propre = n
+      ? { ...n, source: track.source || n.source, proposePar: track.proposePar,
+          valideLe: track.valideLe, indice: track.indice || "" }
+      : { ...track };
+    const sig = signature(propre);
+    const deja = b.tracks.find(t => signature(t) === sig);
+    if (deja) return { b, ajoute: false, track: deja };
+    b.tracks.push(propre);
+    await ecrire(b);
+    return { b, ajoute: true, track: propre };
+  });
 }
 
 export async function modifier(id, patch) {
-  const b = await lire();
-  const t = b.tracks.find(x => String(x.id) === String(id));
-  if (!t) return null;
-  if (patch.title)  t.title  = String(patch.title).slice(0, 160);
-  if (patch.artist) t.artist = String(patch.artist).slice(0, 120);
-  if (patch.genre)  t.genre  = String(patch.genre).slice(0, 60);
-  if (patch.year)   t.year   = Math.max(1900, Math.min(new Date().getFullYear() + 1, Number(patch.year)));
-  if (patch.indice !== undefined) t.indice = String(patch.indice).slice(0, 120);
-  if (patch.pop !== undefined) {
-    const p = Number(patch.pop);
-    if (Number.isFinite(p)) t.pop = Math.max(0, Math.min(99, Math.round(p)));
-  }
-  await ecrire(b);
-  return t;
+  return await sousBiblio(async () => {
+    const b = await lire();
+    const t = b.tracks.find(x => String(x.id) === String(id));
+    if (!t) return null;
+    if (patch.title)  t.title  = String(patch.title).slice(0, 160);
+    if (patch.artist) t.artist = String(patch.artist).slice(0, 120);
+    if (patch.genre)  t.genre  = String(patch.genre).slice(0, 60);
+    if (patch.year)   t.year   = Math.max(1900, Math.min(new Date().getFullYear() + 1, Number(patch.year)));
+    if (patch.indice !== undefined) t.indice = String(patch.indice).slice(0, 120);
+    if (patch.pop !== undefined) {
+      const p = Number(patch.pop);
+      if (Number.isFinite(p)) t.pop = Math.max(0, Math.min(99, Math.round(p)));
+    }
+    await ecrire(b);
+    return t;
+  });
 }
 
 export async function retirer(id) {
-  const b = await lire();
-  const i = b.tracks.findIndex(x => String(x.id) === String(id));
-  if (i < 0) return null;
-  const [t] = b.tracks.splice(i, 1);
-  await ecrire(b);
-  return t;
+  return await sousBiblio(async () => {
+    const b = await lire();
+    const i = b.tracks.findIndex(x => String(x.id) === String(id));
+    if (i < 0) return null;
+    const [t] = b.tracks.splice(i, 1);
+    await ecrire(b);
+    return t;
+  });
 }
 
 /* Import par tranches : le navigateur envoie le catalogue par paquets.
@@ -178,26 +206,28 @@ function contexteImport(bibliotheque, lot) {
 }
 
 export async function importer(tracks, remplacerNoyau) {
-  const b = await lire();
-  ENTIERS_IMPORT = await nomsEntiers();
-  LIGNES_IMPORT = contexteImport(b, tracks);
-  if (remplacerNoyau) b.tracks = b.tracks.filter(t => t.source === "communaute");
+  return await sousBiblio(async () => {
+    const b = await lire();
+    ENTIERS_IMPORT = await nomsEntiers();
+    LIGNES_IMPORT = contexteImport(b, tracks);
+    if (remplacerNoyau) b.tracks = b.tracks.filter(t => t.source === "communaute");
 
-  const vus = signatures(b);
-  let ajoutes = 0, ignores = 0, refuses = 0;
+    const vus = signatures(b);
+    let ajoutes = 0, ignores = 0, refuses = 0;
 
-  for (const brut of (tracks || [])) {
-    if (b.tracks.length >= PLAFOND) break;
-    const t = normaliserImport(brut);
-    if (!t) { refuses++; continue; }
-    const sig = signature(t);
-    if (vus.has(sig)) { ignores++; continue; }
-    vus.add(sig);
-    b.tracks.push(t);
-    ajoutes++;
-  }
-  await ecrire(b);
-  return { ajoutes, ignores, refuses, total: b.tracks.length };
+    for (const brut of (tracks || [])) {
+      if (b.tracks.length >= PLAFOND) break;
+      const t = normaliserImport(brut);
+      if (!t) { refuses++; continue; }
+      const sig = signature(t);
+      if (vus.has(sig)) { ignores++; continue; }
+      vus.add(sig);
+      b.tracks.push(t);
+      ajoutes++;
+    }
+    await ecrire(b);
+    return { ajoutes, ignores, refuses, total: b.tracks.length };
+  });
 }
 
 /* On garde l'identifiant d'origine : les sauvegardes des joueurs s'y réfèrent. */
@@ -251,11 +281,13 @@ function normaliserImport(t) {
 }
 
 export async function vider(source) {
-  const b = await lire();
-  const avant = b.tracks.length;
-  b.tracks = source ? b.tracks.filter(t => (t.source || "noyau") !== source) : [];
-  await ecrire(b);
-  return { retires: avant - b.tracks.length, total: b.tracks.length };
+  return await sousBiblio(async () => {
+    const b = await lire();
+    const avant = b.tracks.length;
+    b.tracks = source ? b.tracks.filter(t => (t.source || "noyau") !== source) : [];
+    await ecrire(b);
+    return { retires: avant - b.tracks.length, total: b.tracks.length };
+  });
 }
 
 
@@ -396,11 +428,13 @@ export function apercuArtistes(tracks, entiers) {
 
 /* La même chose, mais sur la bibliothèque enregistrée. */
 export async function reparerArtistes() {
-  const b = await lire();
-  const entiers = await nomsEntiers();
-  const avant = b.tracks.length;
-  const r = canoniser(b.tracks, entiers);
-  b.tracks = r.tracks;
-  await ecrire(b);
-  return { corriges: r.corriges, fusionnes: r.fusionnes, avant, total: b.tracks.length };
+  return await sousBiblio(async () => {
+    const b = await lire();
+    const entiers = await nomsEntiers();
+    const avant = b.tracks.length;
+    const r = canoniser(b.tracks, entiers);
+    b.tracks = r.tracks;
+    await ecrire(b);
+    return { corriges: r.corriges, fusionnes: r.fusionnes, avant, total: b.tracks.length };
+  });
 }

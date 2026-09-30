@@ -1,7 +1,7 @@
 // /api/compte — inscription, connexion, profil personnalisable, effacement.
 // La partie elle-même n'est plus ici : elle appartient au serveur, dans /api/jeu.
 
-import { store } from "./_store.mjs";
+import { store, majAtomique } from "./_store.mjs";
 import * as biblio from "./_biblio.mjs";
 import {
   ok, ko, preflight, corps, signer, hacher, verifierMdp, norm, PSEUDO_OK, RESERVES,
@@ -38,6 +38,8 @@ async function fondationLibre() {
   const marque = await cfg.get("fondateur");
   // Un fondateur déjà désigné et toujours là : rien à rouvrir.
   if (marque && marque.uid && await utilisateur(marque.uid)) return false;
+  // Une fondation déjà en cours (moins d'une minute) : la place est prise.
+  if (marque && marque.enCours && Date.now() - marque.enCours < 60000) return false;
   try {
     const cles = await (await store("utilisateurs")).list();
     if (cles && cles.length) {
@@ -45,7 +47,31 @@ async function fondationLibre() {
       return false;
     }
   } catch { return false; }   // dans le doute, pas d'administrateur automatique
-  return true;
+  /* La place est libre. On la PREND, par écriture conditionnelle sur la
+     marque telle qu'on vient de la lire : deux inscriptions simultanées sur un
+     site neuf la voyaient libre toutes les deux, et deux administrateurs
+     sortaient d'un seul démarrage. Une seule gagne cette écriture. */
+  const lue = JSON.stringify(marque ?? null);
+  const r = await majAtomique("config", "fondateur", (cur) =>
+    JSON.stringify(cur ?? null) === lue ? { uid: null, enCours: Date.now() } : null);
+  return r.ecrit;
+}
+
+/* Réserver un pseudo, en une écriture qui ne passe que s'il est libre (ou
+   déjà à nous). Avant, on regardait s'il était pris, puis on l'écrivait
+   plus tard : deux inscriptions lancées ensemble passaient toutes les deux
+   le contrôle, et le second compte volait l'index du premier — qui ne
+   pouvait plus se connecter sous son propre nom. */
+async function reserverPseudo(cle, uid) {
+  const r = await majAtomique("pseudos", cle, async (cur) => {
+    if (!cur || !cur.uid || cur.uid === uid) return { uid, depuis: Date.now() };
+    /* Une réservation sans compte derrière (une inscription coupée en route)
+       ne bloque pas le pseudo pour toujours — mais seulement au bout d'une
+       minute, pour ne jamais voler la place d'une inscription en cours. */
+    const orpheline = !(await utilisateur(cur.uid)) && Date.now() - (cur.depuis || 0) > 60000;
+    return orpheline ? { uid, depuis: Date.now() } : null;
+  });
+  return r.ecrit;
 }
 
 const profilNeuf = () => ({
@@ -78,22 +104,21 @@ export default async function (req) {
     if (mdp.length < 8) return ko(400, "Le mot de passe fait au moins 8 signes.");
     if (mdp.length > 200) return ko(400, "Mot de passe trop long.");
 
-    const pseudos = await store("pseudos");
     const cle = norm(pseudo);
     if (!cle) return ko(400, "Pseudo invalide.");
-    if (await pseudos.get(cle)) return ko(409, "Ce pseudo est déjà pris.");
+    const uid = uuid();
+    if (!await reserverPseudo(cle, uid)) return ko(409, "Ce pseudo est déjà pris.");
 
     const { sel, hash } = hacher(mdp);
     const fondateur = await fondationLibre();
     const u = {
-      uid: uuid(), pseudo, pseudoNorm: cle, sel, hash,
+      uid, pseudo, pseudoNorm: cle, sel, hash,
       cree: Date.now(), role: fondateur ? "admin" : "joueur",
       profil: profilNeuf(),
       stats: { propositions: 0, validees: 0, refusees: 0, credits: 0 },
       mesProps: [], quota: { jour: "", n: 0 }
     };
     await ecrireUtilisateur(u);
-    await pseudos.set(cle, { uid: u.uid });
     if (fondateur)
       await (await store("config")).set("fondateur", { uid: u.uid, pseudo: u.pseudo, date: Date.now() });
     await echec("ins:" + ip, { max: 6, fenetre: 3600000, verrou: 3600000 });
@@ -264,9 +289,11 @@ export default async function (req) {
       if (RESERVES.has(norm(np))) return ko(400, "Ce pseudo est réservé.");
       const pseudos = await store("pseudos");
       const cle = norm(np);
-      const pris = await pseudos.get(cle);
-      if (pris && pris.uid !== u.uid) return ko(409, "Ce pseudo est déjà pris.");
-      if (cle !== u.pseudoNorm) { await pseudos.del(u.pseudoNorm); await pseudos.set(cle, { uid: u.uid }); }
+      if (cle !== u.pseudoNorm) {
+        // on prend le nouveau d'abord : l'ancien ne se libère que si le nouveau est à nous
+        if (!await reserverPseudo(cle, u.uid)) return ko(409, "Ce pseudo est déjà pris.");
+        await pseudos.del(u.pseudoNorm);
+      }
       u.pseudo = np; u.pseudoNorm = cle;
     }
 
@@ -401,12 +428,16 @@ export async function effacerCompte(u) {
 
     // les sons qu'il a fait entrer restent dans la bibliothèque : c'est du
     // contenu public, mais il perd la signature.
-    const lib = await biblio.lireCache();
-    let touche = false;
-    lib.tracks.forEach(t => {
-      if (t.proposePar && t.proposePar === u.pseudo) { t.proposePar = "un digger"; touche = true; }
+    // Sous le verrou et sur une lecture fraîche : la copie en mémoire peut
+    // avoir dix secondes, et la réécrire aurait effacé ce qui est entré depuis.
+    await biblio.sousBiblio(async () => {
+      const lib = await biblio.lire();
+      let touche = false;
+      lib.tracks.forEach(t => {
+        if (t.proposePar && t.proposePar === u.pseudo) { t.proposePar = "un digger"; touche = true; }
+      });
+      if (touche) await biblio.ecrire(lib);
     });
-    if (touche) await biblio.ecrire(lib);
 
     if (u.email && u.email.adresse) await (await store("emails")).del(normEmail(u.email.adresse));
     await (await store("classement")).del(u.uid);
