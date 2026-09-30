@@ -51,7 +51,7 @@ R("et plafonne au septième", primeSerie(7) === 60 && primeSerie(30) === 60);
 R("une série vide vaut quand même le premier jour", primeSerie(0) === 12);
 
 let e = (await post(jeu, { action: "etat" }, jChef)).etat;
-R("elle est versée à la première action du jour", e.credits === 412);
+R("elle est versée à la première action du jour", e.credits === 512);
 R("le joueur voit ce que rapportera demain", e.primeDemain === 20);
 
 /* On recule la dernière visite d'un jour : la série doit monter, pas repartir. */
@@ -63,7 +63,7 @@ R("le joueur voit ce que rapportera demain", e.primeDemain === 20);
 }
 e = (await post(jeu, { action: "etat" }, jChef)).etat;
 R("revenir le lendemain prolonge la série", e.streak === 2);
-R("et paie davantage", e.credits === 412 + 20);
+R("et paie davantage", e.credits === 512 + 20);
 
 /* Un trou de trois jours : la série repart à un. */
 {
@@ -84,7 +84,7 @@ console.log("\nUn carton ne se rembourse plus tout seul");
 const avant = (await post(jeu, { action: "etat" }, jChef)).etat.credits;
 r = await post(jeu, { action: "carton", type: "std" }, jChef);
 const apresAchat = r.etat.credits;
-R("le carton coûte 170", avant - apresAchat === 170);
+R("le carton coûte 250", avant - apresAchat === 250);
 
 /* On répond juste, du premier coup, sur les cinq. Le meilleur cas possible. */
 let gagne = 0;
@@ -94,8 +94,8 @@ for (const c of r.cartes) {
   const rep = await post(jeu, { action: "repondre", uid: c.uid, choix: vraie.artist }, jChef);
   if (rep.bon) gagne += rep.gain;
 }
-R("même parfaitement joué, il rend moins qu'il ne coûte", gagne < 170);
-console.log("      carton 170 crédits → " + gagne + " crédits de reconnaissances");
+R("même parfaitement joué, il rend moins qu'il ne coûte", gagne < 250);
+console.log("      carton 250 crédits → " + gagne + " crédits de reconnaissances");
 
 console.log("\nLa découverte paie plein tarif, la répétition moins");
 
@@ -114,9 +114,9 @@ console.log("\nLa découverte paie plein tarif, la répétition moins");
   await U.set(u.uid, u);
 }
 const dejaVu = await post(jeu, { action: "repondre", uid: "neuf-1", choix: "Artiste 0" }, jChef);
-R("un artiste déjà collectionné rapporte moins", dejaVu.gain === 14 && dejaVu.dejaVu === true);
+R("un artiste déjà collectionné rapporte moins", dejaVu.gain === 18 && dejaVu.dejaVu === true);
 const nouveau = await post(jeu, { action: "repondre", uid: "neuf-2", choix: "Artiste 7" }, jChef);
-R("un artiste jamais vu rapporte plein tarif", nouveau.gain === 26 && !nouveau.dejaVu);
+R("un artiste jamais vu rapporte plein tarif", nouveau.gain === 32 && !nouveau.dejaVu);
 R("et c'est bien la découverte qui vaut le plus", nouveau.gain > dejaVu.gain);
 
 console.log("\nLes paliers de collection");
@@ -160,8 +160,8 @@ R("et la prime n'est pas reversée", onzieme.etat.credits === 1000 + onzieme.gai
 
 console.log("\nCe qui n'a pas changé");
 
-R("reconnaître du premier coup vaut toujours 26",
-  nouveau.gain === 26);
+R("reconnaître du premier coup vaut toujours 32",
+  nouveau.gain === 32);
 R("un vrai doublon rapporte toujours 3 crédits", true);
 
 /* ============================================================
@@ -181,7 +181,7 @@ console.log("\nLes dix premières trouvailles du jour");
 
 {
   const { PACKS } = await import("./netlify/functions/jeu.mjs");
-  R("un carton standard coûte 170", PACKS.std === 170);
+  R("un carton standard coûte 250", PACKS.std === 250);
 }
 
 {
@@ -205,12 +205,12 @@ for (let i = 0; i < 20; i++) {
   gains.push({ gain: rep2.gain, hors: !!rep2.horsQuota });
 }
 R("les dix premières paient plein tarif",
-  gains.slice(0, 10).every(x => x.gain === 26 && !x.hors));
+  gains.slice(0, 10).every(x => x.gain === 32 && !x.hors));
 R("la onzième bascule", gains[10].hors === true);
-R("et paie 40 %", gains[10].gain === Math.round(26 * 0.4));
-R("les suivantes aussi", gains.slice(10).every(x => x.gain === 10 && x.hors));
+R("et paie 40 %", gains[10].gain === Math.round(32 * 0.4));
+R("les suivantes aussi", gains.slice(10).every(x => x.gain === Math.round(32 * 0.4) && x.hors));
 console.log("      journée de 20 trouvailles : " + gains.reduce((a, x) => a + x.gain, 0)
-  + " crédits, contre " + (20 * 26) + " sans quota");
+  + " crédits, contre " + (20 * 32) + " sans quota");
 
 let eq = (await post(jeu, { action: "etat" }, jChef)).etat;
 R("le compteur du jour est visible", eq.trouvesToday === 20);
@@ -229,7 +229,7 @@ R("et ce que paient les suivantes", eq.apresQuota === 40);
   await U.set(u.uid, u);
 }
 const dem = await post(jeu, { action: "repondre", uid: "demain", choix: "Artiste 50" }, jChef);
-R("le lendemain, le plein tarif revient", dem.gain === 26 && dem.horsQuota === false);
+R("le lendemain, le plein tarif revient", dem.gain === 32 && dem.horsQuota === false);
 
 /* Un doublon ne consomme pas le quota : il ne rapporte déjà presque rien. */
 {
@@ -256,7 +256,7 @@ console.log("\nUne Pépite doit être rare");
   const { TIERS } = await import("./netlify/functions/jeu.mjs");
   const total = TIERS.slice(1).reduce((a, t) => a + t.w, 0);
   const pepite = TIERS[6].w / total;
-  const parCarton = 1 - Math.pow(1 - pepite, 5);
+  const parCarton = 1 - Math.pow(1 - pepite, 7);
   console.log("      Pépite : 1 carte sur " + Math.round(1 / pepite)
     + ", soit 1 carton sur " + Math.round(1 / parCarton));
   R("les six paliers existent toujours", TIERS.length === 7);

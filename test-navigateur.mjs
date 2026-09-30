@@ -88,40 +88,42 @@ await page.click("#onbgo");
 await attendre(800);
 
 console.log("\n=== CARTON ===");
-/* 400 de départ, plus la prime du premier jour de série. Depuis la v2.7, la
+/* 500 de départ (v2.8), plus la prime du premier jour de série (12) : la
    régularité paie, et le premier jour compte comme le premier jour. */
 R("les crédits de départ sont là, prime du jour comprise",
-  (await page.locator("#cred").innerText()) === "412");
+  (await page.locator("#cred").innerText()) === "512");
 await page.click('[data-pack="jour"]');
 await attendre(2600);
 R("l'enquête s'ouvre sur la première carte", await page.locator("#ch .choice").first().isVisible());
 R("la carte ne montre ni titre ni artiste",
   (await page.locator(".stage .card .c-t").first().innerText()).includes("?"));
 R("elle ne montre pas de pochette", await page.locator(".stage .card .blind").first().isVisible());
-R("quatre propositions", (await page.locator("#ch .choice").count()) === 4);
+R("six propositions", (await page.locator("#ch .choice").count()) === 6);
 
 const avant = await page.locator("#cred").innerText();
 await page.locator('#cl [data-k="genre"]').click();
 await attendre(500);
 R("un révélateur ne touche pas à la cagnotte", (await page.locator("#cred").innerText()) === avant);
 R("il fait tomber la valeur annoncée",
-  (await page.locator("#cnt .val").innerText()).includes("24"));
+  (await page.locator("#cnt .val").innerText()).includes("30"));
 
-for (let i = 0; i < 5; i++) {
+/* Sept cartes, et une mauvaise réponse laisse la carte ouverte : on clique
+   jusqu'à ce que le carton se termine. */
+for (let i = 0; i < 7 * 6; i++) {
   await page.locator("#ch .choice").first().click();
   await attendre(2200);
   if (!(await page.locator("#ch .choice").first().isVisible().catch(() => false))) break;
 }
 await attendre(1500);
-R("le carton se termine et annonce le résultat",
-  (await page.locator("#chint").innerText()).includes("sur"));
-R("les cinq cartes sont sur le tapis", (await page.locator("#pull .card").count()) === 5);
+/* Depuis le bilan de carton, la fin se raconte dans #pull, plus dans #chint. */
+R("le carton se termine et annonce le résultat", await page.locator("#pull .bilan").isVisible());
+R("les sept cartes sont sur le tapis", (await page.locator("#pull .card").count()) === 7);
 R("le partage en carrés est proposé", await page.locator("#shcart").isVisible());
 
 console.log("\n=== ÉTAGÈRE ===");
 await aller("etagere");
 await attendre(600);
-R("l'étagère contient les cinq cartes", (await page.locator("#shelf .card").count()) === 5);
+R("l'étagère contient les sept cartes", (await page.locator("#shelf .card").count()) === 7);
 
 console.log("\n=== MARCHÉ ===");
 /* L'enquête se joue au hasard : selon les tirages, le joueur peut n'avoir
@@ -204,7 +206,8 @@ R("le décor payant est verrouillé dans le profil",
   (await page.locator("#profilbox .bant.verrou").count()) > 0);
 
 console.log("\n=== LES AUTRES ONGLETS ===");
-for (const [v, marque] of [["set", "#setbox"], ["regles", "#reglesbox"], ["profil", "#profilbox"],
+// le Set est retiré du jeu depuis la v2.7.5 : il n'a plus d'onglet
+for (const [v, marque] of [["regles", "#reglesbox"], ["profil", "#profilbox"],
   ["crew", "#crewbox"], ["classement", "#ladderbox"], ["reglages", "#reglagesbox"],
   ["communaute", "#communautebox"], ["moderation", "#modbox"], ["boutique", "#boutiquebox"],
   ["defi", "#defibox"], ["bibliotheque", "#bibbox"]]) {
@@ -509,7 +512,7 @@ console.log("\n=== LE VOCABULAIRE ===");
   const t = await page.locator("#reglesbox").innerText();
   R("« à sec » a disparu des règles", !/à sec/i.test(t));
   R("remplacé par quelque chose de compréhensible", /sans aide/i.test(t));
-  R("les règles annoncent le vrai prix du carton", /170/.test(t));
+  R("les règles annoncent le vrai prix du carton", /250/.test(t));
   R("et disent qu'un carton ne se rembourse pas", /ne se rembourse jamais/i.test(t));
   R("la prime de régularité est expliquée", /Revenir chaque jour/i.test(t));
   R("les paliers aussi", /Paliers de collection/i.test(t));
@@ -524,8 +527,8 @@ console.log("\n=== LA PROGRESSION ===");
   R("il dit ce que rapportera demain", /demain/i.test(t));
   R("il compte les artistes reconnus", /Artistes reconnus/i.test(t));
   R("et le prochain palier à atteindre", /encore/i.test(t) || /paliers sont franchis/i.test(t));
-  R("le carton standard coûte bien 170",
-    /170/.test(await page.locator("#shop").innerText()));
+  R("le carton standard coûte bien 250",
+    /250/.test(await page.locator("#shop").innerText()));
 }
 
 console.log("\n=== VENDRE À SON PRIX ===");

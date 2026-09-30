@@ -13,6 +13,7 @@ const jeu = (await import("./netlify/functions/jeu.mjs")).default;
 const defi = (await import("./netlify/functions/defi.mjs")).default;
 const { THEMES, themeDu, MAX_VOTES, GAIN_VOTE, GAIN_PODIUM } = await import("./netlify/functions/defi.mjs");
 const { jour, majJoueur } = await import("./netlify/functions/_lib.mjs");
+const { jeuNeuf } = await import("./netlify/functions/jeu.mjs");
 const biblio = await import("./netlify/functions/_biblio.mjs");
 const { store } = await import("./netlify/functions/_store.mjs");
 
@@ -203,6 +204,8 @@ console.log("\n=== TOUT LE MONDE EN MÊME TEMPS ===");
   // 2. des votes simultanés → aucun duel perdu
   await D.set(j2, { ...etat1, entrees: etat1.entrees.map(x => ({ ...x, duels: 0, gagnes: 0 })) });
   const arbitre = await inscrire("Arbitre"), uidArb = await uidDe("Arbitre");
+  // le solde de départ se lit dans le jeu, il bouge à chaque équilibrage
+  const departArb = jeuNeuf().credits;
   const e = (await D.get(j2)).entrees;
   const paires = [];   // (A,B) et (B,A) sont le même duel : on ne les compte qu'une fois
   for (let i = 0; i < e.length; i++) for (let k = i + 1; k < e.length; k++) paires.push([e[i], e[k]]);
@@ -217,7 +220,7 @@ console.log("\n=== TOUT LE MONDE EN MÊME TEMPS ===");
   const fa = await U.get(uidArb);
   R("le compteur de votes du joueur est exact", fa.defi.votes === passes);
   R("et ses crédits correspondent exactement à ses votes",
-    fa.jeu.credits === 400 + passes * GAIN_VOTE);
+    fa.jeu.credits === departArb + passes * GAIN_VOTE);
 }
 
 console.log("\n" + (ko ? ko + " ÉCHEC(S) sur " + n : n + " vérifications, aucune erreur"));

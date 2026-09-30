@@ -6,5 +6,7 @@
 .data-simultane/
 .data-mentions/
 .data-nav/
+.data-integrite/
+.data-eco/
 node_modules/
 .netlify/

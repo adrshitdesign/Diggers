@@ -63,14 +63,17 @@ r = await post(compte, { action: "sauver", code: "triche", resume: { cartes: 999
 R("on ne peut plus déposer sa propre sauvegarde", r.code === 410);
 
 r = await post(jeu, { action: "etat" }, jMila);
-/* 400 de départ, plus la prime du premier jour de série (12) : depuis la v2.7
-   la régularité paie, et le premier jour compte comme le premier jour. */
-R("un joueur neuf a 412 crédits et une étagère vide",
-  r.code === 200 && r.etat.credits === 412 && r.etat.coffre.length === 0);
+/* Le solde de départ (500 depuis la v2.8), plus la prime du premier jour de
+   série (12) : la régularité paie, et le premier jour compte comme le premier.
+   On lit les chiffres dans le jeu plutôt que de les recopier : ils bougent à
+   chaque équilibrage. */
+const DEPART = J.jeuNeuf().credits + J.primeSerie(1);
+R("un joueur neuf a ses crédits de départ et une étagère vide",
+  r.code === 200 && r.etat.credits === DEPART && r.etat.coffre.length === 0);
 R("la prime de série est annoncée", r.etat.primeDuJour && r.etat.primeDuJour.montant === 12);
 R("et le jeu dit ce que rapportera demain", r.etat.primeDemain === 20);
 R("elle ne tombe qu'une fois par jour",
-  (await post(jeu, { action: "etat" }, jMila)).etat.credits === 412);
+  (await post(jeu, { action: "etat" }, jMila)).etat.credits === DEPART);
 R("le carton du jour est disponible", r.etat.jourDispo === true);
 R("le taux d'identification est encore vide", r.etat.taux === null);
 
@@ -79,32 +82,33 @@ R("sans jeton valable, aucun état", r.code === 401);
 
 console.log("\n=== OUVRIR UN CARTON ===");
 r = await post(jeu, { action: "carton", type: "jour" }, jMila);
-R("le carton du jour donne cinq cartes", r.code === 200 && r.cartes.length === 5);
-R("il ne coûte rien", r.etat.credits === 412);
+R("le carton du jour donne sept cartes", r.code === 200 && r.cartes.length === J.CARTES_PAR_CARTON);
+R("il ne coûte rien", r.etat.credits === DEPART);
 R("il n'est ouvrable qu'une fois", (await post(jeu, { action: "carton", type: "jour" }, jMila)).code === 429);
 
 const c0 = r.cartes[0];
 R("une carte face cachée ne dit ni titre ni artiste",
   c0.title === undefined && c0.artist === undefined && c0.id === undefined);
 R("elle ne livre ni pochette ni extrait", c0.art === undefined && c0.preview === undefined);
-R("elle propose quatre réponses", Array.isArray(c0.choices) && c0.choices.length === 4);
-R("elle vaut 26 crédits tant qu'on n'a rien demandé", c0.valeur === 26);
+R("elle propose six réponses", Array.isArray(c0.choices) && c0.choices.length === J.NB_CHOIX);
+R("elle vaut 32 crédits tant qu'on n'a rien demandé", c0.valeur === 32);
 
 r = await post(jeu, { action: "carton", type: "std" }, jMila);
-R("un carton standard coûte 170 crédits", r.code === 200 && r.etat.credits === 242);
+const apresStd = DEPART - J.PACKS.std;
+R("un carton standard coûte " + J.PACKS.std + " crédits", r.code === 200 && r.etat.credits === apresStd);
 r = await post(jeu, { action: "carton", type: "scene" }, jTheo);
-R("un carton de scène coûte 320 crédits", r.code === 200 && r.etat.credits === 92);
+R("un carton de scène coûte " + J.PACKS.scene + " crédits", r.code === 200 && r.etat.credits === DEPART - J.PACKS.scene);
 r = await post(jeu, { action: "carton", type: "or" }, jMila);
 R("un carton inventé est refusé", r.code === 400);
 
 console.log("\n=== L'ENQUÊTE ===");
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "audio" }, jMila);
-R("l'extrait ne coûte rien", r.code === 200 && r.etat.credits === 242);
+R("l'extrait ne coûte rien", r.code === 200 && r.etat.credits === apresStd);
 R("il livre enfin l'adresse du son", !!r.carte.indices.preview);
 R("mais il marque la carte comme écoutée", r.carte.heard === true);
 
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "album" }, jMila);
-R("l'album se paie sur le gain, pas sur la caisse", r.carte.valeur === 21 && r.etat.credits === 242);
+R("l'album se paie sur le gain, pas sur la caisse", r.carte.valeur === 32 - J.CLUES.album && r.etat.credits === apresStd);
 r = await post(jeu, { action: "indice", uid: c0.uid, cle: "fausse-cle" }, jMila);
 R("un indice inventé est refusé", r.code === 400);
 
@@ -117,11 +121,11 @@ const vraie = tracks.find(t => t.id === dossier.jeu.coffre[0].id);
 const faux = dossier.jeu.coffre[0].choices.find(x => x !== vraie.artist);
 
 r = await post(jeu, { action: "repondre", uid: c0.uid, choix: faux }, jMila);
-R("une mauvaise réponse ne rapporte rien", r.code === 200 && r.bon === false && r.etat.credits === 242);
-R("elle fait tomber la valeur de la carte", r.valeur === 8);
+R("une mauvaise réponse ne rapporte rien", r.code === 200 && r.bon === false && r.etat.credits === apresStd);
+R("elle fait tomber la valeur de la carte", r.valeur === 16 - J.CLUES.album);
 
 r = await post(jeu, { action: "repondre", uid: c0.uid, choix: vraie.artist }, jMila);
-R("la bonne réponse paie ce qu'il reste", r.code === 200 && r.bon === true && r.gain === 8 && r.etat.credits === 250);
+R("la bonne réponse paie ce qu'il reste", r.code === 200 && r.bon === true && r.gain === 16 - J.CLUES.album && r.etat.credits === apresStd + 16 - J.CLUES.album);
 R("la carte se retourne enfin", r.carte.known === true && r.carte.artist === vraie.artist);
 R("elle n'est pas trouvée à sec", r.aSec === false);
 R("le taux d'identification existe maintenant", r.etat.taux !== null);
@@ -132,13 +136,13 @@ dossier = await (await store("utilisateurs")).get(dossier.uid);
 const propre = dossier.jeu.coffre.find(c => !c.known);
 const bonne = tracks.find(t => t.id === propre.id).artist;
 r = await post(jeu, { action: "repondre", uid: propre.uid, choix: bonne }, jMila);
-/* 26 crédits pour un artiste qu'on n'avait pas, 14 s'il est déjà sur
+/* 32 crédits pour un artiste qu'on n'avait pas, 18 s'il est déjà sur
    l'étagère (la découverte paie plein tarif, la répétition moins), 3 si
    c'est un vrai doublon du même morceau. Dans tous les cas, trouvée sans
    aucune aide. */
 R("trouvée du premier coup, sans aide", r.bon === true && r.aSec === true);
 R("et payée selon ce qu'on avait déjà",
-  r.doublon ? r.gain === 3 : (r.dejaVu ? r.gain === 14 : r.gain === 26));
+  r.doublon ? r.gain === 3 : (r.dejaVu ? r.gain === 18 : r.gain === 32));
 
 console.log("\n=== FONDRE ===");
 /* Les éclats n'existent plus (v2.7.2) : fondre rend des crédits. */
@@ -186,36 +190,11 @@ R("un Test press se vend", r.code === 200);
 await post(marche, { action: "retirer", id: r.annonce.id }, jMila);
 
 console.log("\n=== LE SET ===");
+/* Retiré en v2.7.5 : les anciens onglets reçoivent une réponse claire. */
 r = await post(jeu, { action: "set" }, jMila);
-R("le Set annonce la contrainte du jour", r.code === 200 && typeof r.contrainte.l === "string");
+R("le Set répond qu'il est retiré", r.code === 410);
 r = await post(jeu, { action: "set-jouer", uids: ["a", "b", "c"] }, jMila);
-R("il faut cinq cartes", r.code === 400);
-
-// cinq cartes reconnues, cinq artistes, sans contrainte gênante
-dossier = await (await store("utilisateurs")).get(dossier.uid);
-const cont = J.contrainteDuJour();
-const bons = tracks.filter(t => cont.f({ ...t, rarity: J.tierOf(t.pop) }));
-const parArtiste = [];
-for (const t of bons) if (!parArtiste.some(x => x.artist === t.artist)) parArtiste.push(t);
-const cinq = parArtiste.slice(0, 5);
-const uids = cinq.map((t, i) => "set-" + i);
-cinq.forEach((t, i) => dossier.jeu.coffre.push({
-  uid: uids[i], id: t.id, rarity: J.tierOf(t.pop), press: "Standard", known: true,
-  reveals: null, aSec: false, achete: false, tries: 0, heard: false, indices: [], choices: []
-}));
-await (await store("utilisateurs")).set(dossier.uid, dossier);
-
-if (cinq.length === 5) {
-  const avant = (await post(jeu, { action: "etat" }, jMila)).etat.credits;
-  r = await post(jeu, { action: "set-jouer", uids }, jMila);
-  R("le set est noté par le serveur", r.code === 200 && r.note.total >= 0 && r.note.total <= 100);
-  R("l'adversaire respecte la contrainte du jour", r.adverse.length === 5);
-  R("le gain suit le résultat", r.etat.credits === avant + r.gain && [6, 10, 22].includes(r.gain));
-  r = await post(jeu, { action: "set-jouer", uids: [uids[0], uids[0], uids[1], uids[2], uids[3]] }, jMila);
-  R("deux fois la même carte est refusé", r.code === 400);
-} else {
-  R("bibliothèque de test suffisante pour un set", false);
-}
+R("et on ne peut plus y jouer", r.code === 410);
 
 console.log("\n=== LE MARCHÉ EST AUX JOUEURS ===");
 dossier = await (await store("utilisateurs")).get(dossier.uid);
@@ -242,6 +221,7 @@ R("on n'achète pas sa propre annonce", r.code === 409);
   const dT = await (await store("pseudos")).get("theo");
   const uT = await (await store("utilisateurs")).get(dT.uid);
   uT.jeu.credits = 1000;
+  uT.jeu.coffre.forEach(c => { c.known = true; });
   await (await store("utilisateurs")).set(dT.uid, uT);
 }
 const soldeTheoAvant = (await post(jeu, { action: "etat" }, jTheo)).etat.credits;

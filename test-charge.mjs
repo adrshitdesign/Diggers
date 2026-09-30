@@ -14,6 +14,7 @@ await rm(".data-charge", { recursive: true, force: true });
 const compte = (await import("./netlify/functions/compte.mjs")).default;
 const moder  = (await import("./netlify/functions/moderation.mjs")).default;
 const catal  = (await import("./netlify/functions/catalogue.mjs")).default;
+const { CARTES_PAR_CARTON } = await import("./netlify/functions/jeu.mjs");
 const biblio = (await import("./netlify/functions/bibliotheque.mjs")).default;
 const jeu    = (await import("./netlify/functions/jeu.mjs")).default;
 
@@ -130,7 +131,7 @@ R("la question est bornée", r.connus.length <= 40);
 console.log("\nLe jeu tourne toujours");
 
 r = await post(jeu, { action: "carton", type: "std" }, jChef);
-R("un carton s'ouvre", r.ok === true && r.cartes && r.cartes.length === 5);
+R("un carton s'ouvre", r.ok === true && r.cartes && r.cartes.length === CARTES_PAR_CARTON);
 R("les cartes sortent face cachée", r.cartes.every(c => !c.title));
 
 console.log("\n" + n + " vérifications, " + (ko ? ko + " ERREUR(S)" : "aucune erreur"));

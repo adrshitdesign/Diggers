@@ -23,7 +23,7 @@ await rm(".data-simultane", { recursive: true, force: true });
 const compte = (await import("./netlify/functions/compte.mjs")).default;
 const jeu = (await import("./netlify/functions/jeu.mjs")).default;
 /* Le prix vient du serveur : le test survit au prochain équilibrage. */
-const { PACKS } = await import("./netlify/functions/jeu.mjs");
+const { PACKS, CARTES_PAR_CARTON } = await import("./netlify/functions/jeu.mjs");
 const marche = (await import("./netlify/functions/marche.mjs")).default;
 const boutique = (await import("./netlify/functions/boutique.mjs")).default;
 const stripe = (await import("./netlify/functions/stripe.mjs")).default;
@@ -89,7 +89,7 @@ console.log("\n=== DOUBLE-CLIC SUR UN CARTON ===");
   const payes = (depart - f.jeu.credits) / PACKS.std;
   R("le compte n'est jamais dans le rouge", f.jeu.credits >= 0);
   R("on paie exactement autant de cartons qu'on en reçoit", passes === payes);
-  R("et toutes les cartes reçues sont bien sur l'étagère", f.jeu.coffre.length === passes * 5);
+  R("et toutes les cartes reçues sont bien sur l'étagère", f.jeu.coffre.length === passes * CARTES_PAR_CARTON);
   R("au-delà du solde, c'est refusé proprement", passes <= 4);
   console.log("    " + passes + " carton(s) ouvert(s), " + f.jeu.credits + " crédits restants, "
     + f.jeu.coffre.length + " cartes");
